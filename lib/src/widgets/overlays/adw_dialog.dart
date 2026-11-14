@@ -62,6 +62,7 @@ class AdwDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
     final radius = BorderRadius.circular(AdwMetrics.windowRadius);
 
     return Center(
@@ -75,7 +76,8 @@ class AdwDialog extends StatelessWidget {
         child: SizedBox(
           width: contentWidth,
           height: contentHeight,
-          child: Container(
+          child: AnimatedContainer(
+            duration: AdwCurves.shortDuration,
             decoration: BoxDecoration(
               color: theme.colors.windowBackground,
               borderRadius: radius,
@@ -83,21 +85,43 @@ class AdwDialog extends StatelessWidget {
                 color: theme.colors.windowOutline,
                 width: 1.0,
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x55000000),
-                  blurRadius: 28.0,
-                  spreadRadius: 2.0,
-                  offset: Offset(0, 10),
-                ),
-              ],
+              boxShadow: isWindowActive
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x55000000),
+                        blurRadius: 28.0,
+                        spreadRadius: 2.0,
+                        offset: Offset(0, 10),
+                      ),
+                    ]
+                  : const [
+                      BoxShadow(
+                        color: Color(0x28000000),
+                        blurRadius: 12.0,
+                        spreadRadius: 0.0,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
             ),
             child: ClipRRect(
               borderRadius: radius,
-              child: AdwDialogScope(
-                close: () => Navigator.of(context).maybePop(),
-                title: title,
-                child: child,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: AdwDialogScope(
+                      close: () => Navigator.of(context).maybePop(),
+                      title: title,
+                      child: child,
+                    ),
+                  ),
+                  if (!isWindowActive)
+                    IgnorePointer(
+                      child: AnimatedContainer(
+                        duration: AdwCurves.shortDuration,
+                        color: const Color(0x18000000),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -141,12 +165,26 @@ Future<T?> showAdwDialog<T>({
       );
 
       if (parentWindowScope != null) {
-        content = AdwWindowScope(
-          controller: parentWindowScope.controller,
-          isMaximized: parentWindowScope.isMaximized,
-          isActive: parentWindowScope.isActive,
-          child: content,
-        );
+        final activeListenable = parentWindowScope.controller?.activeListenable;
+        if (activeListenable != null) {
+          final innerContent = content;
+          content = ValueListenableBuilder<bool>(
+            valueListenable: activeListenable,
+            builder: (_, isActive, __) => AdwWindowScope(
+              controller: parentWindowScope.controller,
+              isMaximized: parentWindowScope.isMaximized,
+              isActive: isActive,
+              child: innerContent,
+            ),
+          );
+        } else {
+          content = AdwWindowScope(
+            controller: parentWindowScope.controller,
+            isMaximized: parentWindowScope.isMaximized,
+            isActive: parentWindowScope.isActive,
+            child: content,
+          );
+        }
       }
 
       return content;
