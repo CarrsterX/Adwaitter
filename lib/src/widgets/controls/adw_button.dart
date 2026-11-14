@@ -115,7 +115,6 @@ class _AdwButtonState extends State<AdwButton> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final isDark = theme.colors.isDark;
 
     // Compute background and foreground colors according to style and state
     Color backgroundColor;
@@ -160,22 +159,12 @@ class _AdwButtonState extends State<AdwButton> {
 
       case AdwButtonStyle.standard:
         foregroundColor = theme.colors.windowForeground;
-        if (isDark) {
-          backgroundColor = const Color(0x14FFFFFF); // 8% white
-          borderColor = const Color(0x0DFFFFFF);
-          if (_isPressed) {
-            backgroundColor = const Color(0x28FFFFFF);
-          } else if (_isHovered) {
-            backgroundColor = const Color(0x1EFFFFFF);
-          }
+        if (_isPressed) {
+          backgroundColor = foregroundColor.withValues(alpha: 0.30);
+        } else if (_isHovered) {
+          backgroundColor = foregroundColor.withValues(alpha: 0.15);
         } else {
-          backgroundColor = const Color(0x0D000000); // 5% black
-          borderColor = const Color(0x0A000000);
-          if (_isPressed) {
-            backgroundColor = const Color(0x1E000000);
-          } else if (_isHovered) {
-            backgroundColor = const Color(0x14000000);
-          }
+          backgroundColor = foregroundColor.withValues(alpha: 0.10);
         }
         break;
     }
@@ -192,13 +181,12 @@ class _AdwButtonState extends State<AdwButton> {
     final defaultPadding = widget.isCircular
         ? EdgeInsets.zero
         : (widget.isPill
-            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+            ? const EdgeInsets.symmetric(horizontal: 32, vertical: 10)
             : const EdgeInsets.symmetric(horizontal: 12, vertical: 6));
 
     Widget buttonContent = AnimatedDefaultTextStyle(
       duration: AdwCurves.shortDuration,
       style: theme.typography.heading.copyWith(
-        fontSize: 14.0,
         color: foregroundColor,
       ),
       child: IconTheme(
