@@ -38,6 +38,14 @@ class AdwSpringParams {
     stiffness: 300.0,
   );
 
+  /// Critically-damped spring matching upstream `AdwOverlaySplitView`
+  /// (`adw_spring_params_new(1, 0.5, 500)`).
+  static const AdwSpringParams splitView = AdwSpringParams(
+    dampingRatio: 1.0,
+    mass: 0.5,
+    stiffness: 500.0,
+  );
+
   /// Converts these parameters into a Flutter [SpringDescription].
   SpringDescription toSpringDescription() {
     final damping =
