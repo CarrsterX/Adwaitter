@@ -62,7 +62,7 @@ class AdwNavigationSplitView extends StatefulWidget {
     this.collapsed,
     this.showSidebar = true,
     this.showContent = true,
-    this.showBorder = false,
+    this.showBorder = true,
     this.sidebarTitle = '',
     this.contentTitle = '',
   });

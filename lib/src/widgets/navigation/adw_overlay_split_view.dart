@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_theme.dart';
+import '../layout/adw_window.dart';
 
 /// Which side the sidebar is placed on in [AdwOverlaySplitView].
 enum AdwSplitViewPosition {
@@ -37,6 +38,10 @@ class AdwOverlaySplitView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
+    final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
+    final effectiveSidebarBg = isWindowActive
+        ? theme.colors.sidebarBackground
+        : theme.colors.sidebarBackdropBackground;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -47,13 +52,13 @@ class AdwOverlaySplitView extends StatelessWidget {
         final sidebarPane = Container(
           width: sidebarWidth,
           decoration: BoxDecoration(
-            color: theme.colors.sidebarBackground,
+            color: effectiveSidebarBg,
             border: Border(
               left: isStart
                   ? BorderSide.none
-                  : BorderSide(color: theme.colors.dividerColor, width: 1.0),
+                  : BorderSide(color: theme.colors.sidebarBorder, width: 1.0),
               right: isStart
-                  ? BorderSide(color: theme.colors.dividerColor, width: 1.0)
+                  ? BorderSide(color: theme.colors.sidebarBorder, width: 1.0)
                   : BorderSide.none,
             ),
           ),
@@ -108,3 +113,4 @@ class AdwOverlaySplitView extends StatelessWidget {
     );
   }
 }
+

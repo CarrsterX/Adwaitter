@@ -1,7 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../theme/adw_theme.dart';
-
 /// Structured toolbar and content layout container (`AdwToolbarView`).
 ///
 /// Coordinates top bars (such as [AdwHeaderBar]), central scrollable content,
@@ -20,17 +18,12 @@ class AdwToolbarView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AdwTheme.of(context);
-
-    return Container(
-      color: theme.colors.windowBackground,
-      child: Column(
-        children: [
-          if (topBar != null) topBar!,
-          Expanded(child: content),
-          if (bottomBar != null) bottomBar!,
-        ],
-      ),
+    return Column(
+      children: [
+        if (topBar != null) topBar!,
+        Expanded(child: content),
+        if (bottomBar != null) bottomBar!,
+      ],
     );
   }
 }
