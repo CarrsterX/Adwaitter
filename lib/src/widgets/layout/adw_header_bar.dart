@@ -6,6 +6,7 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../controls/adw_button.dart';
 import '../navigation/adw_navigation_view.dart';
+import '../overlays/adw_dialog.dart';
 import 'adw_window.dart';
 import 'adw_window_controls.dart';
 import 'adw_window_title.dart';
@@ -52,6 +53,7 @@ class AdwHeaderBar extends StatelessWidget {
     final theme = AdwTheme.of(context);
     final windowScope = AdwWindowScope.maybeOf(context);
     final navScope = AdwNavigationViewScope.maybeOf(context);
+    final dialogScope = AdwDialogScope.maybeOf(context);
     final controller = windowScope?.controller;
     final isWindowActive = windowScope?.isActive ?? true;
 
@@ -111,7 +113,10 @@ class AdwHeaderBar extends StatelessWidget {
     }
 
     final effectiveControls = showWindowControls
-        ? (windowControls ?? const AdwWindowControls())
+        ? (windowControls ??
+            (dialogScope != null
+                ? _AdwDialogCloseButton(onPressed: dialogScope.close)
+                : const AdwWindowControls()))
         : null;
 
     final resolvedPadding = padding.resolve(Directionality.of(context));
@@ -304,5 +309,91 @@ class _BackChevronPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BackChevronPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _AdwDialogCloseButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _AdwDialogCloseButton({required this.onPressed});
+
+  @override
+  State<_AdwDialogCloseButton> createState() => _AdwDialogCloseButtonState();
+}
+
+class _AdwDialogCloseButtonState extends State<_AdwDialogCloseButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.of(context);
+    final bg = theme.colors.foreground.withValues(
+      alpha: _isPressed
+          ? 0.30
+          : _isHovered
+              ? 0.15
+              : 0.10,
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: AnimatedContainer(
+            duration: AdwCurves.shortDuration,
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: bg,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: CustomPaint(
+                size: const Size(10, 10),
+                painter: _AdwCloseGlyphPainter(color: theme.colors.foreground),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdwCloseGlyphPainter extends CustomPainter {
+  final Color color;
+
+  const _AdwCloseGlyphPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      Offset(size.width * 0.18, size.height * 0.18),
+      Offset(size.width * 0.82, size.height * 0.82),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.82, size.height * 0.18),
+      Offset(size.width * 0.18, size.height * 0.82),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdwCloseGlyphPainter oldDelegate) =>
       oldDelegate.color != color;
 }
