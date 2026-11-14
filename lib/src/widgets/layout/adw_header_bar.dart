@@ -135,6 +135,10 @@ class AdwHeaderBar extends StatelessWidget {
       );
     }
 
+    final shade50 = theme.colors.isDark
+        ? const Color(0x2E000006)
+        : const Color(0x0F000006);
+
     return Container(
       height: AdwMetrics.headerBarHeight,
       decoration: BoxDecoration(
@@ -147,6 +151,20 @@ class AdwHeaderBar extends StatelessWidget {
                   width: 1,
                 ),
               ),
+        boxShadow: isFlat
+            ? null
+            : [
+                BoxShadow(
+                  offset: const Offset(0, 1),
+                  blurRadius: 0,
+                  color: shade50,
+                ),
+                BoxShadow(
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                  color: shade50,
+                ),
+              ],
       ),
       child: Stack(
         children: [

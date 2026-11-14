@@ -162,7 +162,8 @@ class AdwColorScheme {
       hoverColor: const Color(0x0F000000), // ~6%
       activeColor: const Color(0x1F000000), // ~12%
       sidebarBackground: const Color(0xFFEBEBED),
-      sidebarBorder: const Color(0x1A000000),
+      // RGB(0 0 6 / 7%) over #EBEBED -> #DADADC
+      sidebarBorder: const Color(0x12000006),
     );
   }
 
@@ -194,7 +195,8 @@ class AdwColorScheme {
       hoverColor: const Color(0x0FFFFFFF), // ~6%
       activeColor: const Color(0x1FFFFFFF), // ~12%
       sidebarBackground: const Color(0xFF2E2E32),
-      sidebarBorder: const Color(0x26FFFFFF),
+      // RGB(0 0 6 / 36%) over #2E2E32 -> #1D1D22
+      sidebarBorder: const Color(0x5C000006),
     );
   }
 }

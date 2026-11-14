@@ -18,11 +18,14 @@ class AdwToolbarView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Paint topBar last (VerticalDirection.up) so raised headerbar shadows
+    // cast cleanly onto the content area below it.
     return Column(
+      verticalDirection: VerticalDirection.up,
       children: [
-        if (topBar != null) topBar!,
-        Expanded(child: content),
         if (bottomBar != null) bottomBar!,
+        Expanded(child: content),
+        if (topBar != null) topBar!,
       ],
     );
   }

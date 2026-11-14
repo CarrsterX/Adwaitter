@@ -18,6 +18,7 @@ class AdwButton extends StatefulWidget {
   final AdwButtonStyle style;
   final bool isPill;
   final bool isCircular;
+  final bool isChecked;
   final EdgeInsetsGeometry? padding;
   final double? width;
   final double? height;
@@ -30,6 +31,7 @@ class AdwButton extends StatefulWidget {
     this.style = AdwButtonStyle.standard,
     this.isPill = false,
     this.isCircular = false,
+    this.isChecked = false,
     this.padding,
     this.width,
     this.height,
@@ -41,6 +43,7 @@ class AdwButton extends StatefulWidget {
     super.key,
     required this.child,
     this.onPressed,
+    this.isChecked = false,
     this.padding,
     this.width,
     this.height,
@@ -55,6 +58,7 @@ class AdwButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     this.isPill = false,
+    this.isChecked = false,
     this.padding,
     this.width,
     this.height,
@@ -68,6 +72,7 @@ class AdwButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     this.isPill = false,
+    this.isChecked = false,
     this.padding,
     this.width,
     this.height,
@@ -81,6 +86,7 @@ class AdwButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     this.style = AdwButtonStyle.standard,
+    this.isChecked = false,
     this.padding,
     this.width,
     this.height,
@@ -94,6 +100,7 @@ class AdwButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     this.style = AdwButtonStyle.standard,
+    this.isChecked = false,
     this.padding,
     double size = 34.0,
   })  : isPill = false,
@@ -150,6 +157,10 @@ class _AdwButtonState extends State<AdwButton> {
         foregroundColor = theme.colors.windowForeground;
         if (_isPressed) {
           backgroundColor = theme.colors.activeColor;
+        } else if (widget.isChecked) {
+          backgroundColor = foregroundColor.withValues(
+            alpha: _isHovered ? 0.16 : 0.12,
+          );
         } else if (_isHovered) {
           backgroundColor = theme.colors.hoverColor;
         } else {
@@ -160,7 +171,13 @@ class _AdwButtonState extends State<AdwButton> {
       case AdwButtonStyle.standard:
         foregroundColor = theme.colors.windowForeground;
         if (_isPressed) {
-          backgroundColor = foregroundColor.withValues(alpha: 0.30);
+          backgroundColor = foregroundColor.withValues(
+            alpha: widget.isChecked ? 0.35 : 0.30,
+          );
+        } else if (widget.isChecked) {
+          backgroundColor = foregroundColor.withValues(
+            alpha: _isHovered ? 0.30 : 0.25,
+          );
         } else if (_isHovered) {
           backgroundColor = foregroundColor.withValues(alpha: 0.15);
         } else {
