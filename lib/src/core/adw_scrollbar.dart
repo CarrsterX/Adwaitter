@@ -45,12 +45,14 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
   bool _isDragging = false;
 
   Timer? _fadeTimer;
+  Timer? _hoverFadeTimer;
   double _dragStartOffset = 0.0;
   double _dragStartPixels = 0.0;
 
   @override
   void dispose() {
     _fadeTimer?.cancel();
+    _hoverFadeTimer?.cancel();
     super.dispose();
   }
 
@@ -72,9 +74,18 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
 
   void _scheduleHide() {
     _fadeTimer?.cancel();
-    _fadeTimer = Timer(const Duration(milliseconds: 800), () {
+    _fadeTimer = Timer(const Duration(milliseconds: 2000), () {
       if (mounted) {
         setState(() => _isScrolling = false);
+      }
+    });
+  }
+
+  void _scheduleHoverHide() {
+    _hoverFadeTimer?.cancel();
+    _hoverFadeTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        setState(() => _isViewHovered = false);
       }
     });
   }
@@ -115,7 +126,8 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
     });
   }
 
-  void _onDragUpdate(DragUpdateDetails details, double trackLength, double thumbLength) {
+  void _onDragUpdate(
+      DragUpdateDetails details, double trackLength, double thumbLength) {
     final controller = widget.controller;
     if (controller == null || !controller.hasClients) return;
     final maxTrackTravel = trackLength - thumbLength;
@@ -130,9 +142,10 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
     final isReversed = widget.axisDirection == AxisDirection.up ||
         widget.axisDirection == AxisDirection.left;
     final scrollDelta = (deltaPx / maxTrackTravel) * maxScrollTravel;
-    final double target = (_dragStartPixels + (isReversed ? -scrollDelta : scrollDelta))
-        .clamp(_minScrollExtent, _maxScrollExtent)
-        .toDouble();
+    final double target =
+        (_dragStartPixels + (isReversed ? -scrollDelta : scrollDelta))
+            .clamp(_minScrollExtent, _maxScrollExtent)
+            .toDouble();
 
     controller.jumpTo(target);
   }
@@ -148,18 +161,18 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final isDark = theme.colors.isDark;
-    final animDuration = AdwCurves.resolve(context, AdwCurves.scrollbarDuration);
+    final animDuration =
+        AdwCurves.resolve(context, AdwCurves.scrollbarDuration);
 
-    final isScrollable =
-        _hasMetrics && (_maxScrollExtent > _minScrollExtent) && _viewportDimension > 0;
-    final isVisible =
-        isScrollable && (_isViewHovered || _isThumbHovered || _isScrolling || _isDragging);
+    final isScrollable = _hasMetrics &&
+        (_maxScrollExtent > _minScrollExtent) &&
+        _viewportDimension > 0;
+    final isVisible = isScrollable &&
+        (_isViewHovered || _isThumbHovered || _isScrolling || _isDragging);
     final isExpanded = _isThumbHovered || _isDragging;
 
     // GTK4 `scrollbar slider`: slim idle pill, 7px hovered (9px with border).
-    final thickness = isExpanded
-        ? (isDark ? 9.0 : 7.0)
-        : (isDark ? 4.0 : 2.5);
+    final thickness = isExpanded ? (isDark ? 9.0 : 7.0) : (isDark ? 4.0 : 2.5);
     final troughThickness = isExpanded ? 8.0 : 0.0;
     final troughColor = isExpanded
         ? (isDark ? const Color(0x19FFFFFF) : const Color(0x19000000))
@@ -177,7 +190,8 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                 : const Color(0x2E000000));
     final darkBorder = isDark
         ? Border.all(
-            color: isExpanded ? const Color(0x8C000000) : const Color(0x59000000),
+            color:
+                isExpanded ? const Color(0x8C000000) : const Color(0x59000000),
             width: 1.0,
           )
         : null;
@@ -187,8 +201,13 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
         widget.axisDirection == AxisDirection.left;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isViewHovered = true),
-      onExit: (_) => setState(() => _isViewHovered = false),
+      onEnter: (_) {
+        _hoverFadeTimer?.cancel();
+        if (!_isViewHovered) {
+          setState(() => _isViewHovered = true);
+        }
+      },
+      onExit: (_) => _scheduleHoverHide(),
       child: NotificationListener<ScrollMetricsNotification>(
         onNotification: _handleScrollMetrics,
         child: NotificationListener<ScrollNotification>(
@@ -204,7 +223,12 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                   right: axis == Axis.vertical ? 2.0 : 6.0,
                   child: AnimatedOpacity(
                     opacity: isVisible ? 1.0 : 0.0,
-                    duration: animDuration,
+                    duration: isVisible
+                        ? animDuration
+                        : AdwCurves.resolve(
+                            context,
+                            const Duration(milliseconds: 1000),
+                          ),
                     curve: AdwCurves.easeOutQuad,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -216,7 +240,8 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                         }
 
                         final contentExtent =
-                            (_maxScrollExtent - _minScrollExtent) + _viewportDimension;
+                            (_maxScrollExtent - _minScrollExtent) +
+                                _viewportDimension;
                         final rawThumbLength =
                             (_viewportDimension / contentExtent) * trackLength;
                         final double thumbLength = rawThumbLength
@@ -224,39 +249,45 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                             .toDouble();
                         final double maxTrackTravel =
                             math.max(0.0, trackLength - thumbLength);
-                        final double scrollFraction = (_maxScrollExtent - _minScrollExtent) > 0
-                            ? ((_pixels - _minScrollExtent) /
-                                    (_maxScrollExtent - _minScrollExtent))
-                                .clamp(0.0, 1.0)
-                                .toDouble()
-                            : 0.0;
+                        final double scrollFraction =
+                            (_maxScrollExtent - _minScrollExtent) > 0
+                                ? ((_pixels - _minScrollExtent) /
+                                        (_maxScrollExtent - _minScrollExtent))
+                                    .clamp(0.0, 1.0)
+                                    .toDouble()
+                                : 0.0;
                         final thumbOffset = (isReversed
                                 ? (1.0 - scrollFraction)
                                 : scrollFraction) *
                             maxTrackTravel;
 
                         return MouseRegion(
-                          onEnter: (_) => setState(() => _isThumbHovered = true),
-                          onExit: (_) => setState(() => _isThumbHovered = false),
+                          onEnter: (_) =>
+                              setState(() => _isThumbHovered = true),
+                          onExit: (_) =>
+                              setState(() => _isThumbHovered = false),
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onVerticalDragStart:
                                 axis == Axis.vertical ? _onDragStart : null,
                             onVerticalDragUpdate: axis == Axis.vertical
-                                ? (d) => _onDragUpdate(d, trackLength, thumbLength)
+                                ? (d) =>
+                                    _onDragUpdate(d, trackLength, thumbLength)
                                 : null,
                             onVerticalDragEnd:
                                 axis == Axis.vertical ? _onDragEnd : null,
                             onHorizontalDragStart:
                                 axis == Axis.horizontal ? _onDragStart : null,
                             onHorizontalDragUpdate: axis == Axis.horizontal
-                                ? (d) => _onDragUpdate(d, trackLength, thumbLength)
+                                ? (d) =>
+                                    _onDragUpdate(d, trackLength, thumbLength)
                                 : null,
                             onHorizontalDragEnd:
                                 axis == Axis.horizontal ? _onDragEnd : null,
                             child: SizedBox(
                               width: axis == Axis.vertical ? 18.0 : trackLength,
-                              height: axis == Axis.vertical ? trackLength : 18.0,
+                              height:
+                                  axis == Axis.vertical ? trackLength : 18.0,
                               child: Stack(
                                 children: [
                                   // Trough (track) revealed on scrollbar hover to show full scroll range
@@ -269,7 +300,9 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                                         : (isExpanded ? 6.0 : 0.0),
                                     left: axis == Axis.horizontal ? 1.0 : null,
                                     right: axis == Axis.vertical
-                                        ? (isExpanded ? (isDark ? 7.0 : 6.0) : 0.0)
+                                        ? (isExpanded
+                                            ? (isDark ? 7.0 : 6.0)
+                                            : 0.0)
                                         : 1.0,
                                     child: AnimatedContainer(
                                       duration: animDuration,
@@ -282,14 +315,20 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
                                           : troughThickness,
                                       decoration: BoxDecoration(
                                         color: troughColor,
-                                        borderRadius: BorderRadius.circular(999.0),
+                                        borderRadius:
+                                            BorderRadius.circular(999.0),
                                       ),
                                     ),
                                   ),
                                   Positioned(
-                                    top: axis == Axis.vertical ? thumbOffset : null,
-                                    bottom: axis == Axis.horizontal ? 0.0 : null,
-                                    left: axis == Axis.horizontal ? thumbOffset : null,
+                                    top: axis == Axis.vertical
+                                        ? thumbOffset
+                                        : null,
+                                    bottom:
+                                        axis == Axis.horizontal ? 0.0 : null,
+                                    left: axis == Axis.horizontal
+                                        ? thumbOffset
+                                        : null,
                                     right: axis == Axis.vertical ? 0.0 : null,
                                     child: AnimatedPadding(
                                       duration: animDuration,
@@ -336,4 +375,3 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
     );
   }
 }
-

@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
+import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../controls/adw_button.dart';
@@ -29,6 +31,8 @@ class AdwHeaderBar extends StatelessWidget {
   final Widget? start;
   final Widget? end;
   final bool showWindowControls;
+  final bool showStartWindowControls;
+  final bool showEndWindowControls;
   final bool showBackButton;
   final Widget? windowControls;
   final EdgeInsetsGeometry padding;
@@ -42,6 +46,8 @@ class AdwHeaderBar extends StatelessWidget {
     this.start,
     this.end,
     this.showWindowControls = true,
+    this.showStartWindowControls = true,
+    this.showEndWindowControls = true,
     this.showBackButton = true,
     this.windowControls,
     this.padding = defaultPadding,
@@ -112,104 +118,244 @@ class AdwHeaderBar extends StatelessWidget {
       }
     }
 
-    final effectiveControls = showWindowControls
-        ? (windowControls ??
-            (dialogScope != null
-                ? _AdwDialogCloseButton(onPressed: dialogScope.close)
-                : const AdwWindowControls()))
-        : null;
-
     final resolvedPadding = padding.resolve(Directionality.of(context));
 
-    Widget? endGroup;
-    if (end != null || effectiveControls != null) {
-      endGroup = Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (end != null) end!,
-          if (end != null && effectiveControls != null)
-            const SizedBox(width: AdwMetrics.spacingSmall),
-          if (effectiveControls != null) effectiveControls,
-        ],
-      );
-    }
+    return ValueListenableBuilder<AdwWindowButtonLayout>(
+      valueListenable: AdwDesktopSettings.windowButtonLayout,
+      builder: (context, layout, _) {
+        Widget? startControls;
+        Widget? endControls;
 
-    final shade50 = theme.colors.isDark
-        ? const Color(0x2E000006)
-        : const Color(0x0F000006);
+        if (showWindowControls) {
+          if (windowControls != null) {
+            if (showEndWindowControls && layout.endButtons.isNotEmpty) {
+              endControls = windowControls;
+            } else if (showStartWindowControls &&
+                layout.startButtons.isNotEmpty) {
+              startControls = windowControls;
+            } else if (showEndWindowControls) {
+              endControls = windowControls;
+            }
+          } else if (dialogScope != null) {
+            final closeOnStart = layout.startButtons.contains('close') &&
+                !layout.endButtons.contains('close');
+            if (closeOnStart && showStartWindowControls) {
+              startControls = _AdwDialogCloseButton(onPressed: dialogScope.close);
+            } else if (!closeOnStart && showEndWindowControls) {
+              endControls = _AdwDialogCloseButton(onPressed: dialogScope.close);
+            }
+          } else {
+            if (showStartWindowControls && layout.startButtons.isNotEmpty) {
+              startControls =
+                  const AdwWindowControls(side: AdwWindowControlsSide.start);
+            }
+            if (showEndWindowControls && layout.endButtons.isNotEmpty) {
+              endControls =
+                  const AdwWindowControls(side: AdwWindowControlsSide.end);
+            }
+          }
+        }
 
-    return Container(
-      height: AdwMetrics.headerBarHeight,
-      decoration: BoxDecoration(
-        color: isFlat ? const Color(0x00000000) : theme.colors.headerBarBackground,
-        boxShadow: isFlat
-            ? null
-            : [
-                BoxShadow(
-                  offset: const Offset(0, 1),
-                  blurRadius: 0,
-                  color: shade50,
-                ),
-                BoxShadow(
-                  offset: const Offset(0, 2),
-                  blurRadius: 4,
-                  color: shade50,
-                ),
-              ],
-      ),
-      child: Stack(
-        children: [
-          // 1. Background layer for native window dragging and double-click maximization
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => controller?.startDragging(),
-              onDoubleTap: () => controller?.maximize(),
-              child: const SizedBox.expand(),
-            ),
+        Widget? startGroup;
+        if (startControls != null || effectiveStart != null) {
+          startGroup = Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (startControls != null) startControls,
+              if (startControls != null && effectiveStart != null)
+                const SizedBox(width: AdwMetrics.spacingSmall),
+              if (effectiveStart != null) effectiveStart,
+            ],
+          );
+        }
+
+        Widget? endGroup;
+        if (end != null || endControls != null) {
+          endGroup = Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (end != null) end!,
+              if (end != null && endControls != null)
+                const SizedBox(width: AdwMetrics.spacingSmall),
+              if (endControls != null) endControls,
+            ],
+          );
+        }
+
+        final shade50 = theme.colors.isDark
+            ? const Color(0x2E000006)
+            : const Color(0x0F000006);
+
+        return Container(
+          height: AdwMetrics.headerBarHeight,
+          decoration: BoxDecoration(
+            color: isFlat
+                ? const Color(0x00000000)
+                : theme.colors.headerBarBackground,
+            boxShadow: isFlat
+                ? null
+                : [
+                    BoxShadow(
+                      offset: const Offset(0, 1),
+                      blurRadius: 0,
+                      color: shade50,
+                    ),
+                    BoxShadow(
+                      offset: const Offset(0, 2),
+                      blurRadius: 4,
+                      color: shade50,
+                    ),
+                  ],
           ),
-          // 2. Foreground structured layout conforming to GTK4 AdwHeaderBar
-          Positioned.fill(
-            child: AnimatedOpacity(
-              opacity: isWindowActive ? 1.0 : 0.55,
-              duration: AdwCurves.shortDuration,
-              child: CustomMultiChildLayout(
-                delegate: _AdwHeaderBarLayoutDelegate(
-                  padding: resolvedPadding,
+          child: Stack(
+            children: [
+              // 1. Background layer for native window dragging and double-click maximization
+              Positioned.fill(
+                child: _AdwHeaderBarDragArea(
+                  onStartDrag: () => controller?.startDragging(),
+                  onDoubleTap: () => controller?.maximize(),
                 ),
-                children: [
-                  if (effectiveStart != null)
-                    LayoutId(
-                      id: _AdwHeaderBarLayoutDelegate.startId,
-                      child: effectiveStart,
-                    ),
-                  if (effectiveTitle != null)
-                    LayoutId(
-                      id: _AdwHeaderBarLayoutDelegate.titleId,
-                      child: titleWidget == null
-                          ? IgnorePointer(child: effectiveTitle)
-                          : effectiveTitle,
-                    ),
-                  if (endGroup != null)
-                    LayoutId(
-                      id: _AdwHeaderBarLayoutDelegate.endId,
-                      child: endGroup,
-                    ),
-                ],
               ),
-            ),
+              // 2. Foreground structured layout conforming to GTK4 AdwHeaderBar
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: isWindowActive ? 1.0 : 0.55,
+                  duration: AdwCurves.shortDuration,
+                  child: CustomMultiChildLayout(
+                    delegate: _AdwHeaderBarLayoutDelegate(
+                      padding: resolvedPadding,
+                    ),
+                    children: [
+                      if (startGroup != null)
+                        LayoutId(
+                          id: _AdwHeaderBarLayoutDelegate.startId,
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            child: startGroup,
+                          ),
+                        ),
+                      if (effectiveTitle != null)
+                        LayoutId(
+                          id: _AdwHeaderBarLayoutDelegate.titleId,
+                          child: titleWidget != null
+                              ? Listener(
+                                  behavior: HitTestBehavior.opaque,
+                                  child: effectiveTitle,
+                                )
+                              : IgnorePointer(child: effectiveTitle),
+                        ),
+                      if (endGroup != null)
+                        LayoutId(
+                          id: _AdwHeaderBarLayoutDelegate.endId,
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            child: endGroup,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-/// Optical center layout delegate implementing official GTK4 / Libadwaita allocation:
+/// Zero-delay pointer listener for header bar window dragging and double-tap
+/// maximization that bypasses Flutter's gesture arena (avoiding `kPanSlop` and
+/// `kDoubleTapTimeout` delays on both mouse and touch input).
+class _AdwHeaderBarDragArea extends StatefulWidget {
+  final VoidCallback onStartDrag;
+  final VoidCallback onDoubleTap;
+
+  const _AdwHeaderBarDragArea({
+    required this.onStartDrag,
+    required this.onDoubleTap,
+  });
+
+  @override
+  State<_AdwHeaderBarDragArea> createState() => _AdwHeaderBarDragAreaState();
+}
+
+class _AdwHeaderBarDragAreaState extends State<_AdwHeaderBarDragArea> {
+  int? _activePointer;
+  Offset? _downPosition;
+  bool _dragStarted = false;
+  DateTime? _lastTapUpTime;
+  Offset? _lastTapUpPosition;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        if (event.kind == PointerDeviceKind.mouse &&
+            event.buttons != kPrimaryMouseButton) {
+          return;
+        }
+        _activePointer = event.pointer;
+        _downPosition = event.position;
+        _dragStarted = false;
+      },
+      onPointerMove: (event) {
+        if (event.pointer != _activePointer ||
+            _dragStarted ||
+            _downPosition == null) {
+          return;
+        }
+        if ((event.position - _downPosition!).distance >= 2.0) {
+          _dragStarted = true;
+          widget.onStartDrag();
+        }
+      },
+      onPointerUp: (event) {
+        if (event.pointer != _activePointer) return;
+        final wasDragged = _dragStarted;
+        _activePointer = null;
+        _downPosition = null;
+        _dragStarted = false;
+        if (wasDragged) {
+          _lastTapUpTime = null;
+          _lastTapUpPosition = null;
+          return;
+        }
+        final now = DateTime.now();
+        if (_lastTapUpTime != null &&
+            _lastTapUpPosition != null &&
+            now.difference(_lastTapUpTime!) <=
+                const Duration(milliseconds: 300) &&
+            (event.position - _lastTapUpPosition!).distance <= 12.0) {
+          _lastTapUpTime = null;
+          _lastTapUpPosition = null;
+          widget.onDoubleTap();
+        } else {
+          _lastTapUpTime = now;
+          _lastTapUpPosition = event.position;
+        }
+      },
+      onPointerCancel: (event) {
+        if (event.pointer == _activePointer) {
+          _activePointer = null;
+          _downPosition = null;
+          _dragStarted = false;
+        }
+      },
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+/// Optical center layout delegate implementing official GTK4 / Libadwaita
+/// `ADW_CENTERING_POLICY_LOOSE` (`GtkCenterLayout`) allocation:
 /// 1. Allocates start and end widgets.
 /// 2. Attempts exact optical centering relative to the total header bar width.
-/// 3. If side widgets encroach within the 12px margin, shifts title into the remaining space.
+/// 3. If a side widget encroaches within the 12px margin, clamps the title
+///    smoothly against that side bound without re-centering (no sudden jump).
 class _AdwHeaderBarLayoutDelegate extends MultiChildLayoutDelegate {
   static const String startId = 'start';
   static const String endId = 'end';
@@ -269,18 +415,12 @@ class _AdwHeaderBarLayoutDelegate extends MultiChildLayoutDelegate {
         ),
       );
 
-      // Desired optical center coordinate
+      // Desired optical center coordinate, clamped smoothly to available bounds
+      // (GTK4 GtkCenterLayout / ADW_CENTERING_POLICY_LOOSE behavior: never
+      // re-centers into the asymmetric gap, preventing any sudden title jump).
       final double idealLeft = (size.width - titleSize.width) / 2;
-      double actualLeft;
-
-      if (idealLeft >= leftBound && (idealLeft + titleSize.width) <= rightBound) {
-        // Fits at true optical center without encroaching on start or end widgets
-        actualLeft = idealLeft;
-      } else {
-        // Asymmetric shift: center within the available space between bounds
-        final double freeSpace = math.max(0.0, availableWidth - titleSize.width);
-        actualLeft = leftBound + (freeSpace / 2);
-      }
+      final double maxLeft = math.max(leftBound, rightBound - titleSize.width);
+      final double actualLeft = idealLeft.clamp(leftBound, maxLeft);
 
       positionChild(
         titleId,

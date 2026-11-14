@@ -1,11 +1,11 @@
 /// Metric constants, dimensions, and curvature radii based on GNOME HIG and Libadwaita.
 abstract final class AdwMetrics {
   // --- Border Radii ---
-  /// Standard corner radius for buttons and text inputs (6px).
-  static const double buttonRadius = 6.0;
+  /// Standard corner radius for buttons (`$button_radius: 9px` in Libadwaita 1.6+).
+  static const double buttonRadius = 9.0;
 
-  /// Standard corner radius for text entries (6px).
-  static const double entryRadius = 6.0;
+  /// Standard corner radius for text entries (`$button_radius: 9px` in Libadwaita 1.6+).
+  static const double entryRadius = 9.0;
 
   /// Standard corner radius for grouped preference cards and containers (12px).
   static const double cardRadius = 12.0;

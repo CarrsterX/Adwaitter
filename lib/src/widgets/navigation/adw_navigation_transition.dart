@@ -61,11 +61,14 @@ class AdwNavigationPageTransition extends StatelessWidget {
         // underlying page stays stationary behind it.
         final double dx = 1.0 - enterProgress;
 
-        // Left-edge shadow opacity peaks mid-transition and disappears when settled
-        final double shadowFactor =
-            (enterProgress > 0.0 && enterProgress < 1.0)
-                ? math.sin(enterProgress * math.pi).clamp(0.0, 1.0)
-                : 0.0;
+        // Left-edge shadow opacity stays visible throughout the slide and fades
+        // smoothly right at the start/end edges so it never pops in/out.
+        final double shadowFactor = (enterProgress > 0.0 && enterProgress < 1.0)
+            ? math.min(
+                1.0,
+                math.min(enterProgress * 6.0, (1.0 - enterProgress) * 6.0),
+              )
+            : 0.0;
 
         // Subtle dimming overlay on the underlying page as a new page slides above it
         final double maxDimAlpha = isDark ? 0.18 : 0.10;
@@ -76,6 +79,7 @@ class AdwNavigationPageTransition extends StatelessWidget {
           transformHitTests: true,
           child: Stack(
             fit: StackFit.passthrough,
+            clipBehavior: Clip.none,
             children: [
               // Left-edge cast shadow matching Libadwaita's `--shade-color`
               if (shadowFactor > 0.0)
@@ -347,11 +351,12 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
       return;
     }
 
-    final double normalizedVelocity =
-        viewportWidth > 0 ? -(velocityPxPerSec / viewportWidth) : 0.0;
+    final double normalizedVelocity = viewportWidth > 0
+        ? -(velocityPxPerSec / viewportWidth).clamp(-3.5, 3.5)
+        : 0.0;
     final bool shouldPop =
-        velocityPxPerSec > 320.0 ||
-        (velocityPxPerSec > -150.0 && controller.value < 0.58);
+        velocityPxPerSec > 420.0 ||
+        (velocityPxPerSec > -200.0 && controller.value < 0.50);
 
     if (shouldPop) {
       _isAnimatingOut = true;
@@ -429,6 +434,9 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   // --- Trackpad two-finger pan support (Linux/macOS desktop) ---
 
+  static const double _trackpadSensitivity = 0.22;
+  static const double _trackpadMinDistance = 480.0;
+
   void _handlePointerPanZoomStart(PointerPanZoomStartEvent event) {
     if (!_canInteractivePop) return;
     _trackpadAccumulatedDx = 0.0;
@@ -443,7 +451,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     _trackpadAccumulatedDx += event.panDelta.dx;
     _trackpadVelocityTracker?.addPosition(
       event.timeStamp,
-      event.localPan * 0.38,
+      event.localPan * _trackpadSensitivity,
     );
     if (!_trackpadActive) {
       // Activate only on clear rightward horizontal intent
@@ -454,9 +462,13 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
       }
       return;
     }
-    final double effectiveDistance = math.max(context.size?.width ?? 400.0, 420.0);
-    // Match Libadwaita's gentle touchpad swipe sensitivity without libinput acceleration spikes
-    _updateGestureDelta(event.panDelta.dx * 0.38, effectiveDistance);
+    final double effectiveDistance =
+        math.max(context.size?.width ?? 400.0, _trackpadMinDistance);
+    // Match Libadwaita's 1:1 touchpad swipe sensitivity without libinput acceleration spikes
+    _updateGestureDelta(
+      event.panDelta.dx * _trackpadSensitivity,
+      effectiveDistance,
+    );
   }
 
   void _handlePointerPanZoomEnd(PointerPanZoomEndEvent event) {
@@ -464,7 +476,8 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     _trackpadVelocityTracker = null;
     if (!_trackpadActive) return;
     _trackpadActive = false;
-    final double effectiveDistance = math.max(context.size?.width ?? 400.0, 420.0);
+    final double effectiveDistance =
+        math.max(context.size?.width ?? 400.0, _trackpadMinDistance);
     final double velocityDx =
         tracker?.getVelocity().pixelsPerSecond.dx ?? 0.0;
     _endGesture(velocityDx, effectiveDistance);

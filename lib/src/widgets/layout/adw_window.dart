@@ -24,8 +24,10 @@ enum AdwWindowEdge {
 /// Decoupled interface for native Client-Side Decorations (CSD) / frameless window control.
 abstract class AdwWindowController {
   bool get isMaximized;
+  bool get isTiled => false;
   bool get isActive;
   ValueListenable<bool>? get activeListenable;
+  Listenable? get windowStateListenable => null;
   void close();
   void minimize();
   void maximize();
@@ -36,8 +38,11 @@ abstract class AdwWindowController {
 /// Native implementation delegating to the desktop platform channel (`libadwaitter/window`).
 class AdwNativeWindowController implements AdwWindowController {
   static const MethodChannel _channel = MethodChannel('libadwaitter/window');
-  bool _isMaximized = false;
+  final ValueNotifier<bool> _maximizedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _tiledNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _activeNotifier = ValueNotifier<bool>(true);
+  late final Listenable _stateListenable =
+      Listenable.merge([_maximizedNotifier, _tiledNotifier]);
 
   AdwNativeWindowController() {
     _init();
@@ -51,12 +56,24 @@ class AdwNativeWindowController implements AdwWindowController {
         if (active != null) {
           _activeNotifier.value = active;
         }
+      } else if (call.method == 'onWindowStateChanged') {
+        final Map? map = call.arguments as Map?;
+        if (map != null) {
+          final isMax = map['isMaximized'] as bool?;
+          final isTiled = map['isTiled'] as bool?;
+          if (isMax != null) _maximizedNotifier.value = isMax;
+          if (isTiled != null) _tiledNotifier.value = isTiled;
+        }
       }
     });
     try {
       final bool? isMax = await _channel.invokeMethod<bool>('isMaximized');
       if (isMax != null) {
-        _isMaximized = isMax;
+        _maximizedNotifier.value = isMax;
+      }
+      final bool? tiled = await _channel.invokeMethod<bool>('isTiled');
+      if (tiled != null) {
+        _tiledNotifier.value = tiled;
       }
       final bool? active = await _channel.invokeMethod<bool>('isActive');
       if (active != null) {
@@ -66,13 +83,19 @@ class AdwNativeWindowController implements AdwWindowController {
   }
 
   @override
-  bool get isMaximized => _isMaximized;
+  bool get isMaximized => _maximizedNotifier.value;
+
+  @override
+  bool get isTiled => _tiledNotifier.value;
 
   @override
   bool get isActive => _activeNotifier.value;
 
   @override
   ValueListenable<bool> get activeListenable => _activeNotifier;
+
+  @override
+  Listenable get windowStateListenable => _stateListenable;
 
   @override
   void close() {
@@ -89,7 +112,7 @@ class AdwNativeWindowController implements AdwWindowController {
   @override
   void maximize() {
     if (kIsWeb) return;
-    _isMaximized = !_isMaximized;
+    _maximizedNotifier.value = !_maximizedNotifier.value;
     _channel.invokeMethod('maximize').catchError((_) {});
   }
 
@@ -180,11 +203,15 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     _effectiveController = widget.controller ?? _createDefaultController();
     _isActive = _effectiveController.isActive;
     _effectiveController.activeListenable?.addListener(_onActiveChanged);
+    _effectiveController.windowStateListenable
+        ?.addListener(_onWindowStateChanged);
   }
 
   @override
   void dispose() {
     _effectiveController.activeListenable?.removeListener(_onActiveChanged);
+    _effectiveController.windowStateListenable
+        ?.removeListener(_onWindowStateChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -192,6 +219,12 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
   void _onActiveChanged() {
     if (mounted) {
       setState(() => _isActive = _effectiveController.isActive);
+    }
+  }
+
+  void _onWindowStateChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -216,8 +249,10 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     final theme = AdwTheme.of(context);
     final effectiveIsMaximized =
         widget.isMaximized ?? _effectiveController.isMaximized;
+    final isSquareCorners =
+        effectiveIsMaximized || _effectiveController.isTiled;
 
-    final borderRadius = effectiveIsMaximized
+    final borderRadius = isSquareCorners
         ? BorderRadius.zero
         : BorderRadius.circular(AdwMetrics.windowRadius);
 
@@ -232,7 +267,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
 
     final effectiveIsActive = _isActive;
 
-    final List<BoxShadow> shadows = (!effectiveIsMaximized && widget.showShadow)
+    final List<BoxShadow> shadows = (!isSquareCorners && widget.showShadow)
         ? (effectiveIsActive
             ? [
                 const BoxShadow(
@@ -266,110 +301,10 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       ],
     );
 
-    final Widget windowContentWithResizers = Stack(
-      children: [
-        Positioned.fill(child: windowContent),
-        if (!effectiveIsMaximized) ...[
-          // Edges (6px border handles)
-          Positioned(
-            top: 0,
-            left: 14,
-            right: 14,
-            height: 6,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeUp,
-              edge: AdwWindowEdge.top,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.top),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 14,
-            right: 14,
-            height: 6,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeDown,
-              edge: AdwWindowEdge.bottom,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.bottom),
-            ),
-          ),
-          Positioned(
-            top: 14,
-            bottom: 14,
-            left: 0,
-            width: 6,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeLeft,
-              edge: AdwWindowEdge.left,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.left),
-            ),
-          ),
-          Positioned(
-            top: 14,
-            bottom: 14,
-            right: 0,
-            width: 6,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeRight,
-              edge: AdwWindowEdge.right,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.right),
-            ),
-          ),
-          // Corners (14x14px hitboxes)
-          Positioned(
-            top: 0,
-            left: 0,
-            width: 14,
-            height: 14,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeUpLeft,
-              edge: AdwWindowEdge.topLeft,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.topLeft),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            right: 0,
-            width: 14,
-            height: 14,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeUpRight,
-              edge: AdwWindowEdge.topRight,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.topRight),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            width: 14,
-            height: 14,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeDownLeft,
-              edge: AdwWindowEdge.bottomLeft,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.bottomLeft),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            width: 14,
-            height: 14,
-            child: _ResizeHandle(
-              cursor: SystemMouseCursors.resizeDownRight,
-              edge: AdwWindowEdge.bottomRight,
-              onResize: () =>
-                  _effectiveController.beginResizeDrag(AdwWindowEdge.bottomRight),
-            ),
-          ),
-        ],
-      ],
+    final Widget windowContentWithResizers = AdwWindowResizeOverlay(
+      controller: _effectiveController,
+      enabled: !effectiveIsMaximized,
+      child: windowContent,
     );
 
     return AdwWindowScope(
@@ -380,7 +315,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
         decoration: BoxDecoration(
           color: theme.colors.windowBackground,
           borderRadius: borderRadius,
-          border: widget.showBorder && !effectiveIsMaximized
+          border: widget.showBorder && !isSquareCorners
               ? Border.all(
                   color: theme.colors.windowOutline,
                   width: 1,
@@ -394,7 +329,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
           child: Stack(
             children: [
               windowContentWithResizers,
-              if (widget.showBorder && !effectiveIsMaximized)
+              if (widget.showBorder && !isSquareCorners)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
@@ -424,6 +359,124 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Overlays transparent edge/corner resize hit-test handles onto [child] so
+/// both [AdwWindow] and modal routes (`showAdwDialog`) keep window resizing
+/// active when the window is not maximized.
+class AdwWindowResizeOverlay extends StatelessWidget {
+  final AdwWindowController controller;
+  final bool enabled;
+  final Widget child;
+
+  const AdwWindowResizeOverlay({
+    super.key,
+    required this.controller,
+    this.enabled = true,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        if (enabled) ...[
+          Positioned(
+            top: 0,
+            left: 14,
+            right: 14,
+            height: 6,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeUp,
+              edge: AdwWindowEdge.top,
+              onResize: () => controller.beginResizeDrag(AdwWindowEdge.top),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 14,
+            right: 14,
+            height: 6,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeDown,
+              edge: AdwWindowEdge.bottom,
+              onResize: () => controller.beginResizeDrag(AdwWindowEdge.bottom),
+            ),
+          ),
+          Positioned(
+            top: 14,
+            bottom: 14,
+            left: 0,
+            width: 6,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeLeft,
+              edge: AdwWindowEdge.left,
+              onResize: () => controller.beginResizeDrag(AdwWindowEdge.left),
+            ),
+          ),
+          Positioned(
+            top: 14,
+            bottom: 14,
+            right: 0,
+            width: 6,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeRight,
+              edge: AdwWindowEdge.right,
+              onResize: () => controller.beginResizeDrag(AdwWindowEdge.right),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            width: 14,
+            height: 14,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeUpLeft,
+              edge: AdwWindowEdge.topLeft,
+              onResize: () => controller.beginResizeDrag(AdwWindowEdge.topLeft),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            width: 14,
+            height: 14,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeUpRight,
+              edge: AdwWindowEdge.topRight,
+              onResize: () =>
+                  controller.beginResizeDrag(AdwWindowEdge.topRight),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            width: 14,
+            height: 14,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeDownLeft,
+              edge: AdwWindowEdge.bottomLeft,
+              onResize: () =>
+                  controller.beginResizeDrag(AdwWindowEdge.bottomLeft),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            width: 14,
+            height: 14,
+            child: _ResizeHandle(
+              cursor: SystemMouseCursors.resizeDownRight,
+              edge: AdwWindowEdge.bottomRight,
+              onResize: () =>
+                  controller.beginResizeDrag(AdwWindowEdge.bottomRight),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -460,9 +513,13 @@ class _NoopWindowController implements AdwWindowController {
   @override
   bool get isMaximized => false;
   @override
+  bool get isTiled => false;
+  @override
   bool get isActive => true;
   @override
   ValueListenable<bool>? get activeListenable => null;
+  @override
+  Listenable? get windowStateListenable => null;
   @override
   void close() {}
   @override

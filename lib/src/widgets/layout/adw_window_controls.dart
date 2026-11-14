@@ -11,6 +11,13 @@ enum AdwWindowButtonType {
   close,
 }
 
+/// Which side of an [AdwHeaderBar] this [AdwWindowControls] renders buttons for.
+enum AdwWindowControlsSide {
+  start,
+  end,
+  auto,
+}
+
 /// Individual GNOME window control button (Close, Maximize, Minimize).
 ///
 /// Follows upstream Libadwaita metrics:
@@ -225,6 +232,7 @@ class AdwWindowControls extends StatelessWidget {
   final bool? showMaximize;
   final bool? showClose;
   final double spacing;
+  final AdwWindowControlsSide side;
 
   const AdwWindowControls({
     super.key,
@@ -235,6 +243,7 @@ class AdwWindowControls extends StatelessWidget {
     this.showMaximize,
     this.showClose,
     this.spacing = 3.0,
+    this.side = AdwWindowControlsSide.auto,
   });
 
   @override
@@ -254,9 +263,13 @@ class AdwWindowControls extends StatelessWidget {
         if (showMinimize == null &&
             showMaximize == null &&
             showClose == null) {
-          tokens = layout.endButtons.isNotEmpty
-              ? layout.endButtons
-              : layout.startButtons;
+          tokens = switch (side) {
+            AdwWindowControlsSide.start => layout.startButtons,
+            AdwWindowControlsSide.end => layout.endButtons,
+            AdwWindowControlsSide.auto => layout.endButtons.isNotEmpty
+                ? layout.endButtons
+                : layout.startButtons,
+          };
         } else {
           tokens = <String>[
             if (showMinimize ?? layout.hasMinimize) 'minimize',
@@ -264,6 +277,7 @@ class AdwWindowControls extends StatelessWidget {
             if (showClose ?? layout.hasClose) 'close',
           ];
         }
+        if (tokens.isEmpty) return const SizedBox.shrink();
 
         final children = <Widget>[];
         for (int i = 0; i < tokens.length; i++) {

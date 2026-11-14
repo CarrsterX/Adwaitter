@@ -156,10 +156,12 @@ class _AdwButtonState extends State<AdwButton> {
       case AdwButtonStyle.flat:
         foregroundColor = theme.colors.windowForeground;
         if (_isPressed) {
-          backgroundColor = theme.colors.activeColor;
+          backgroundColor = widget.isChecked
+              ? foregroundColor.withValues(alpha: 0.19)
+              : theme.colors.activeColor;
         } else if (widget.isChecked) {
           backgroundColor = foregroundColor.withValues(
-            alpha: _isHovered ? 0.16 : 0.12,
+            alpha: _isHovered ? 0.13 : 0.10,
           );
         } else if (_isHovered) {
           backgroundColor = theme.colors.hoverColor;
@@ -172,11 +174,11 @@ class _AdwButtonState extends State<AdwButton> {
         foregroundColor = theme.colors.windowForeground;
         if (_isPressed) {
           backgroundColor = foregroundColor.withValues(
-            alpha: widget.isChecked ? 0.35 : 0.30,
+            alpha: widget.isChecked ? 0.40 : 0.30,
           );
         } else if (widget.isChecked) {
           backgroundColor = foregroundColor.withValues(
-            alpha: _isHovered ? 0.30 : 0.25,
+            alpha: _isHovered ? 0.35 : 0.30,
           );
         } else if (_isHovered) {
           backgroundColor = foregroundColor.withValues(alpha: 0.15);
