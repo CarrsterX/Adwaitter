@@ -137,7 +137,8 @@ class AdwDialog extends StatelessWidget {
 Future<T?> showAdwDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  bool barrierDismissible = true,
+  bool barrierDismissible = false,
+  bool dismissOnEscape = true,
 }) {
   final parentWindowScope = AdwWindowScope.maybeOf(context);
   final theme = AdwTheme.of(context);
@@ -153,7 +154,7 @@ Future<T?> showAdwDialog<T>({
         data: theme,
         child: CallbackShortcuts(
           bindings: {
-            if (barrierDismissible)
+            if (dismissOnEscape)
               const SingleActivator(LogicalKeyboardKey.escape): () =>
                   Navigator.of(dialogContext).maybePop(),
           },
