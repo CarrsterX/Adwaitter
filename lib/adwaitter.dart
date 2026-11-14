@@ -49,6 +49,7 @@ export 'src/widgets/navigation/adw_carousel_indicator_dots.dart';
 export 'src/widgets/navigation/adw_navigation_split_view.dart';
 export 'src/widgets/navigation/adw_navigation_transition.dart';
 export 'src/widgets/navigation/adw_navigation_view.dart';
+export 'src/widgets/navigation/adw_overlay_split_view.dart';
 export 'src/widgets/navigation/adw_sidebar_item.dart';
 export 'src/widgets/navigation/adw_view_switcher.dart';
 
