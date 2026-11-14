@@ -93,7 +93,6 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
 
   late final AnimationController _animController;
   late final Animation<double> _expandAnimation;
-  late final Animation<double> _arrowAnimation;
 
   @override
   void initState() {
@@ -111,10 +110,6 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
       parent: _animController,
       curve: AdwCurves.standard,
     );
-
-    // Chevron rotates 180 degrees (from pointing down to pointing up)
-    _arrowAnimation =
-        Tween<double>(begin: 0.0, end: math.pi).animate(_expandAnimation);
   }
 
   @override

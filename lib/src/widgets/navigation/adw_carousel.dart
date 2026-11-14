@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
-import '../../theme/adw_theme.dart';
 
 /// Controller coordinating page transitions and position tracking for [AdwCarousel].
 ///
@@ -190,7 +189,6 @@ class _AdwCarouselState extends State<AdwCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AdwTheme.of(context);
     final count = widget.children.length;
 
     Widget pageView = PageView.builder(
@@ -305,7 +303,6 @@ class _CarouselNavButtonState extends State<_CarouselNavButton> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AdwTheme.of(context);
     final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
 
     Color bg = const Color(0x80000000);
