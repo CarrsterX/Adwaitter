@@ -143,14 +143,6 @@ class AdwHeaderBar extends StatelessWidget {
       height: AdwMetrics.headerBarHeight,
       decoration: BoxDecoration(
         color: isFlat ? const Color(0x00000000) : theme.colors.headerBarBackground,
-        border: isFlat
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: theme.colors.dividerColor,
-                  width: 1,
-                ),
-              ),
         boxShadow: isFlat
             ? null
             : [
