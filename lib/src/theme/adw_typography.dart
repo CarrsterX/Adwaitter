@@ -13,7 +13,7 @@ import 'package:flutter/painting.dart';
 class AdwTypography {
   static const String sansFamily = 'AdwaitaSans';
   static const String monoFamily = 'AdwaitaMono';
-  static const String packageName = 'libadwaitter';
+  static const String packageName = 'adwaitter';
 
   static const List<String> fallbackSans = <String>[
     'Adwaita Sans',
