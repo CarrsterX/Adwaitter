@@ -38,44 +38,95 @@ abstract class AdwWindowController {
 /// Native implementation delegating to the desktop platform channel (`libadwaitter/window`).
 class AdwNativeWindowController implements AdwWindowController {
   static const MethodChannel _channel = MethodChannel('libadwaitter/window');
+  static final Map<int, AdwNativeWindowController> _controllersByViewId =
+      <int, AdwNativeWindowController>{};
+  static bool _handlerRegistered = false;
+
+  final int viewId;
+  final VoidCallback? onCloseOverride;
   final ValueNotifier<bool> _maximizedNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _tiledNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _activeNotifier = ValueNotifier<bool>(true);
   late final Listenable _stateListenable =
       Listenable.merge([_maximizedNotifier, _tiledNotifier]);
 
-  AdwNativeWindowController() {
+  AdwNativeWindowController({
+    this.viewId = 0,
+    this.onCloseOverride,
+  }) {
+    _controllersByViewId[viewId] = this;
+    _ensureChannelHandler();
     _init();
   }
 
-  void _init() async {
+  void dispose() {
+    if (_controllersByViewId[viewId] == this) {
+      _controllersByViewId.remove(viewId);
+    }
+    _maximizedNotifier.dispose();
+    _tiledNotifier.dispose();
+    _activeNotifier.dispose();
+  }
+
+  static Future<void> attachSubWindow({
+    required int windowHandle,
+    required int viewHandle,
+    required int viewId,
+  }) async {
     if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod('attachSubWindow', <String, Object>{
+        'windowHandle': windowHandle,
+        'viewHandle': viewHandle,
+        'viewId': viewId,
+      });
+    } catch (_) {}
+  }
+
+  static void _ensureChannelHandler() {
+    if (kIsWeb || _handlerRegistered) return;
+    _handlerRegistered = true;
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onWindowActiveChanged') {
-        final bool? active = call.arguments as bool?;
-        if (active != null) {
-          _activeNotifier.value = active;
+        final args = call.arguments;
+        if (args is bool) {
+          _controllersByViewId[0]?._activeNotifier.value = args;
+        } else if (args is Map) {
+          final targetId = (args['viewId'] as int?) ?? 0;
+          final active = args['isActive'] as bool?;
+          if (active != null) {
+            _controllersByViewId[targetId]?._activeNotifier.value = active;
+          }
         }
       } else if (call.method == 'onWindowStateChanged') {
         final Map? map = call.arguments as Map?;
         if (map != null) {
-          final isMax = map['isMaximized'] as bool?;
-          final isTiled = map['isTiled'] as bool?;
-          if (isMax != null) _maximizedNotifier.value = isMax;
-          if (isTiled != null) _tiledNotifier.value = isTiled;
+          final targetId = (map['viewId'] as int?) ?? 0;
+          final target = _controllersByViewId[targetId];
+          if (target != null) {
+            final isMax = map['isMaximized'] as bool?;
+            final isTiled = map['isTiled'] as bool?;
+            if (isMax != null) target._maximizedNotifier.value = isMax;
+            if (isTiled != null) target._tiledNotifier.value = isTiled;
+          }
         }
       }
     });
+  }
+
+  void _init() async {
+    if (kIsWeb) return;
+    final args = <String, Object>{'viewId': viewId};
     try {
-      final bool? isMax = await _channel.invokeMethod<bool>('isMaximized');
+      final bool? isMax = await _channel.invokeMethod<bool>('isMaximized', args);
       if (isMax != null) {
         _maximizedNotifier.value = isMax;
       }
-      final bool? tiled = await _channel.invokeMethod<bool>('isTiled');
+      final bool? tiled = await _channel.invokeMethod<bool>('isTiled', args);
       if (tiled != null) {
         _tiledNotifier.value = tiled;
       }
-      final bool? active = await _channel.invokeMethod<bool>('isActive');
+      final bool? active = await _channel.invokeMethod<bool>('isActive', args);
       if (active != null) {
         _activeNotifier.value = active;
       }
@@ -99,33 +150,40 @@ class AdwNativeWindowController implements AdwWindowController {
 
   @override
   void close() {
+    if (onCloseOverride != null) {
+      onCloseOverride!();
+      return;
+    }
     if (kIsWeb) return;
-    _channel.invokeMethod('close').catchError((_) {});
+    _channel.invokeMethod('close', <String, Object>{'viewId': viewId}).catchError((_) {});
   }
 
   @override
   void minimize() {
     if (kIsWeb) return;
-    _channel.invokeMethod('minimize').catchError((_) {});
+    _channel.invokeMethod('minimize', <String, Object>{'viewId': viewId}).catchError((_) {});
   }
 
   @override
   void maximize() {
     if (kIsWeb) return;
     _maximizedNotifier.value = !_maximizedNotifier.value;
-    _channel.invokeMethod('maximize').catchError((_) {});
+    _channel.invokeMethod('maximize', <String, Object>{'viewId': viewId}).catchError((_) {});
   }
 
   @override
   void startDragging() {
     if (kIsWeb) return;
-    _channel.invokeMethod('startDragging').catchError((_) {});
+    _channel.invokeMethod('startDragging', <String, Object>{'viewId': viewId}).catchError((_) {});
   }
 
   @override
   void beginResizeDrag(AdwWindowEdge edge) {
     if (kIsWeb) return;
-    _channel.invokeMethod('beginResizeDrag', {'edge': edge.name}).catchError((_) {});
+    _channel.invokeMethod('beginResizeDrag', <String, Object>{
+      'edge': edge.name,
+      'viewId': viewId,
+    }).catchError((_) {});
   }
 }
 

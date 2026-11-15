@@ -292,6 +292,8 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   bool _isDragging = false;
   bool _isSystemPredictiveBack = false;
   bool _isAnimatingOut = false;
+  bool _hasActiveUserGesture = false;
+  int _gestureEpoch = 0;
   double _trackpadAccumulatedDx = 0.0;
   bool _trackpadActive = false;
   VelocityTracker? _trackpadVelocityTracker;
@@ -304,6 +306,18 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   @override
   void dispose() {
+    if (_hasActiveUserGesture) {
+      final nav = widget.route.navigator;
+      _hasActiveUserGesture = false;
+      widget.route._interactiveGestureNotifier.value = false;
+      if (nav != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (nav.mounted) {
+            nav.didStopUserGesture();
+          }
+        });
+      }
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -324,13 +338,31 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     return widget.route.controller;
   }
 
-  void _startGesture() {
-    if (_isDragging) return;
-    _isDragging = true;
+  void _beginUserGesture() {
+    if (!_hasActiveUserGesture) {
+      _hasActiveUserGesture = true;
+      widget.route.navigator?.didStartUserGesture();
+    }
     widget.route._interactiveGestureNotifier.value = true;
-    widget.route.navigator?.didStartUserGesture();
     // ignore: invalid_use_of_protected_member
     widget.route.changedInternalState();
+  }
+
+  void _finishUserGesture(NavigatorState? nav) {
+    widget.route._interactiveGestureNotifier.value = false;
+    if (_hasActiveUserGesture) {
+      _hasActiveUserGesture = false;
+      nav?.didStopUserGesture();
+    }
+    // ignore: invalid_use_of_protected_member
+    widget.route.changedInternalState();
+  }
+
+  void _startGesture() {
+    if (_isDragging) return;
+    _gestureEpoch++;
+    _isDragging = true;
+    _beginUserGesture();
   }
 
   void _updateGestureDelta(double dx, double viewportWidth) {
@@ -347,10 +379,11 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     _isDragging = false;
 
     if (controller == null || nav == null) {
-      nav?.didStopUserGesture();
+      _finishUserGesture(nav);
       return;
     }
 
+    final int gestureToken = _gestureEpoch;
     final double normalizedVelocity = viewportWidth > 0
         ? -(velocityPxPerSec / viewportWidth).clamp(-3.5, 3.5)
         : 0.0;
@@ -366,11 +399,9 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
         velocity: normalizedVelocity,
       );
       controller.animateWith(sim).whenComplete(() {
-        widget.route._interactiveGestureNotifier.value = false;
-        nav.didStopUserGesture();
-        // ignore: invalid_use_of_protected_member
-        widget.route.changedInternalState();
-        if (mounted && widget.route.isCurrent) {
+        if (!mounted || _gestureEpoch != gestureToken) return;
+        _finishUserGesture(nav);
+        if (widget.route.isCurrent) {
           widget.route._skipReverseOnSpringPop = true;
           nav.pop();
         }
@@ -383,10 +414,11 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
         velocity: normalizedVelocity,
       );
       controller.animateWith(sim).whenComplete(() {
-        widget.route._interactiveGestureNotifier.value = false;
-        nav.didStopUserGesture();
-        // ignore: invalid_use_of_protected_member
-        widget.route.changedInternalState();
+        if (!mounted || _gestureEpoch != gestureToken) return;
+        if (!_isDragging && controller.value != 1.0) {
+          controller.value = 1.0;
+        }
+        _finishUserGesture(nav);
       });
     }
   }
@@ -438,6 +470,16 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   static const double _trackpadMinDistance = 480.0;
 
   void _handlePointerPanZoomStart(PointerPanZoomStartEvent event) {
+    if (_trackpadActive) {
+      final tracker = _trackpadVelocityTracker;
+      _trackpadActive = false;
+      _trackpadVelocityTracker = null;
+      final double effectiveDistance =
+          math.max(context.size?.width ?? 400.0, _trackpadMinDistance);
+      final double velocityDx =
+          tracker?.getVelocity().pixelsPerSecond.dx ?? 0.0;
+      _endGesture(velocityDx, effectiveDistance);
+    }
     if (!_canInteractivePop) return;
     _trackpadAccumulatedDx = 0.0;
     _trackpadActive = false;
@@ -512,7 +554,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
             (HorizontalDragGestureRecognizer instance) {
               instance
                 ..onStart = (details) {
-                  if (!_canInteractivePop) return;
+                  if (_isDragging || !_canInteractivePop) return;
                   if (widget.edgeOnly &&
                       details.localPosition.dx > widget.edgeWidth) {
                     return;

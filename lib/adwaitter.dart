@@ -38,6 +38,7 @@ export 'src/widgets/containers/adw_status_page.dart';
 export 'src/widgets/layout/adw_application.dart';
 export 'src/widgets/layout/adw_clamp.dart';
 export 'src/widgets/layout/adw_header_bar.dart';
+export 'src/widgets/layout/adw_sub_window.dart';
 export 'src/widgets/layout/adw_toolbar_view.dart';
 export 'src/widgets/layout/adw_window.dart';
 export 'src/widgets/layout/adw_window_controls.dart';
@@ -51,6 +52,7 @@ export 'src/widgets/navigation/adw_navigation_transition.dart';
 export 'src/widgets/navigation/adw_navigation_view.dart';
 export 'src/widgets/navigation/adw_overlay_split_view.dart';
 export 'src/widgets/navigation/adw_sidebar_item.dart';
+export 'src/widgets/navigation/adw_tab_view.dart';
 export 'src/widgets/navigation/adw_view_switcher.dart';
 
 // Widgets: Overlays

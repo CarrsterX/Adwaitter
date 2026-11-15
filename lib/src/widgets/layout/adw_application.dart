@@ -6,6 +6,8 @@ import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_style_manager.dart';
 import '../../theme/adw_theme.dart';
 import '../navigation/adw_navigation_transition.dart';
+import 'adw_sub_window.dart';
+import 'adw_window.dart';
 
 /// Root application widget for applications built with Libadwaitter.
 ///
@@ -51,6 +53,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
+    AdwSubWindowManager.ensureInitialized();
     WidgetsBinding.instance.addObserver(this);
     AdwDesktopSettings.initialize();
     AdwStyleManager.initialize();
@@ -151,8 +154,106 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
               ),
             );
 
-            return themedChild;
+            return ListenableBuilder(
+              listenable: AdwSubWindowManager.instance,
+              builder: (context, appSubtree) {
+                final handles = AdwSubWindowManager.instance.windows;
+                final subViews = handles.map((handle) {
+                  return AdwSubWindowManager.buildWindowView(
+                    handle: handle,
+                    child: _AdwSubWindowHost(
+                      handle: handle,
+                      theme: defaultTheme,
+                      animSettings: animSettings,
+                      accentColor: effectiveAccent.color,
+                      scrollBehavior:
+                          widget.scrollBehavior ?? const AdwScrollBehavior(),
+                    ),
+                  );
+                }).toList();
+
+                return ViewAnchor(
+                  view: subViews.isEmpty
+                      ? null
+                      : ViewCollection(views: subViews),
+                  child: appSubtree!,
+                );
+              },
+              child: themedChild,
+            );
           },
+        );
+      },
+    );
+  }
+}
+
+class _AdwSubWindowHost extends StatelessWidget {
+  final AdwSubWindowHandle handle;
+  final AdwThemeData theme;
+  final AdwAnimationSettings animSettings;
+  final Color accentColor;
+  final ScrollBehavior scrollBehavior;
+
+  const _AdwSubWindowHost({
+    required this.handle,
+    required this.theme,
+    required this.animSettings,
+    required this.accentColor,
+    required this.scrollBehavior,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return WidgetsApp(
+      title: handle.title,
+      color: accentColor,
+      debugShowCheckedModeBanner: false,
+      pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) {
+        return AdwNavigationPageRoute<T>(
+          settings: settings,
+          builder: builder,
+        );
+      },
+      home: Builder(
+        builder: (innerContext) => AdwWindow(
+          controller: handle.adwController,
+          child: handle.builder(innerContext, handle),
+        ),
+      ),
+      builder: (context, child) {
+        final clippedNavigator = ValueListenableBuilder<BorderRadius>(
+          valueListenable: handle.borderRadiusNotifier,
+          builder: (context, radius, navChild) {
+            if (radius == BorderRadius.zero) {
+              return navChild ?? const SizedBox.shrink();
+            }
+            return ClipRRect(
+              borderRadius: radius,
+              clipBehavior: Clip.antiAlias,
+              child: navChild,
+            );
+          },
+          child: child ?? const SizedBox.shrink(),
+        );
+
+        final content = DefaultTextStyle(
+          style: theme.typography.body,
+          child: clippedNavigator,
+        );
+
+        return AdwTheme(
+          data: theme,
+          child: AdwAnimationScope(
+            settings: animSettings,
+            child: AdwWindowShapeScope(
+              borderRadiusNotifier: handle.borderRadiusNotifier,
+              child: ScrollConfiguration(
+                behavior: scrollBehavior,
+                child: content,
+              ),
+            ),
+          ),
         );
       },
     );
