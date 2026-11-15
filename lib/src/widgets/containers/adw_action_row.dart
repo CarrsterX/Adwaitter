@@ -104,20 +104,14 @@ class _AdwActionRowState extends State<AdwActionRow> {
                   DefaultTextStyle(
                     style: widget.isProperty
                         ? theme.typography.subtitle
-                        : theme.typography.body.copyWith(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.normal,
-                          ),
+                        : theme.typography.body,
                     child: widget.title,
                   ),
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 2),
                     DefaultTextStyle(
                       style: widget.isProperty
-                          ? theme.typography.body.copyWith(
-                              fontSize: 14.0,
-                              fontWeight: FontWeight.normal,
-                            )
+                          ? theme.typography.body
                           : theme.typography.subtitle,
                       child: widget.subtitle!,
                     ),

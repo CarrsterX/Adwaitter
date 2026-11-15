@@ -85,6 +85,40 @@ class AdwNativeWindowController implements AdwWindowController {
     } catch (_) {}
   }
 
+  static Future<({int windowHandle, int viewHandle, int viewId})?>
+      getWindowHandles({int viewId = 0}) async {
+    if (kIsWeb) return null;
+    try {
+      final result = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'getWindowHandles',
+        <String, Object>{'viewId': viewId},
+      );
+      if (result == null) return null;
+      final windowHandle = result['windowHandle'] as int?;
+      final viewHandle = result['viewHandle'] as int?;
+      final resolvedViewId = (result['viewId'] as int?) ?? viewId;
+      if (windowHandle == null || viewHandle == null || windowHandle == 0 || viewHandle == 0) {
+        return null;
+      }
+      return (
+        windowHandle: windowHandle,
+        viewHandle: viewHandle,
+        viewId: resolvedViewId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> attachPopupWindow({required int windowHandle}) async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod('attachPopupWindow', <String, Object>{
+        'windowHandle': windowHandle,
+      });
+    } catch (_) {}
+  }
+
   static void _ensureChannelHandler() {
     if (kIsWeb || _handlerRegistered) return;
     _handlerRegistered = true;

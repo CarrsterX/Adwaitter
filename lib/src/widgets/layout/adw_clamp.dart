@@ -32,6 +32,7 @@ class AdwClamp extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: minimumMargin),
             child: Align(
               alignment: Alignment.topCenter,
+              heightFactor: 1.0,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maximumSize),
                 child: child,
@@ -61,6 +62,7 @@ class AdwClamp extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: sideMargin),
           child: Align(
             alignment: Alignment.topCenter,
+            heightFactor: 1.0,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: contentMaxWidth),
               child: child,

@@ -55,8 +55,8 @@ class AdwDialogScope extends InheritedWidget {
 ///   non-resizable floating sheet (`AdwFloatingSheet`).
 /// - On narrow/mobile windows (`width <= 450` or `height <= 360`),
 ///   automatically transitions to a full-width bottom sheet (`AdwBottomSheet`)
-///   with top rounded corners, drag handle pill, and swipe-down dismissal.
-class AdwDialog extends StatefulWidget {
+///   with top rounded corners.
+class AdwDialog extends StatelessWidget {
   /// Preferred content width in logical pixels (defaults to `360`).
   final double contentWidth;
 
@@ -66,7 +66,7 @@ class AdwDialog extends StatefulWidget {
   /// Optional accessible/window title for the dialog.
   final String? title;
 
-  /// Whether pressing Escape or clicking outside/swiping down closes it.
+  /// Whether pressing Escape or clicking outside closes it.
   final bool canClose;
 
   /// Presentation mode (`auto`, `floating`, or `bottomSheet`).
@@ -86,35 +86,6 @@ class AdwDialog extends StatefulWidget {
   });
 
   @override
-  State<AdwDialog> createState() => _AdwDialogState();
-}
-
-class _AdwDialogState extends State<AdwDialog> {
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    if (!widget.canClose) return;
-    setState(() {
-      _isDragging = true;
-      _dragOffset = math.max(0.0, _dragOffset + details.delta.dy);
-    });
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    if (!_isDragging) return;
-    final velocity = details.primaryVelocity ?? 0.0;
-    if (_dragOffset >= 80.0 || velocity >= 400.0) {
-      Navigator.of(context).maybePop();
-    } else {
-      setState(() {
-        _isDragging = false;
-        _dragOffset = 0.0;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
@@ -123,7 +94,7 @@ class _AdwDialogState extends State<AdwDialog> {
       builder: (context, constraints) {
         final isNarrow =
             constraints.maxWidth <= 450.0 || constraints.maxHeight <= 360.0;
-        final isBottomSheet = switch (widget.presentationMode) {
+        final isBottomSheet = switch (presentationMode) {
           AdwDialogPresentationMode.auto => isNarrow,
           AdwDialogPresentationMode.bottomSheet => true,
           AdwDialogPresentationMode.floating => false,
@@ -137,8 +108,8 @@ class _AdwDialogState extends State<AdwDialog> {
 
         final maxFloatingWidth = math.max(240.0, constraints.maxWidth - 32.0);
         final effectiveWidth = isBottomSheet
-            ? math.min(widget.contentWidth, constraints.maxWidth)
-            : math.min(widget.contentWidth, maxFloatingWidth);
+            ? math.min(contentWidth, constraints.maxWidth)
+            : math.min(contentWidth, maxFloatingWidth);
 
         final topPadding = isBottomSheet
             ? 30.0 +
@@ -146,8 +117,8 @@ class _AdwDialogState extends State<AdwDialog> {
             : 32.0;
         final maxAvailableHeight =
             math.max(120.0, constraints.maxHeight - topPadding);
-        final effectiveHeight = widget.contentHeight != null
-            ? math.min(widget.contentHeight!, maxAvailableHeight)
+        final effectiveHeight = contentHeight != null
+            ? math.min(contentHeight!, maxAvailableHeight)
             : null;
 
         final sheet = AnimatedContainer(
@@ -199,9 +170,9 @@ class _AdwDialogState extends State<AdwDialog> {
                 Positioned.fill(
                   child: AdwDialogScope(
                     close: () => Navigator.of(context).maybePop(),
-                    title: widget.title,
+                    title: title,
                     isBottomSheet: isBottomSheet,
-                    child: widget.child,
+                    child: child,
                   ),
                 ),
                 if (!isWindowActive)
@@ -237,7 +208,7 @@ class _AdwDialogState extends State<AdwDialog> {
         if (isBottomSheet) {
           return Stack(
             children: [
-              if (widget.canClose)
+              if (canClose)
                 Positioned.fill(
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
@@ -285,19 +256,7 @@ class _AdwDialogState extends State<AdwDialog> {
                   },
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onVerticalDragUpdate: _handleDragUpdate,
-                      onVerticalDragEnd: _handleDragEnd,
-                      child: AnimatedContainer(
-                        duration: _isDragging
-                            ? Duration.zero
-                            : AdwCurves.normalDuration,
-                        curve: AdwCurves.standard,
-                        transform: Matrix4.translationValues(0, _dragOffset, 0),
-                        child: sizedSheet,
-                      ),
-                    ),
+                    child: sizedSheet,
                   ),
                 ),
               ),

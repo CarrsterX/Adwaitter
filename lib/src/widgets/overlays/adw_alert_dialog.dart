@@ -69,9 +69,7 @@ class AdwAlertDialog extends StatelessWidget {
                     if (body != null) ...[
                       const SizedBox(height: 8),
                       DefaultTextStyle(
-                        style: theme.typography.body.copyWith(
-                          color: theme.colors.secondaryForeground,
-                        ),
+                        style: theme.typography.body,
                         textAlign: TextAlign.center,
                         child: body!,
                       ),

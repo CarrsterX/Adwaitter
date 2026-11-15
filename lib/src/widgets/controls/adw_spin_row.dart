@@ -121,10 +121,7 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DefaultTextStyle(
-                        style: theme.typography.body.copyWith(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.normal,
-                        ),
+                        style: theme.typography.body,
                         child: widget.title,
                       ),
                       if (widget.subtitle != null) ...[
@@ -147,8 +144,6 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
                       displayText,
                       textAlign: TextAlign.right,
                       style: theme.typography.body.copyWith(
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.normal,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),

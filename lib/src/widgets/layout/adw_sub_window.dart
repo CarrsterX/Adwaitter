@@ -1,57 +1,85 @@
-// ignore_for_file: invalid_use_of_internal_member, implementation_imports
+// ignore_for_file: invalid_use_of_internal_member, invalid_use_of_protected_member, implementation_imports
 
+import 'dart:ffi' as ffi;
 import 'dart:io' show Platform;
+import 'dart:ui' show Display, FlutterView;
 
-import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, ValueListenable, kIsWeb;
 import 'package:flutter/src/foundation/_features.dart' as flutter_features;
 import 'package:flutter/src/widgets/_window.dart';
 import 'package:flutter/src/widgets/_window_linux.dart';
 import 'package:flutter/widgets.dart';
 
+import '../navigation/adw_navigation_transition.dart';
 import 'adw_window.dart';
 
-/// Builder signature for content hosted inside a native secondary [AdwWindow].
+/// Builder signature for content hosted inside a native secondary [AdwWindow]
+/// or fallback additional screen on non-Linux platforms.
 typedef AdwSubWindowBuilder = Widget Function(
   BuildContext context,
   AdwSubWindowHandle window,
 );
 
-/// Active handle to a native secondary window managed by [AdwSubWindowManager].
+/// Active handle to a secondary window (native on Linux, or an additional
+/// pushed screen on non-Linux platforms) managed by [AdwSubWindowManager].
 class AdwSubWindowHandle {
-  final WindowController windowController;
-  final AdwNativeWindowController adwController;
+  final WindowController? windowController;
+  final AdwWindowController adwController;
   final ValueNotifier<BorderRadius> borderRadiusNotifier =
       ValueNotifier<BorderRadius>(BorderRadius.zero);
   final AdwSubWindowBuilder builder;
   final VoidCallback? onClosed;
+  final int _fallbackViewId;
+  Route<void>? _fallbackRoute;
   bool _isClosed = false;
 
   AdwSubWindowHandle._({
     required this.windowController,
     required this.adwController,
     required this.builder,
+    required int fallbackViewId,
     this.onClosed,
-  });
+  }) : _fallbackViewId = fallbackViewId;
 
-  int get viewId => windowController.rootView.viewId;
+  bool get isNativeWindow => windowController != null;
 
-  String get title => windowController.title;
+  int get viewId => windowController?.rootView.viewId ?? _fallbackViewId;
+
+  String get title => windowController?.title ?? '';
 
   void setTitle(String title) {
-    if (!_isClosed && !windowController.isDestroyed) {
-      windowController.setTitle(title);
+    if (!_isClosed &&
+        windowController != null &&
+        !windowController!.isDestroyed) {
+      windowController!.setTitle(title);
     }
   }
 
   void activate() {
-    if (!_isClosed && !windowController.isDestroyed) {
-      windowController.activate();
+    if (!_isClosed &&
+        windowController != null &&
+        !windowController!.isDestroyed) {
+      windowController!.activate();
     }
   }
 
   void close() {
     AdwSubWindowManager.instance.closeWindow(this);
   }
+}
+
+/// Entry for a native floating popup window managed by [AdwSubWindowManager].
+class AdwPopupWindowEntry {
+  final PopupWindowController controller;
+  final Widget child;
+  final VoidCallback onDismiss;
+
+  AdwPopupWindowEntry({
+    required this.controller,
+    required this.child,
+    required this.onDismiss,
+  });
 }
 
 class _AdwSubWindowDelegate with WindowControllerDelegate {
@@ -70,32 +98,195 @@ class _AdwSubWindowDelegate with WindowControllerDelegate {
   }
 }
 
-/// Manages native secondary desktop windows using Flutter's multi-window engine
-/// (`WindowController` / `Window` / `ViewCollection`) paired with Libadwaitter's
-/// CSD pipeline (`AdwWindow`, `AdwNativeWindowController`).
+class _RootWindowController extends WindowController {
+  _RootWindowController(FlutterView view) : super.empty() {
+    rootView = view;
+  }
+
+  @override
+  void activate() {}
+
+  @override
+  Size get contentSize =>
+      rootView.physicalSize / rootView.devicePixelRatio;
+
+  @override
+  void destroy() {}
+
+  @override
+  bool get isActivated => true;
+
+  @override
+  bool get isDestroyed => false;
+
+  @override
+  bool get isFullscreen => false;
+
+  @override
+  bool get isMaximized => false;
+
+  @override
+  bool get isMinimized => false;
+
+  @override
+  void setConstraints(BoxConstraints constraints) {}
+
+  @override
+  void setFullscreen(bool fullscreen, {Display? display}) {}
+
+  @override
+  void setMaximized(bool maximized) {}
+
+  @override
+  void setMinimized(bool minimized) {}
+
+  @override
+  void setSize(Size size) {}
+
+  @override
+  void setTitle(String title) {}
+
+  @override
+  String get title => '';
+}
+
+class _ScreenWindowController implements AdwWindowController {
+  final VoidCallback onClose;
+
+  _ScreenWindowController({required this.onClose});
+
+  @override
+  bool get isMaximized => true;
+
+  @override
+  bool get isTiled => false;
+
+  @override
+  bool get isActive => true;
+
+  @override
+  ValueListenable<bool>? get activeListenable => null;
+
+  @override
+  Listenable? get windowStateListenable => null;
+
+  @override
+  void close() => onClose();
+
+  @override
+  void minimize() {}
+
+  @override
+  void maximize() {}
+
+  @override
+  void startDragging() {}
+
+  @override
+  void beginResizeDrag(AdwWindowEdge edge) {}
+}
+
+/// Manages native secondary desktop windows and popup windows on Linux using
+/// Flutter's multi-window engine (`WindowController` / `PopupWindowController`
+/// / `ViewCollection`), and automatically falls back to additional in-app
+/// screens (`AdwNavigationPageRoute`) on non-Linux platforms.
 class AdwSubWindowManager extends ChangeNotifier {
   AdwSubWindowManager._();
 
   static final AdwSubWindowManager instance = AdwSubWindowManager._();
 
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   final List<AdwSubWindowHandle> _windows = <AdwSubWindowHandle>[];
+  final List<AdwPopupWindowEntry> _popups = <AdwPopupWindowEntry>[];
+
+  int _nextFallbackViewId = -1;
+  _RootWindowController? _rootWindowController;
+  Future<bool>? _rootRegistrationFuture;
+  bool _rootWindowRegistered = false;
+  static bool _nativeWindowingUnavailable = false;
 
   List<AdwSubWindowHandle> get windows =>
       List<AdwSubWindowHandle>.unmodifiable(_windows);
 
-  /// Ensures Flutter's native windowing subsystem is enabled.
+  List<AdwPopupWindowEntry> get popups =>
+      List<AdwPopupWindowEntry>.unmodifiable(_popups);
+
+  bool get isRootWindowRegistered => _rootWindowRegistered;
+
+  static bool get isNativeLinuxWindowingSupported =>
+      !_nativeWindowingUnavailable &&
+      !kIsWeb &&
+      Platform.isLinux &&
+      WidgetsBinding.instance.platformDispatcher.engineId != null;
+
+  /// Ensures Flutter's native windowing subsystem is enabled on Linux.
   static void ensureInitialized() {
+    if (!isNativeLinuxWindowingSupported) return;
     flutter_features.isWindowingEnabled = true;
     final binding = WidgetsBinding.instance;
-    if (!kIsWeb &&
-        Platform.isLinux &&
-        binding.windowingOwner is! WindowingOwnerLinux) {
+    if (binding.windowingOwner is! WindowingOwnerLinux) {
       binding.windowingOwner = createDefaultWindowingOwner();
+    }
+    instance._ensureRootController();
+    instance.ensureRootWindowRegistered();
+  }
+
+  void _ensureRootController() {
+    final implicitView = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (implicitView != null && _rootWindowController == null) {
+      _rootWindowController = _RootWindowController(implicitView);
     }
   }
 
-  /// Opens a new native top-level secondary [AdwWindow] sharing the current
-  /// Dart isolate and theme state.
+  /// Ensures the primary Linux GTK window (`viewId == 0`) is registered in
+  /// `WindowingOwnerLinux.registrar` so `PopupWindowController` can anchor to it.
+  Future<bool> ensureRootWindowRegistered() async {
+    if (!isNativeLinuxWindowingSupported) return false;
+    if (_rootWindowRegistered) return true;
+    if (_rootRegistrationFuture != null) {
+      return _rootRegistrationFuture!;
+    }
+    _rootRegistrationFuture = () async {
+      final handles = await AdwNativeWindowController.getWindowHandles(viewId: 0);
+      if (handles == null) return false;
+      final owner = WidgetsBinding.instance.windowingOwner;
+      if (owner is! WindowingOwnerLinux) return false;
+      final winPtr = ffi.Pointer<ffi.Void>.fromAddress(handles.windowHandle);
+      final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(handles.viewHandle);
+      owner.registrar.register(
+        viewId: 0,
+        windowHandle: winPtr,
+        viewHandle: viewPtr,
+      );
+      final implicitViewId =
+          WidgetsBinding.instance.platformDispatcher.implicitView?.viewId;
+      if (implicitViewId != null && implicitViewId != 0) {
+        owner.registrar.register(
+          viewId: implicitViewId,
+          windowHandle: winPtr,
+          viewHandle: viewPtr,
+        );
+      }
+      _rootWindowRegistered = true;
+      return true;
+    }();
+    final result = await _rootRegistrationFuture!;
+    if (!result) {
+      _rootRegistrationFuture = null;
+    }
+    return result;
+  }
+
+  /// Resolves the [BaseWindowController] for the window containing [context].
+  BaseWindowController? resolveParentController(BuildContext context) {
+    if (!isNativeLinuxWindowingSupported) return null;
+    ensureInitialized();
+    return WindowScope.maybeOf(context) ?? _rootWindowController;
+  }
+
+  /// Opens a secondary [AdwWindow]. On Linux this creates a native OS window;
+  /// on non-Linux platforms (or when native windowing is unavailable) it pushes
+  /// an additional full screen onto the app's root navigator.
   AdwSubWindowHandle openWindow({
     Size size = const Size(800, 600),
     BoxConstraints? constraints = const BoxConstraints(
@@ -104,77 +295,154 @@ class AdwSubWindowManager extends ChangeNotifier {
     ),
     String title = '',
     int? parentViewId = 0,
+    BuildContext? context,
     required AdwSubWindowBuilder builder,
     VoidCallback? onClosed,
   }) {
-    ensureInitialized();
+    if (isNativeLinuxWindowingSupported) {
+      try {
+        ensureInitialized();
 
-    late final AdwSubWindowHandle handle;
-    final delegate = _AdwSubWindowDelegate(
-      onDestroyedCallback: () {
-        closeWindow(handle);
-      },
-    );
+        late final AdwSubWindowHandle handle;
+        final delegate = _AdwSubWindowDelegate(
+          onDestroyedCallback: () {
+            closeWindow(handle);
+          },
+        );
 
-    final WindowController controller;
-    if (!kIsWeb && Platform.isLinux) {
-      final owner =
-          WidgetsBinding.instance.windowingOwner as WindowingOwnerLinux;
-      final linuxController = WindowControllerLinux(
-        owner: owner,
-        delegate: delegate,
-        size: size,
-        constraints: constraints,
-        title: title,
-        decorated: false,
-      );
-      linuxController.setAppPaintable(true);
-      linuxController.setBackgroundColor(const Color(0x00000000));
-      AdwNativeWindowController.attachSubWindow(
-        windowHandle: linuxController.windowHandle.address,
-        viewHandle: linuxController.flutterViewHandle.address,
-        viewId: linuxController.rootView.viewId,
-        parentViewId: parentViewId,
-      );
-      controller = linuxController;
-    } else {
-      controller = WindowController(
-        size: size,
-        constraints: constraints,
-        title: title,
-        delegate: delegate,
-      );
+        final owner =
+            WidgetsBinding.instance.windowingOwner as WindowingOwnerLinux;
+        final linuxController = WindowControllerLinux(
+          owner: owner,
+          delegate: delegate,
+          size: size,
+          constraints: constraints,
+          title: title,
+          decorated: false,
+        );
+        owner.registrar.register(
+          viewId: linuxController.rootView.viewId,
+          windowHandle: linuxController.windowHandle.cast(),
+          viewHandle: linuxController.flutterViewHandle.cast(),
+        );
+        linuxController.setAppPaintable(true);
+        linuxController.setBackgroundColor(const Color(0x00000000));
+        AdwNativeWindowController.attachSubWindow(
+          windowHandle: linuxController.windowHandle.address,
+          viewHandle: linuxController.flutterViewHandle.address,
+          viewId: linuxController.rootView.viewId,
+          parentViewId: parentViewId,
+        );
+
+        final adwController = AdwNativeWindowController(
+          viewId: linuxController.rootView.viewId,
+          onCloseOverride: () => closeWindow(handle),
+        );
+
+        handle = AdwSubWindowHandle._(
+          windowController: linuxController,
+          adwController: adwController,
+          fallbackViewId: linuxController.rootView.viewId,
+          builder: builder,
+          onClosed: onClosed,
+        );
+
+        _windows.add(handle);
+        notifyListeners();
+        return handle;
+      } catch (_) {
+        _nativeWindowingUnavailable = true;
+      }
     }
 
-    final adwController = AdwNativeWindowController(
-      viewId: controller.rootView.viewId,
-      onCloseOverride: () => closeWindow(handle),
+    // Non-Linux / fallback: present the secondary window as an additional screen.
+    late final AdwSubWindowHandle handle;
+    final fallbackId = _nextFallbackViewId--;
+    final screenController = _ScreenWindowController(
+      onClose: () => closeWindow(handle),
     );
-
     handle = AdwSubWindowHandle._(
-      windowController: controller,
-      adwController: adwController,
+      windowController: null,
+      adwController: screenController,
+      fallbackViewId: fallbackId,
       builder: builder,
       onClosed: onClosed,
     );
 
-    _windows.add(handle);
-    notifyListeners();
+    final nav = navigatorKey.currentState ??
+        (context != null ? Navigator.maybeOf(context, rootNavigator: true) : null);
+    if (nav != null) {
+      final route = AdwNavigationPageRoute<void>(
+        builder: (routeContext) => AdwWindow(
+          controller: handle.adwController,
+          showShadow: false,
+          showBorder: false,
+          child: handle.builder(routeContext, handle),
+        ),
+      );
+      handle._fallbackRoute = route;
+      _windows.add(handle);
+      nav.push(route).whenComplete(() {
+        if (!handle._isClosed) {
+          handle._isClosed = true;
+          _windows.remove(handle);
+          handle.borderRadiusNotifier.dispose();
+          handle.onClosed?.call();
+          notifyListeners();
+        }
+      });
+    } else {
+      _windows.add(handle);
+      notifyListeners();
+    }
+
     return handle;
   }
 
-  /// Closes and destroys an active secondary window.
+  /// Closes and destroys an active secondary window or pops its fallback screen.
   void closeWindow(AdwSubWindowHandle handle) {
     if (handle._isClosed) return;
     handle._isClosed = true;
     _windows.remove(handle);
-    handle.adwController.dispose();
+    final adwCtrl = handle.adwController;
+    if (adwCtrl is AdwNativeWindowController) {
+      adwCtrl.dispose();
+    }
     handle.borderRadiusNotifier.dispose();
-    if (!handle.windowController.isDestroyed) {
-      handle.windowController.destroy();
+    final winCtrl = handle.windowController;
+    if (winCtrl != null && !winCtrl.isDestroyed) {
+      winCtrl.destroy();
+    } else if (handle._fallbackRoute != null) {
+      final route = handle._fallbackRoute!;
+      handle._fallbackRoute = null;
+      if (route.isActive) {
+        route.navigator?.removeRoute(route);
+      }
     }
     handle.onClosed?.call();
     notifyListeners();
+  }
+
+  /// Registers a floating native [PopupWindow] entry to be rendered in [AdwApplication].
+  void registerPopup(AdwPopupWindowEntry entry) {
+    _popups.add(entry);
+    notifyListeners();
+  }
+
+  /// Unregisters a floating native [PopupWindow] entry.
+  void unregisterPopup(AdwPopupWindowEntry entry) {
+    if (_popups.remove(entry)) {
+      notifyListeners();
+    }
+  }
+
+  /// Dismisses all active native floating popups.
+  void dismissAllPopups() {
+    if (_popups.isEmpty) return;
+    final copy = List<AdwPopupWindowEntry>.from(_popups);
+    for (final entry in copy) {
+      entry.onDismiss();
+    }
   }
 
   /// Builds the [Window] view widget for a [handle] to be placed inside a
@@ -186,7 +454,21 @@ class AdwSubWindowManager extends ChangeNotifier {
     ensureInitialized();
     return Window(
       key: ValueKey<int>(handle.viewId),
-      controller: handle.windowController,
+      controller: handle.windowController!,
+      child: child,
+    );
+  }
+
+  /// Builds the [PopupWindow] view widget for a [popup] entry to be placed
+  /// inside a [ViewCollection].
+  static Widget buildPopupView({
+    required AdwPopupWindowEntry entry,
+    required Widget child,
+  }) {
+    ensureInitialized();
+    return PopupWindow(
+      key: ValueKey<int>(entry.controller.rootView.viewId),
+      controller: entry.controller,
       child: child,
     );
   }

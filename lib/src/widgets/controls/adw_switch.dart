@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -29,6 +30,7 @@ class AdwSwitch extends StatefulWidget {
 class _AdwSwitchState extends State<AdwSwitch> {
   bool _isHovered = false;
   bool _isPressed = false;
+  double? _dragProgress;
 
   bool get _isEnabled => widget.onChanged != null;
 
@@ -42,6 +44,8 @@ class _AdwSwitchState extends State<AdwSwitch> {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final isDark = theme.colors.isDark;
+    final effectiveChecked =
+        _dragProgress != null ? _dragProgress! >= 0.5 : widget.value;
 
     // Upstream Libadwaita CSS:
     // switch { border-radius: 14px; padding: 3px; background-color: color-mix(in srgb, currentColor 15%, transparent); }
@@ -53,7 +57,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
     // switch > slider: background-color: color-mix(in srgb, white 80%, var(--view-bg-color));
 
     Color trackColor;
-    if (widget.value) {
+    if (effectiveChecked) {
       trackColor = theme.colors.accentColor;
       if (_isPressed && _isEnabled) {
         trackColor = Color.lerp(trackColor, const Color(0xFF000000), 0.15)!;
@@ -85,7 +89,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
     }
 
     Color sliderColor;
-    if (widget.value || _isHovered || _isPressed || !isDark) {
+    if (effectiveChecked || _isHovered || _isPressed || !isDark) {
       sliderColor = const Color(0xFFFFFFFF);
     } else {
       // 80% white + 20% view-bg-color (#1D1D20)
@@ -100,12 +104,17 @@ class _AdwSwitchState extends State<AdwSwitch> {
     const double switchHeight = AdwMetrics.switchHeight; // 26.0
     const double sliderSize = 20.0;
     const double sliderPadding = 3.0;
+    const double travelDistance =
+        switchWidth - sliderSize - (sliderPadding * 2); // 20.0
 
-    final double sliderLeft = widget.value
-        ? switchWidth - sliderSize - sliderPadding // 23.0
-        : sliderPadding; // 3.0
+    final double sliderLeft = _dragProgress != null
+        ? sliderPadding + (_dragProgress! * travelDistance)
+        : (widget.value
+            ? switchWidth - sliderSize - sliderPadding // 23.0
+            : sliderPadding); // 3.0
 
-    final Duration duration = AdwCurves.resolve(context, AdwCurves.switchDuration);
+    final Duration duration =
+        AdwCurves.resolve(context, AdwCurves.switchDuration);
 
     return MouseRegion(
       cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -116,11 +125,22 @@ class _AdwSwitchState extends State<AdwSwitch> {
         if (_isEnabled) {
           setState(() {
             _isHovered = false;
-            _isPressed = false;
+            if (_dragProgress == null) {
+              _isPressed = false;
+            }
           });
         }
       },
       child: GestureDetector(
+        // Exclude PointerDeviceKind.trackpad: native GtkSwitch supports
+        // touch swipe and mouse click-and-hold drag, but never two-finger
+        // touchpad scroll gestures.
+        supportedDevices: const <PointerDeviceKind>{
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.invertedStylus,
+        },
         onTapDown: (_) {
           if (_isEnabled) setState(() => _isPressed = true);
         },
@@ -128,18 +148,49 @@ class _AdwSwitchState extends State<AdwSwitch> {
           if (_isEnabled) setState(() => _isPressed = false);
         },
         onTapCancel: () {
-          if (_isEnabled) setState(() => _isPressed = false);
+          if (_isEnabled && _dragProgress == null) {
+            setState(() => _isPressed = false);
+          }
         },
         onTap: _handleTap,
+        onHorizontalDragStart: (_) {
+          if (!_isEnabled) return;
+          setState(() {
+            _isPressed = true;
+            _dragProgress = widget.value ? 1.0 : 0.0;
+          });
+        },
+        onHorizontalDragUpdate: (details) {
+          if (!_isEnabled || _dragProgress == null) return;
+          final delta = details.primaryDelta ?? 0.0;
+          setState(() {
+            _dragProgress =
+                (_dragProgress! + delta / travelDistance).clamp(0.0, 1.0);
+          });
+        },
         onHorizontalDragEnd: (details) {
           if (!_isEnabled) return;
-          if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! > 50 && !widget.value) {
-              widget.onChanged!(true);
-            } else if (details.primaryVelocity! < -50 && widget.value) {
-              widget.onChanged!(false);
-            }
+          final velocity = details.primaryVelocity ?? 0.0;
+          final bool nextValue;
+          if (velocity.abs() > 50.0) {
+            nextValue = velocity > 0.0;
+          } else {
+            nextValue = (_dragProgress ?? (widget.value ? 1.0 : 0.0)) >= 0.5;
           }
+          setState(() {
+            _isPressed = false;
+            _dragProgress = null;
+          });
+          if (nextValue != widget.value) {
+            widget.onChanged!(nextValue);
+          }
+        },
+        onHorizontalDragCancel: () {
+          if (!_isEnabled) return;
+          setState(() {
+            _isPressed = false;
+            _dragProgress = null;
+          });
         },
         child: AnimatedContainer(
           duration: duration,
@@ -153,7 +204,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
           child: Stack(
             children: [
               AnimatedPositioned(
-                duration: duration,
+                duration: _dragProgress != null ? Duration.zero : duration,
                 curve: AdwCurves.standard,
                 left: sliderLeft,
                 top: sliderPadding,
@@ -165,11 +216,11 @@ class _AdwSwitchState extends State<AdwSwitch> {
                   decoration: BoxDecoration(
                     color: sliderColor,
                     shape: BoxShape.circle,
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: const Color(0x33000000), // 20% shadow opacity
+                        color: Color(0x33000000), // 20% shadow opacity
                         blurRadius: 4,
-                        offset: const Offset(0, 1),
+                        offset: Offset(0, 1),
                       ),
                     ],
                   ),

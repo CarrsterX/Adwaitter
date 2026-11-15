@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/adw_spring.dart';
 import '../../theme/adw_curves.dart';
+import 'adw_carousel.dart';
 import '../../theme/adw_theme.dart';
 
 /// Visual transition matching GNOME Libadwaita's `AdwNavigationView`.
@@ -296,6 +297,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   int _gestureEpoch = 0;
   double _trackpadAccumulatedDx = 0.0;
   bool _trackpadActive = false;
+  bool _trackpadBlockedByCarousel = false;
   VelocityTracker? _trackpadVelocityTracker;
 
   @override
@@ -480,7 +482,9 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
           tracker?.getVelocity().pixelsPerSecond.dx ?? 0.0;
       _endGesture(velocityDx, effectiveDistance);
     }
-    if (!_canInteractivePop) return;
+    _trackpadBlockedByCarousel =
+        AdwCarousel.shouldBlockParentSwipeBack(event.position);
+    if (_trackpadBlockedByCarousel || !_canInteractivePop) return;
     _trackpadAccumulatedDx = 0.0;
     _trackpadActive = false;
     _trackpadVelocityTracker =
@@ -489,6 +493,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   }
 
   void _handlePointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (_trackpadBlockedByCarousel) return;
     if (!_canInteractivePop && !_trackpadActive) return;
     _trackpadAccumulatedDx += event.panDelta.dx;
     _trackpadVelocityTracker?.addPosition(
@@ -514,6 +519,11 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   }
 
   void _handlePointerPanZoomEnd(PointerPanZoomEndEvent event) {
+    if (_trackpadBlockedByCarousel) {
+      _trackpadBlockedByCarousel = false;
+      _trackpadVelocityTracker = null;
+      return;
+    }
     final tracker = _trackpadVelocityTracker;
     _trackpadVelocityTracker = null;
     if (!_trackpadActive) return;
@@ -555,6 +565,10 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
               instance
                 ..onStart = (details) {
                   if (_isDragging || !_canInteractivePop) return;
+                  if (AdwCarousel.shouldBlockParentSwipeBack(
+                      details.globalPosition)) {
+                    return;
+                  }
                   if (widget.edgeOnly &&
                       details.localPosition.dx > widget.edgeWidth) {
                     return;

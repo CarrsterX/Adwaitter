@@ -47,6 +47,7 @@ export 'src/widgets/layout/adw_window_title.dart';
 // Widgets: Navigation
 export 'src/widgets/navigation/adw_carousel.dart';
 export 'src/widgets/navigation/adw_carousel_indicator_dots.dart';
+export 'src/widgets/navigation/adw_carousel_indicator_lines.dart';
 export 'src/widgets/navigation/adw_navigation_split_view.dart';
 export 'src/widgets/navigation/adw_navigation_transition.dart';
 export 'src/widgets/navigation/adw_navigation_view.dart';
@@ -59,7 +60,9 @@ export 'src/widgets/navigation/adw_view_switcher.dart';
 export 'src/widgets/overlays/adw_about_dialog.dart';
 export 'src/widgets/overlays/adw_alert_dialog.dart';
 export 'src/widgets/overlays/adw_banner.dart';
+export 'src/widgets/overlays/adw_bottom_sheet.dart';
 export 'src/widgets/overlays/adw_dialog.dart';
+export 'src/widgets/overlays/adw_popover.dart';
 export 'src/widgets/overlays/adw_toast.dart';
 
 // Widgets: Display

@@ -57,7 +57,7 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
     final effectiveFg = theme.colors.windowForeground;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 1.0),
+      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),

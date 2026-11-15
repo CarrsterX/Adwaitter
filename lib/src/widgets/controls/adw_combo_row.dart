@@ -1,12 +1,10 @@
-import 'dart:math' as math;
-
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../l10n/adw_localizations.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../overlays/adw_popover.dart';
 
 /// Preference row with a native GTK4/Libadwaita popover dropdown (`AdwComboRow`).
 ///
@@ -42,7 +40,7 @@ class AdwComboRow<T> extends StatefulWidget {
 
 class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
   final GlobalKey _chevronKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
+  AdwPopoverHandle? _popoverHandle;
   bool _isHovered = false;
   bool _isPressed = false;
 
@@ -53,8 +51,8 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
   }
 
   void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _popoverHandle?.dismiss();
+    _popoverHandle = null;
   }
 
   String _formatItem(T item) {
@@ -65,7 +63,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
   }
 
   void _showPopoverMenu(BuildContext context) {
-    if (_overlayEntry != null) {
+    if (_popoverHandle != null && _popoverHandle!.isOpen) {
       _removeOverlay();
       return;
     }
@@ -82,43 +80,74 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
     final Rect chevronRect = (chevronBox != null && chevronBox.hasSize)
         ? (chevronBox.localToGlobal(Offset.zero) & chevronBox.size)
         : Rect.fromCenter(
-            center: Offset(anchorRect.right - 19.0, anchorRect.center.dy),
-            width: 10,
-            height: 10,
+            center: Offset(anchorRect.right - 20.0, anchorRect.center.dy),
+            width: 16,
+            height: 16,
           );
 
-    final themeData = AdwTheme.maybeOf(context);
+    final theme = AdwTheme.of(context);
+    final textDirection = Directionality.of(context);
     final l10n = AdwLocalizations.of(context);
-    final overlay = Overlay.of(context, rootOverlay: true);
+    final itemStyle = theme.typography.body.copyWith(
+      height: 1.15,
+      leadingDistribution: TextLeadingDistribution.even,
+    );
 
-    late final OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (popoverContext) {
-        Widget popover = _AdwComboPopover<T>(
-          anchorRect: anchorRect,
-          chevronRect: chevronRect,
+    double maxItemTextWidth = 0.0;
+    for (final item in widget.items) {
+      final painter = TextPainter(
+        text: TextSpan(text: _formatItem(item), style: itemStyle),
+        maxLines: 1,
+        textDirection: textDirection,
+      )..layout();
+      if (painter.width > maxItemTextWidth) {
+        maxItemTextWidth = painter.width;
+      }
+      painter.dispose();
+    }
+    // Container padding (12) + item horizontal padding (20) + gap (8) + checkmark (16) + scrollbar clearance (10).
+    final double popoverWidth = (maxItemTextWidth + 66.0).clamp(
+      widget.enableSearch ? 180.0 : 140.0,
+      280.0,
+    );
+
+    final handle = showAdwPopover(
+      context: context,
+      anchorRect: chevronRect,
+      owner: this,
+      parentAnchor: AdwPopoverAnchor.bottom,
+      childAnchor: AdwPopoverAnchor.top,
+      offset: const Offset(0, 4),
+      constraints: BoxConstraints(
+        minWidth: popoverWidth,
+        maxWidth: popoverWidth,
+        maxHeight: widget.enableSearch ? 380 : 320,
+      ),
+      onDismiss: () {
+        if (mounted) {
+          _popoverHandle = null;
+        }
+      },
+      builder: (popoverContext, handle) {
+        return _AdwComboPopover<T>(
           items: widget.items,
           selectedItem: widget.selectedItem,
           formatItem: _formatItem,
           enableSearch: widget.enableSearch,
           searchPlaceholder: widget.searchPlaceholder ?? l10n.searchPlaceholder,
-          onDismiss: _removeOverlay,
           onSelected: (item) {
-            _removeOverlay();
+            handle.dismiss();
             widget.onSelected?.call(item);
           },
         );
-
-        if (AdwTheme.maybeOf(popoverContext) == null && themeData != null) {
-          popover = AdwTheme(data: themeData, child: popover);
-        }
-
-        return popover;
       },
     );
 
-    _overlayEntry = entry;
-    overlay.insert(entry);
+    if (mounted && handle.isOpen) {
+      _popoverHandle = handle;
+    } else {
+      handle.dismiss();
+    }
   }
 
   @override
@@ -169,10 +198,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DefaultTextStyle(
-                      style: theme.typography.body.copyWith(
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.normal,
-                      ),
+                      style: theme.typography.body,
                       child: widget.title,
                     ),
                     if (widget.subtitle != null) ...[
@@ -197,13 +223,15 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.copyWith(
                         color: theme.colors.windowForeground,
+                        height: 1.0,
+                        leadingDistribution: TextLeadingDistribution.even,
                       ),
                     ),
                   ),
                   const SizedBox(width: 6),
                   CustomPaint(
                     key: _chevronKey,
-                    size: const Size(10, 10),
+                    size: const Size(16, 16),
                     painter: _ChevronDownPainter(
                       color: theme.colors.windowForeground,
                     ),
@@ -219,25 +247,19 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
 }
 
 class _AdwComboPopover<T> extends StatefulWidget {
-  final Rect anchorRect;
-  final Rect chevronRect;
   final List<T> items;
   final T selectedItem;
   final String Function(T item) formatItem;
   final bool enableSearch;
   final String searchPlaceholder;
-  final VoidCallback onDismiss;
   final ValueChanged<T> onSelected;
 
   const _AdwComboPopover({
-    required this.anchorRect,
-    required this.chevronRect,
     required this.items,
     required this.selectedItem,
     required this.formatItem,
     required this.enableSearch,
     required this.searchPlaceholder,
-    required this.onDismiss,
     required this.onSelected,
   });
 
@@ -279,26 +301,6 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final textDirection = Directionality.of(context);
-    final itemStyle = theme.typography.body.copyWith(height: 1.15);
-
-    double maxItemTextWidth = 0.0;
-    for (final item in widget.items) {
-      final painter = TextPainter(
-        text: TextSpan(text: widget.formatItem(item), style: itemStyle),
-        maxLines: 1,
-        textDirection: textDirection,
-      )..layout();
-      if (painter.width > maxItemTextWidth) {
-        maxItemTextWidth = painter.width;
-      }
-      painter.dispose();
-    }
-    // Container padding (12) + item horizontal padding (20) + gap (8) + checkmark (12) + scrollbar clearance (10).
-    final double popoverWidth = (maxItemTextWidth + 62.0).clamp(
-      widget.enableSearch ? 180.0 : 140.0,
-      280.0,
-    );
 
     final filteredItems = _query.isEmpty
         ? widget.items
@@ -313,143 +315,94 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
         ? const Color(0xFF47474B)
         : const Color(0xFFE6E6EA);
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): widget.onDismiss,
-      },
-      child: FocusScope(
-        autofocus: !widget.enableSearch,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: widget.onDismiss,
-          child: CustomSingleChildLayout(
-            delegate: _PopoverLayoutDelegate(
-              anchorRect: widget.anchorRect,
-              chevronRect: widget.chevronRect,
-            ),
-            child: GestureDetector(
-              // Absorb taps inside the popover so outside barrier doesn't dismiss prematurely.
-              onTap: () {},
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: popoverWidth,
-                  maxWidth: popoverWidth,
-                  maxHeight: widget.enableSearch ? 380 : 320,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: theme.colors.popoverBackground,
-                    borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
-                    border: Border.all(
-                      color: theme.colors.borderColor,
-                      width: 1,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x45000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
+    return AdwPopoverSurface(
+      arrowSide: AdwPopoverArrowSide.top,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.enableSearch) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: searchBg,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(
+                    color: _searchFocused
+                        ? theme.colors.accentColor.withValues(alpha: 0.75)
+                        : theme.colors.borderColor,
+                    width: _searchFocused ? 2.0 : 1.0,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.enableSearch) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Container(
-                            height: 34,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              color: searchBg,
-                              borderRadius: BorderRadius.circular(8.0),
-                              border: Border.all(
-                                color: _searchFocused
-                                    ? theme.colors.accentColor
-                                        .withValues(alpha: 0.75)
-                                    : theme.colors.borderColor,
-                                width: _searchFocused ? 2.0 : 1.0,
+                ),
+                child: Row(
+                  children: [
+                    CustomPaint(
+                      size: const Size(14, 14),
+                      painter: _SearchIconPainter(
+                        color: theme.colors.secondaryForeground,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          if (_query.isEmpty)
+                            Text(
+                              widget.searchPlaceholder,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.typography.body.copyWith(
+                                fontSize: 14,
+                                color: theme.colors.secondaryForeground,
                               ),
                             ),
-                            child: Row(
-                              children: [
-                                CustomPaint(
-                                  size: const Size(14, 14),
-                                  painter: _SearchIconPainter(
-                                    color: theme.colors.secondaryForeground,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Stack(
-                                    alignment: Alignment.centerLeft,
-                                    children: [
-                                      if (_query.isEmpty)
-                                        Text(
-                                          widget.searchPlaceholder,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.typography.body.copyWith(
-                                            fontSize: 14,
-                                            color: theme
-                                                .colors.secondaryForeground,
-                                          ),
-                                        ),
-                                      EditableText(
-                                        controller: _searchController,
-                                        focusNode: _searchFocusNode,
-                                        cursorWidth: 1.0,
-                                        cursorOpacityAnimates: true,
-                                        showCursor: true,
-                                        enableInteractiveSelection: true,
-                                        style: theme.typography.body.copyWith(
-                                          fontSize: 14,
-                                          color: theme.colors.popoverForeground,
-                                        ),
-                                        cursorColor:
-                                            theme.colors.windowForeground,
-                                        backgroundCursorColor: theme
-                                            .colors.windowForeground
-                                            .withValues(alpha: 0.14),
-                                        selectionColor: theme.colors.accentColor
-                                            .withValues(alpha: 0.35),
-                                        onChanged: (val) =>
-                                            setState(() => _query = val),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          EditableText(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            cursorWidth: 1.0,
+                            cursorOpacityAnimates: true,
+                            showCursor: true,
+                            enableInteractiveSelection: true,
+                            style: theme.typography.body.copyWith(
+                              fontSize: 14,
+                              color: theme.colors.popoverForeground,
                             ),
+                            cursorColor: theme.colors.windowForeground,
+                            backgroundCursorColor:
+                                theme.colors.windowForeground.withValues(alpha: 0.14),
+                            selectionColor:
+                                theme.colors.accentColor.withValues(alpha: 0.35),
+                            onChanged: (val) => setState(() => _query = val),
                           ),
-                        ),
-                      ],
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: filteredItems.map((item) {
-                              final isSelected = item == widget.selectedItem;
-                              return _AdwPopoverItem(
-                                label: widget.formatItem(item),
-                                isSelected: isSelected,
-                                onTap: () => widget.onSelected(item),
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ],
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: filteredItems.map((item) {
+                  final isSelected = item == widget.selectedItem;
+                  return _AdwPopoverItem(
+                    label: widget.formatItem(item),
+                    isSelected: isSelected,
+                    onTap: () => widget.onSelected(item),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -508,16 +461,21 @@ class _AdwPopoverItemState extends State<_AdwPopoverItem> {
               Expanded(
                 child: Text(
                   widget.label,
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
                   style: theme.typography.body.copyWith(
                     color: theme.colors.popoverForeground,
-                    height: 1.15,
+                    height: 1.0,
+                    leadingDistribution: TextLeadingDistribution.even,
                   ),
                 ),
               ),
               if (widget.isSelected) ...[
                 const SizedBox(width: 8),
                 CustomPaint(
-                  size: const Size(12, 12),
+                  size: const Size(16, 16),
                   painter: _CheckmarkPainter(
                     color: theme.colors.popoverForeground,
                   ),
@@ -531,50 +489,6 @@ class _AdwPopoverItemState extends State<_AdwPopoverItem> {
   }
 }
 
-class _PopoverLayoutDelegate extends SingleChildLayoutDelegate {
-  final Rect anchorRect;
-  final Rect chevronRect;
-
-  _PopoverLayoutDelegate({
-    required this.anchorRect,
-    required this.chevronRect,
-  });
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return BoxConstraints.loose(constraints.biggest);
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    const double edgeMargin = 12.0;
-    const double verticalGap = 4.0;
-
-    // Position close to the trailing dropdown chevron so the popover feels directly anchored.
-    double x = chevronRect.center.dx + 28.0 - childSize.width;
-    x = x.clamp(edgeMargin, math.max(edgeMargin, size.width - childSize.width - edgeMargin));
-
-    // Place directly below the chevron if space permits; otherwise flip above.
-    double y = chevronRect.bottom + verticalGap;
-    if (y + childSize.height > size.height - edgeMargin) {
-      final aboveY = chevronRect.top - childSize.height - verticalGap;
-      if (aboveY >= edgeMargin) {
-        y = aboveY;
-      } else {
-        y = math.max(edgeMargin, size.height - childSize.height - edgeMargin);
-      }
-    }
-
-    return Offset(x, y);
-  }
-
-  @override
-  bool shouldRelayout(covariant _PopoverLayoutDelegate oldDelegate) {
-    return anchorRect != oldDelegate.anchorRect ||
-        chevronRect != oldDelegate.chevronRect;
-  }
-}
-
 class _ChevronDownPainter extends CustomPainter {
   final Color color;
 
@@ -585,14 +499,14 @@ class _ChevronDownPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final path = Path()
-      ..moveTo(1.5, size.height * 0.35)
-      ..lineTo(size.width / 2, size.height * 0.7)
-      ..lineTo(size.width - 1.5, size.height * 0.35);
+      ..moveTo(size.width * 0.25, size.height * 0.375)
+      ..lineTo(size.width * 0.5, size.height * 0.625)
+      ..lineTo(size.width * 0.75, size.height * 0.375);
 
     canvas.drawPath(path, paint);
   }
@@ -613,7 +527,7 @@ class _CheckmarkPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 

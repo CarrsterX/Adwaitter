@@ -8,6 +8,7 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../controls/adw_button.dart';
 import '../navigation/adw_navigation_view.dart';
+import '../overlays/adw_bottom_sheet.dart';
 import '../overlays/adw_dialog.dart';
 import 'adw_window.dart';
 import 'adw_window_controls.dart';
@@ -60,11 +61,15 @@ class AdwHeaderBar extends StatelessWidget {
     final windowScope = AdwWindowScope.maybeOf(context);
     final navScope = AdwNavigationViewScope.maybeOf(context);
     final dialogScope = AdwDialogScope.maybeOf(context);
+    final bottomSheetScope = AdwBottomSheetScope.maybeOf(context);
     final controller = windowScope?.controller;
     final isWindowActive = windowScope?.isActive ?? true;
 
     Widget? effectiveStart = start;
-    if (effectiveStart == null && showBackButton && (navScope?.canPop ?? false)) {
+    if (effectiveStart == null &&
+        showBackButton &&
+        bottomSheetScope == null &&
+        (navScope?.canPop ?? false)) {
       effectiveStart = AdwButton.flat(
         width: 34,
         height: 34,
@@ -78,8 +83,9 @@ class AdwHeaderBar extends StatelessWidget {
     }
 
     // Resolve effective title content
-    Widget? effectiveTitle = titleWidget;
-    if (effectiveTitle == null) {
+    Widget? effectiveTitle =
+        (bottomSheetScope?.hideTitle ?? false) ? null : titleWidget;
+    if (effectiveTitle == null && !(bottomSheetScope?.hideTitle ?? false)) {
       if (title is String || subtitle is String) {
         effectiveTitle = AdwWindowTitle(
           title: title is String ? title as String : '',
@@ -212,12 +218,13 @@ class AdwHeaderBar extends StatelessWidget {
           child: Stack(
             children: [
               // 1. Background layer for native window dragging and double-click maximization
-              Positioned.fill(
-                child: _AdwHeaderBarDragArea(
-                  onStartDrag: () => controller?.startDragging(),
-                  onDoubleTap: () => controller?.maximize(),
+              if (bottomSheetScope == null)
+                Positioned.fill(
+                  child: _AdwHeaderBarDragArea(
+                    onStartDrag: () => controller?.startDragging(),
+                    onDoubleTap: () => controller?.maximize(),
+                  ),
                 ),
-              ),
               // 2. Foreground structured layout conforming to GTK4 AdwHeaderBar
               Positioned.fill(
                 child: AnimatedOpacity(

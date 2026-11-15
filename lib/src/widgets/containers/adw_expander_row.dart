@@ -218,8 +218,6 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
                       children: [
                         DefaultTextStyle(
                           style: theme.typography.body.copyWith(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.normal,
                             color: theme.colors.windowForeground,
                           ),
                           child: widget.title,

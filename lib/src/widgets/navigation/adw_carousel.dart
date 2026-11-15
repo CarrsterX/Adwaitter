@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -10,6 +13,8 @@ class AdwCarouselController extends ChangeNotifier {
   late final PageController _pageController;
   final bool _ownsController;
   int _itemCount = 0;
+  double? _lastKnownPage;
+  VoidCallback? _onProgrammaticNavigation;
 
   AdwCarouselController({int initialPage = 0})
       : _pageController = PageController(initialPage: initialPage),
@@ -25,6 +30,11 @@ class AdwCarouselController extends ChangeNotifier {
   }
 
   void _onPageControllerNotify() {
+    if (_pageController.hasClients &&
+        _pageController.positions.length == 1 &&
+        _pageController.position.hasContentDimensions) {
+      _lastKnownPage = _pageController.page;
+    }
     notifyListeners();
   }
 
@@ -44,10 +54,14 @@ class AdwCarouselController extends ChangeNotifier {
 
   /// Current continuous scroll position as a double.
   double get page {
-    if (!_pageController.hasClients) {
-      return _pageController.initialPage.toDouble();
+    if (!_pageController.hasClients ||
+        _pageController.positions.length != 1 ||
+        !_pageController.position.hasContentDimensions) {
+      return _lastKnownPage ?? _pageController.initialPage.toDouble();
     }
-    return _pageController.page ?? _pageController.initialPage.toDouble();
+    return _pageController.page ??
+        _lastKnownPage ??
+        _pageController.initialPage.toDouble();
   }
 
   /// Current discrete rounded page index.
@@ -61,6 +75,7 @@ class AdwCarouselController extends ChangeNotifier {
     Curve curve = AdwCurves.standard,
   }) {
     if (!_pageController.hasClients) return Future.value();
+    _onProgrammaticNavigation?.call();
     final target = page.clamp(0, _itemCount > 0 ? _itemCount - 1 : 0);
     return _pageController.animateToPage(target,
         duration: duration, curve: curve);
@@ -85,6 +100,7 @@ class AdwCarouselController extends ChangeNotifier {
   /// Jump immediately to the given [page] without animation.
   void jumpToPage(int page) {
     if (!_pageController.hasClients) return;
+    _onProgrammaticNavigation?.call();
     final target = page.clamp(0, _itemCount > 0 ? _itemCount - 1 : 0);
     _pageController.jumpToPage(target);
   }
@@ -117,7 +133,16 @@ class AdwCarousel extends StatefulWidget {
   /// Invoked whenever the active page changes.
   final ValueChanged<int>? onPageChanged;
 
-  /// Horizontal spacing between consecutive carousel items in logical pixels.
+  /// Scroll axis of the carousel (`Axis.horizontal` or `Axis.vertical`).
+  final Axis scrollDirection;
+
+  /// Whether mouse scroll wheel events change pages.
+  final bool allowScrollWheel;
+
+  /// Whether a fast/long swipe can jump across multiple pages at once.
+  final bool allowLongSwipes;
+
+  /// Spacing between consecutive carousel items in logical pixels.
   final double spacing;
 
   /// Fraction of viewport allocated per page (default 1.0 for full-bleed pages).
@@ -134,25 +159,74 @@ class AdwCarousel extends StatefulWidget {
     required this.children,
     this.controller,
     this.onPageChanged,
+    this.scrollDirection = Axis.horizontal,
+    this.allowScrollWheel = true,
+    this.allowLongSwipes = false,
     this.spacing = 0.0,
     this.viewportFraction = 1.0,
-    this.showNavigationButtons = true,
+    this.showNavigationButtons = false,
     this.interactive = true,
   });
 
   @override
   State<AdwCarousel> createState() => _AdwCarouselState();
+
+  /// Returns `true` when an interactive horizontal [AdwCarousel] under
+  /// [globalPosition] is not at its leftmost item (`page > 0.01`), so outer
+  /// navigation swipe-back gestures yield priority to the carousel.
+  static bool shouldBlockParentSwipeBack(Offset globalPosition) {
+    for (final state in _AdwCarouselState._activeCarousels) {
+      if (state._shouldBlockSwipeBackAt(globalPosition)) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+class _CarouselDragSession {
+  int? startPage;
+  bool isTrackpad = false;
+  bool isDragging = false;
+  bool allowLongSwipes = false;
 }
 
 class _AdwCarouselState extends State<AdwCarousel> {
+  static final Set<_AdwCarouselState> _activeCarousels = <_AdwCarouselState>{};
+
   late AdwCarouselController _controller;
   bool _isLocalController = false;
   bool _isHovered = false;
+  DateTime _lastWheelStep = DateTime.fromMillisecondsSinceEpoch(0);
+  double _wheelAccumulator = 0.0;
+  final _CarouselDragSession _dragSession = _CarouselDragSession();
 
   @override
   void initState() {
     super.initState();
+    _activeCarousels.add(this);
+    _dragSession.allowLongSwipes = widget.allowLongSwipes;
     _initController();
+  }
+
+  bool _shouldBlockSwipeBackAt(Offset globalPosition) {
+    if (!mounted ||
+        !widget.interactive ||
+        widget.scrollDirection != Axis.horizontal ||
+        widget.children.length <= 1) {
+      return false;
+    }
+    if (_controller.page <= 0.01) {
+      return false;
+    }
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.hasSize ||
+        !renderObject.attached) {
+      return false;
+    }
+    final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return rect.contains(globalPosition);
   }
 
   void _initController() {
@@ -163,12 +237,18 @@ class _AdwCarouselState extends State<AdwCarousel> {
       _controller = AdwCarouselController();
       _isLocalController = true;
     }
+    _controller._onProgrammaticNavigation = () {
+      _dragSession.startPage = null;
+      _dragSession.isTrackpad = false;
+      _dragSession.isDragging = false;
+    };
     _controller.updateItemCount(widget.children.length);
   }
 
   @override
   void didUpdateWidget(covariant AdwCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _dragSession.allowLongSwipes = widget.allowLongSwipes;
     if (widget.controller != oldWidget.controller) {
       if (_isLocalController) {
         _controller.dispose();
@@ -181,32 +261,148 @@ class _AdwCarouselState extends State<AdwCarousel> {
 
   @override
   void dispose() {
+    _activeCarousels.remove(this);
+    _controller._onProgrammaticNavigation = null;
     if (_isLocalController) {
       _controller.dispose();
     }
     super.dispose();
   }
 
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (!widget.interactive || !widget.allowScrollWheel) return;
+    if (event is! PointerScrollEvent) return;
+    if (_dragSession.isDragging ||
+        _dragSession.isTrackpad ||
+        event.kind == PointerDeviceKind.trackpad) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (now.difference(_lastWheelStep).inMilliseconds < 240) return;
+
+    final delta = widget.scrollDirection == Axis.horizontal
+        ? (event.scrollDelta.dx.abs() > event.scrollDelta.dy.abs()
+            ? event.scrollDelta.dx
+            : event.scrollDelta.dy)
+        : event.scrollDelta.dy;
+
+    if (delta.abs() < 0.5) return;
+
+    // Accumulate fine-grained smooth scroll deltas (e.g. high-res mice)
+    // so a single light touch doesn't fire multiple page jumps.
+    if ((_wheelAccumulator > 0 && delta < 0) ||
+        (_wheelAccumulator < 0 && delta > 0)) {
+      _wheelAccumulator = 0.0;
+    }
+    _wheelAccumulator += delta;
+
+    if (_wheelAccumulator.abs() < 32.0) return;
+
+    final stepPositive = _wheelAccumulator > 0;
+    _wheelAccumulator = 0.0;
+    _lastWheelStep = now;
+
+    final duration = AdwCurves.resolve(context, AdwCurves.normalDuration);
+    if (stepPositive) {
+      _controller.nextPage(duration: duration);
+    } else {
+      _controller.previousPage(duration: duration);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = widget.children.length;
+    _dragSession.allowLongSwipes = widget.allowLongSwipes;
 
-    Widget pageView = PageView.builder(
-      controller: _controller.pageController,
-      physics: widget.interactive
-          ? const BouncingScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      onPageChanged: widget.onPageChanged,
-      itemCount: count,
-      itemBuilder: (context, index) {
-        if (widget.spacing == 0.0) {
-          return widget.children[index];
-        }
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: widget.spacing / 2),
-          child: widget.children[index],
-        );
+    Widget pageView = Listener(
+      onPointerDown: (_) {
+        _dragSession.startPage = _controller.currentPage;
+        _dragSession.isTrackpad = false;
       },
+      onPointerUp: (_) {
+        if (!_dragSession.isDragging) {
+          _dragSession.startPage = null;
+        }
+      },
+      onPointerCancel: (_) {
+        if (!_dragSession.isDragging) {
+          _dragSession.startPage = null;
+        }
+      },
+      onPointerPanZoomStart: (_) {
+        _dragSession.startPage = _controller.currentPage;
+        _dragSession.isTrackpad = true;
+      },
+      onPointerPanZoomEnd: (_) {
+        if (!_dragSession.isDragging) {
+          _dragSession.startPage = null;
+          _dragSession.isTrackpad = false;
+        }
+      },
+      onPointerSignal: _handlePointerSignal,
+      child: NotificationListener<OverscrollIndicatorNotification>(
+        onNotification: (notification) {
+          notification.disallowIndicator();
+          return true;
+        },
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth != 0) return false;
+            if (notification is ScrollStartNotification) {
+              if (notification.dragDetails != null) {
+                _dragSession.isDragging = true;
+                _dragSession.isTrackpad =
+                    notification.dragDetails!.kind == PointerDeviceKind.trackpad;
+                _dragSession.startPage ??= _controller.currentPage;
+              }
+            } else if (notification is ScrollEndNotification) {
+              _dragSession.isDragging = false;
+              _dragSession.startPage = null;
+              _dragSession.isTrackpad = false;
+            }
+            return false;
+          },
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              scrollbars: false,
+              overscroll: false,
+              dragDevices: const <PointerDeviceKind>{
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: PageView.builder(
+              scrollDirection: widget.scrollDirection,
+              controller: _controller.pageController,
+              pageSnapping: false,
+              physics: widget.interactive
+                  ? _AdwCarouselScrollPhysics(
+                      allowLongSwipes: widget.allowLongSwipes,
+                      dragSession: _dragSession,
+                    )
+                  : const NeverScrollableScrollPhysics(),
+              onPageChanged: widget.onPageChanged,
+              itemCount: count,
+              itemBuilder: (context, index) {
+                final page = Center(child: widget.children[index]);
+                if (widget.spacing == 0.0) {
+                  return page;
+                }
+                return Padding(
+                  padding: widget.scrollDirection == Axis.horizontal
+                      ? EdgeInsets.symmetric(horizontal: widget.spacing / 2)
+                      : EdgeInsets.symmetric(vertical: widget.spacing / 2),
+                  child: page,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
     );
 
     if (!widget.showNavigationButtons || count <= 1) {
@@ -390,5 +586,156 @@ class _ChevronPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ChevronPainter oldDelegate) {
     return direction != oldDelegate.direction || color != oldDelegate.color;
+  }
+}
+
+class _AdwCarouselScrollPhysics extends PageScrollPhysics {
+  final bool allowLongSwipes;
+  final _CarouselDragSession? dragSession;
+
+  const _AdwCarouselScrollPhysics({
+    super.parent,
+    this.allowLongSwipes = false,
+    this.dragSession,
+  });
+
+  @override
+  _AdwCarouselScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _AdwCarouselScrollPhysics(
+      parent: buildParent(ancestor),
+      allowLongSwipes: allowLongSwipes,
+      dragSession: dragSession,
+    );
+  }
+
+  @override
+  bool shouldUpdate(covariant _AdwCarouselScrollPhysics old) {
+    if (allowLongSwipes != old.allowLongSwipes ||
+        dragSession != old.dragSession) {
+      return true;
+    }
+    return super.shouldUpdate(old);
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    final effectiveAllowLongSwipes =
+        allowLongSwipes || (dragSession?.allowLongSwipes ?? false);
+    final startPage = dragSession?.startPage;
+    if (!effectiveAllowLongSwipes && startPage != null) {
+      final viewport = position.viewportDimension;
+      if (viewport > 0) {
+        final minAllowed = math.max(
+          position.minScrollExtent,
+          (startPage - 1) * viewport,
+        );
+        final maxAllowed = math.min(
+          position.maxScrollExtent,
+          (startPage + 1) * viewport,
+        );
+        if (value < position.pixels && position.pixels <= minAllowed) {
+          return value - position.pixels;
+        }
+        if (maxAllowed <= position.pixels && position.pixels < value) {
+          return value - position.pixels;
+        }
+        if (value < minAllowed && minAllowed < position.pixels) {
+          return value - minAllowed;
+        }
+        if (position.pixels < maxAllowed && maxAllowed < value) {
+          return value - maxAllowed;
+        }
+        return 0.0;
+      }
+    }
+    return super.applyBoundaryConditions(position, value);
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    if (dragSession?.isTrackpad ?? false) {
+      final viewport = math.max(1.0, position.viewportDimension);
+      // Keep physical touchpad travel per page consistent on narrow mobile viewports.
+      final double scale = 0.31 * (viewport / math.max(viewport, 680.0));
+      return super.applyPhysicsToUserOffset(position, offset * scale);
+    }
+    return super.applyPhysicsToUserOffset(position, offset);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    final isTrackpad = dragSession?.isTrackpad ?? false;
+    final effectiveVelocity = isTrackpad ? velocity * 0.31 : velocity;
+    final effectiveAllowLongSwipes =
+        allowLongSwipes || (dragSession?.allowLongSwipes ?? false);
+
+    if ((effectiveVelocity <= 0.0 &&
+            position.pixels <= position.minScrollExtent) ||
+        (effectiveVelocity >= 0.0 &&
+            position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, effectiveVelocity);
+    }
+
+    final tolerance = toleranceFor(position);
+    final viewport = math.max(1.0, position.viewportDimension);
+    final currentPageDouble = position.pixels / viewport;
+
+    int targetPage;
+    if (!effectiveAllowLongSwipes) {
+      double page = currentPageDouble;
+      if (effectiveVelocity < -tolerance.velocity) {
+        page -= 0.5;
+      } else if (effectiveVelocity > tolerance.velocity) {
+        page += 0.5;
+      }
+      targetPage = page.round();
+      final startPage = dragSession?.startPage;
+      if (startPage != null) {
+        targetPage = targetPage.clamp(startPage - 1, startPage + 1);
+      }
+    } else {
+      if (effectiveVelocity.abs() <= tolerance.velocity) {
+        targetPage = currentPageDouble.round();
+      } else {
+        final projectionTime = isTrackpad ? 0.16 : 0.25;
+        final projectedPage =
+            (position.pixels + effectiveVelocity * projectionTime) / viewport;
+        if (effectiveVelocity > tolerance.velocity) {
+          targetPage = math.max(
+            projectedPage.round(),
+            (currentPageDouble + 0.5).round(),
+          );
+        } else {
+          targetPage = math.min(
+            projectedPage.round(),
+            (currentPageDouble - 0.5).round(),
+          );
+        }
+      }
+    }
+
+    final targetPixels = (targetPage * viewport)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+
+    if ((targetPixels - position.pixels).abs() < tolerance.distance &&
+        effectiveVelocity.abs() < tolerance.velocity) {
+      return null;
+    }
+
+    if (targetPixels != position.pixels ||
+        effectiveVelocity.abs() >= tolerance.velocity) {
+      return ScrollSpringSimulation(
+        spring,
+        position.pixels,
+        targetPixels,
+        effectiveVelocity,
+        tolerance: tolerance,
+      );
+    }
+    return null;
   }
 }

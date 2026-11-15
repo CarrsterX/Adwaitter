@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -6,45 +8,46 @@ import 'adw_carousel.dart';
 
 /// Paginated dot indicator widget for [AdwCarousel] (`AdwCarouselIndicatorDots`).
 ///
-/// Implements upstream GNOME Libadwaita specifications:
-/// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/adw-carousel-indicator-dots.c`
-/// - CSS selector: `carousel-indicator-dots`
-///
-/// Visual representation:
-/// - Inactive dots: $6 \times 6\,\text{px}$ circles with 35% opacity.
-/// - Active dot: $18 \times 6\,\text{px}$ smooth animated capsule with full opacity.
-/// - Interactive: tapping any dot navigates directly to that page.
+/// Implements upstream GNOME Libadwaita specifications (`adw-carousel-indicator-dots.c`):
+/// - Inactive dot: `6×6 px` circle (`radius: 3.0`) at `30%` foreground opacity.
+/// - Active dot: `8×8 px` circle (`radius: 4.0`) at `90%` foreground opacity.
+/// - Spacing: `7.0 px` between dots, `6.0 px` outer margin.
+/// - Supports both [Axis.horizontal] and [Axis.vertical] orientations and
+///   continuous interpolation synced with [AdwCarouselController.page].
 class AdwCarouselIndicatorDots extends StatelessWidget {
-  /// The carousel controller driving the active index and page count.
+  /// Optional carousel controller driving continuous position and page count.
   final AdwCarouselController? controller;
 
-  /// Explicit page count if used independently of an [AdwCarouselController].
+  /// Explicit page count when used independently of [AdwCarouselController].
   final int? itemCount;
 
-  /// Explicit active page index if used independently.
+  /// Explicit active page index when used independently.
   final int? currentPage;
 
-  /// Callback when a dot is clicked.
+  /// Explicit continuous position when used independently.
+  final double? position;
+
+  /// Layout orientation of the indicator (`Axis.horizontal` or `Axis.vertical`).
+  final Axis orientation;
+
+  /// Callback invoked when a dot is clicked.
   final ValueChanged<int>? onDotClicked;
 
-  /// Height and diameter of inactive dots in logical pixels (default 6.0).
-  final double dotSize;
-
-  /// Expanded width of the active capsule dot in logical pixels (default 18.0).
-  final double activeDotWidth;
-
-  /// Horizontal spacing between consecutive dots in logical pixels (default 6.0).
-  final double spacing;
+  static const double _dotRadius = 3.0;
+  static const double _dotRadiusSelected = 4.0;
+  static const double _dotOpacity = 0.3;
+  static const double _dotOpacitySelected = 0.9;
+  static const double _dotSpacing = 7.0;
+  static const double _dotMargin = 6.0;
 
   const AdwCarouselIndicatorDots({
     super.key,
     this.controller,
     this.itemCount,
     this.currentPage,
+    this.position,
+    this.orientation = Axis.horizontal,
     this.onDotClicked,
-    this.dotSize = 6.0,
-    this.activeDotWidth = 18.0,
-    this.spacing = 6.0,
   });
 
   @override
@@ -56,9 +59,10 @@ class AdwCarouselIndicatorDots extends StatelessWidget {
           return _buildDots(
             context,
             count: controller!.itemCount,
-            current: controller!.currentPage,
+            pos: controller!.page,
             onTap: (index) {
-              final duration = AdwCurves.resolve(context, AdwCurves.normalDuration);
+              final duration =
+                  AdwCurves.resolve(context, AdwCurves.normalDuration);
               controller!.animateToPage(index, duration: duration);
               onDotClicked?.call(index);
             },
@@ -70,7 +74,7 @@ class AdwCarouselIndicatorDots extends StatelessWidget {
     return _buildDots(
       context,
       count: itemCount ?? 0,
-      current: currentPage ?? 0,
+      pos: position ?? (currentPage ?? 0).toDouble(),
       onTap: onDotClicked,
     );
   }
@@ -78,136 +82,122 @@ class AdwCarouselIndicatorDots extends StatelessWidget {
   Widget _buildDots(
     BuildContext context, {
     required int count,
-    required int current,
+    required double pos,
     required ValueChanged<int>? onTap,
   }) {
     if (count <= 1) return const SizedBox.shrink();
 
     final theme = AdwTheme.of(context);
-    final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
+    final slotSize = 2.0 * _dotRadiusSelected + _dotSpacing;
+    final length = count * slotSize - _dotSpacing + _dotMargin * 2;
+    final thickness = 2.0 * _dotRadiusSelected + _dotMargin * 2;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final isActive = index == current;
-        final targetWidth = isActive ? activeDotWidth : dotSize;
-        final targetColor = isActive
-            ? theme.colors.foreground
-            : theme.colors.foreground.withValues(alpha: 0.35);
+    final width = orientation == Axis.horizontal ? length : thickness;
+    final height = orientation == Axis.horizontal ? thickness : length;
 
-        return GestureDetector(
-          onTap: onTap != null ? () => onTap(index) : null,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing / 2),
-            child: AnimatedContainer(
-              duration: duration,
-              curve: AdwCurves.standard,
-              width: targetWidth,
-              height: dotSize,
-              decoration: BoxDecoration(
-                color: targetColor,
-                borderRadius: BorderRadius.circular(dotSize / 2),
-              ),
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: onTap == null
+          ? null
+          : (details) {
+              final localCoord = orientation == Axis.horizontal
+                  ? details.localPosition.dx
+                  : details.localPosition.dy;
+              final index = ((localCoord - _dotMargin) / slotSize)
+                  .floor()
+                  .clamp(0, count - 1);
+              onTap(index);
+            },
+      child: MouseRegion(
+        cursor: onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: CustomPaint(
+          size: Size(width, height),
+          painter: _DotsIndicatorPainter(
+            count: count,
+            position: pos,
+            orientation: orientation,
+            color: theme.colors.foreground,
+            dotRadius: _dotRadius,
+            dotRadiusSelected: _dotRadiusSelected,
+            dotOpacity: _dotOpacity,
+            dotOpacitySelected: _dotOpacitySelected,
+            dotSpacing: _dotSpacing,
+            dotMargin: _dotMargin,
           ),
-        );
-      }),
+        ),
+      ),
     );
   }
 }
 
-/// Paginated line indicator widget for [AdwCarousel] (`AdwCarouselIndicatorLines`).
-///
-/// Implements upstream GNOME Libadwaita specifications:
-/// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/adw-carousel-indicator-lines.c`
-/// - CSS selector: `carousel-indicator-lines`
-class AdwCarouselIndicatorLines extends StatelessWidget {
-  final AdwCarouselController? controller;
-  final int? itemCount;
-  final int? currentPage;
-  final ValueChanged<int>? onLineClicked;
-  final double lineWidth;
-  final double lineHeight;
-  final double spacing;
+class _DotsIndicatorPainter extends CustomPainter {
+  final int count;
+  final double position;
+  final Axis orientation;
+  final Color color;
+  final double dotRadius;
+  final double dotRadiusSelected;
+  final double dotOpacity;
+  final double dotOpacitySelected;
+  final double dotSpacing;
+  final double dotMargin;
 
-  const AdwCarouselIndicatorLines({
-    super.key,
-    this.controller,
-    this.itemCount,
-    this.currentPage,
-    this.onLineClicked,
-    this.lineWidth = 24.0,
-    this.lineHeight = 3.0,
-    this.spacing = 6.0,
+  _DotsIndicatorPainter({
+    required this.count,
+    required this.position,
+    required this.orientation,
+    required this.color,
+    required this.dotRadius,
+    required this.dotRadiusSelected,
+    required this.dotOpacity,
+    required this.dotOpacitySelected,
+    required this.dotSpacing,
+    required this.dotMargin,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (controller != null) {
-      return AnimatedBuilder(
-        animation: controller!,
-        builder: (context, _) {
-          return _buildLines(
-            context,
-            count: controller!.itemCount,
-            current: controller!.currentPage,
-            onTap: (index) {
-              final duration = AdwCurves.resolve(context, AdwCurves.normalDuration);
-              controller!.animateToPage(index, duration: duration);
-              onLineClicked?.call(index);
-            },
-          );
-        },
-      );
-    }
+  void paint(Canvas canvas, Size size) {
+    final slotSize = 2.0 * dotRadiusSelected + dotSpacing;
+    final indicatorLength = count * slotSize - dotSpacing;
 
-    return _buildLines(
-      context,
-      count: itemCount ?? 0,
-      current: currentPage ?? 0,
-      onTap: onLineClicked,
-    );
+    double x = orientation == Axis.horizontal
+        ? (size.width - indicatorLength) / 2.0
+        : size.width / 2.0;
+    double y = orientation == Axis.horizontal
+        ? size.height / 2.0
+        : (size.height - indicatorLength) / 2.0;
+
+    final paint = Paint()..isAntiAlias = true;
+
+    for (int i = 0; i < count; i++) {
+      if (orientation == Axis.horizontal) {
+        x += slotSize / 2.0 - dotSpacing / 2.0;
+      } else {
+        y += slotSize / 2.0 - dotSpacing / 2.0;
+      }
+
+      final progress = (1.0 - (position - i).abs()).clamp(0.0, 1.0);
+      final radius = lerpDouble(dotRadius, dotRadiusSelected, progress)!;
+      final opacity = lerpDouble(dotOpacity, dotOpacitySelected, progress)!;
+
+      paint.color = color.withValues(alpha: opacity);
+      canvas.drawCircle(Offset(x, y), radius, paint);
+
+      if (orientation == Axis.horizontal) {
+        x += slotSize / 2.0 + dotSpacing / 2.0;
+      } else {
+        y += slotSize / 2.0 + dotSpacing / 2.0;
+      }
+    }
   }
 
-  Widget _buildLines(
-    BuildContext context, {
-    required int count,
-    required int current,
-    required ValueChanged<int>? onTap,
-  }) {
-    if (count <= 1) return const SizedBox.shrink();
-
-    final theme = AdwTheme.of(context);
-    final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final isActive = index == current;
-        final targetColor = isActive
-            ? theme.colors.foreground
-            : theme.colors.foreground.withValues(alpha: 0.25);
-
-        return GestureDetector(
-          onTap: onTap != null ? () => onTap(index) : null,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing / 2),
-            child: AnimatedContainer(
-              duration: duration,
-              curve: AdwCurves.standard,
-              width: lineWidth,
-              height: lineHeight,
-              decoration: BoxDecoration(
-                color: targetColor,
-                borderRadius: BorderRadius.circular(lineHeight / 2),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
+  @override
+  bool shouldRepaint(covariant _DotsIndicatorPainter oldDelegate) {
+    return oldDelegate.count != count ||
+        oldDelegate.position != position ||
+        oldDelegate.orientation != orientation ||
+        oldDelegate.color != color;
   }
 }
-

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_scroll_behavior.dart';
@@ -96,6 +97,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
     final effectiveAccent = widget.accentColor ?? AdwStyleManager.instance.accentColor;
 
     return WidgetsApp(
+      navigatorKey: AdwSubWindowManager.instance.navigatorKey,
       title: widget.title,
       color: effectiveAccent.color,
       debugShowCheckedModeBanner: false,
@@ -157,26 +159,49 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
             return ListenableBuilder(
               listenable: AdwSubWindowManager.instance,
               builder: (context, appSubtree) {
-                final handles = AdwSubWindowManager.instance.windows;
-                final subViews = handles.map((handle) {
-                  return AdwSubWindowManager.buildWindowView(
-                    handle: handle,
-                    child: _AdwSubWindowHost(
+                final handles = AdwSubWindowManager.instance.windows
+                    .where((handle) => handle.isNativeWindow);
+                final popups = AdwSubWindowManager.instance.popups;
+                final subViews = <Widget>[
+                  ...handles.map((handle) {
+                    return AdwSubWindowManager.buildWindowView(
                       handle: handle,
-                      theme: defaultTheme,
-                      animSettings: animSettings,
-                      accentColor: effectiveAccent.color,
-                      scrollBehavior:
-                          widget.scrollBehavior ?? const AdwScrollBehavior(),
-                    ),
-                  );
-                }).toList();
+                      child: _AdwSubWindowHost(
+                        handle: handle,
+                        theme: defaultTheme,
+                        animSettings: animSettings,
+                        accentColor: effectiveAccent.color,
+                        scrollBehavior:
+                            widget.scrollBehavior ?? const AdwScrollBehavior(),
+                      ),
+                    );
+                  }),
+                  ...popups.map((entry) {
+                    return AdwSubWindowManager.buildPopupView(
+                      entry: entry,
+                      child: _AdwPopupWindowHost(
+                        entry: entry,
+                        theme: defaultTheme,
+                        animSettings: animSettings,
+                        textDirection:
+                            Directionality.maybeOf(context) ?? TextDirection.ltr,
+                        scrollBehavior:
+                            widget.scrollBehavior ?? const AdwScrollBehavior(),
+                      ),
+                    );
+                  }),
+                ];
 
                 return ViewAnchor(
                   view: subViews.isEmpty
                       ? null
                       : ViewCollection(views: subViews),
-                  child: appSubtree!,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (_) =>
+                        AdwSubWindowManager.instance.dismissAllPopups(),
+                    child: appSubtree!,
+                  ),
                 );
               },
               child: themedChild,
@@ -250,12 +275,62 @@ class _AdwSubWindowHost extends StatelessWidget {
               borderRadiusNotifier: handle.borderRadiusNotifier,
               child: ScrollConfiguration(
                 behavior: scrollBehavior,
-                child: content,
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) =>
+                      AdwSubWindowManager.instance.dismissAllPopups(),
+                  child: content,
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _AdwPopupWindowHost extends StatelessWidget {
+  final AdwPopupWindowEntry entry;
+  final AdwThemeData theme;
+  final AdwAnimationSettings animSettings;
+  final TextDirection textDirection;
+  final ScrollBehavior scrollBehavior;
+
+  const _AdwPopupWindowHost({
+    required this.entry,
+    required this.theme,
+    required this.animSettings,
+    required this.textDirection,
+    required this.scrollBehavior,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: textDirection,
+      child: AdwTheme(
+        data: theme,
+        child: AdwAnimationScope(
+          settings: animSettings,
+          child: ScrollConfiguration(
+            behavior: scrollBehavior,
+            child: DefaultTextStyle(
+              style: theme.typography.body,
+              child: CallbackShortcuts(
+                bindings: <ShortcutActivator, VoidCallback>{
+                  const SingleActivator(LogicalKeyboardKey.escape):
+                      entry.onDismiss,
+                },
+                child: FocusScope(
+                  autofocus: true,
+                  child: entry.child,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

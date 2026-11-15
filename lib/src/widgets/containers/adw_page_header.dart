@@ -38,9 +38,7 @@ List<Widget> buildAdwPageHeader({
     ],
     if (description != null) ...[
       DefaultTextStyle(
-        style: theme.typography.body.copyWith(
-          color: theme.colors.secondaryForeground,
-        ),
+        style: theme.typography.body,
         textAlign: TextAlign.center,
         child: description,
       ),

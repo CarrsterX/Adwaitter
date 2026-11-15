@@ -49,6 +49,7 @@ class AdwPreferencesGroup extends StatelessWidget {
     return Padding(
       padding: margin,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null || headerSuffix != null)
@@ -74,9 +75,9 @@ class AdwPreferencesGroup extends StatelessWidget {
             ),
           if (description != null)
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+              padding: const EdgeInsets.only(left: 2, right: 2, bottom: 12),
               child: DefaultTextStyle(
-                style: theme.typography.subtitle,
+                style: theme.typography.body,
                 child: description!,
               ),
             ),

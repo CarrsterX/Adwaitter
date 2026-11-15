@@ -1,0 +1,719 @@
+// ignore_for_file: invalid_use_of_internal_member, implementation_imports
+
+import 'dart:math' as math;
+
+import 'package:flutter/services.dart';
+import 'package:flutter/src/widgets/_window.dart';
+import 'package:flutter/src/widgets/_window_linux.dart';
+import 'package:flutter/src/widgets/_window_positioner.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../theme/adw_curves.dart';
+import '../../theme/adw_metrics.dart';
+import '../../theme/adw_theme.dart';
+import '../layout/adw_sub_window.dart';
+import '../layout/adw_window.dart';
+
+/// Anchor points for positioning a floating [AdwPopoverSurface] relative to
+/// an anchor rectangle in the parent window.
+enum AdwPopoverAnchor {
+  topLeft,
+  top,
+  topRight,
+  left,
+  center,
+  right,
+  bottomLeft,
+  bottom,
+  bottomRight,
+}
+
+WindowPositionerAnchor _toWindowPositionerAnchor(AdwPopoverAnchor anchor) {
+  return switch (anchor) {
+    AdwPopoverAnchor.topLeft => WindowPositionerAnchor.topLeft,
+    AdwPopoverAnchor.top => WindowPositionerAnchor.top,
+    AdwPopoverAnchor.topRight => WindowPositionerAnchor.topRight,
+    AdwPopoverAnchor.left => WindowPositionerAnchor.left,
+    AdwPopoverAnchor.center => WindowPositionerAnchor.center,
+    AdwPopoverAnchor.right => WindowPositionerAnchor.right,
+    AdwPopoverAnchor.bottomLeft => WindowPositionerAnchor.bottomLeft,
+    AdwPopoverAnchor.bottom => WindowPositionerAnchor.bottom,
+    AdwPopoverAnchor.bottomRight => WindowPositionerAnchor.bottomRight,
+  };
+}
+
+/// Handle to an open floating popover menu/dialog.
+class AdwPopoverHandle {
+  static AdwPopoverHandle? _activePopover;
+  static Object? _activeOwner;
+  static Object? _lastDismissedOwner;
+  static DateTime? _lastDismissedAt;
+
+  PopupWindowController? _popupController;
+  AdwPopupWindowEntry? _popupEntry;
+  OverlayEntry? _overlayEntry;
+  VoidCallback? _onDismiss;
+  Object? _owner;
+  bool _isDismissed = false;
+
+  AdwPopoverHandle._({VoidCallback? onDismiss, Object? owner})
+      : _onDismiss = onDismiss,
+        _owner = owner;
+
+  /// Whether this popover is currently visible.
+  bool get isOpen => !_isDismissed;
+
+  /// Whether this popover is backed by an independent native OS popup window
+  /// (allowing it to extend outside the parent window bounds).
+  bool get isNativePopupWindow => _popupController != null;
+
+  /// Closes and disposes this popover.
+  void dismiss() {
+    if (_isDismissed) return;
+    _isDismissed = true;
+
+    if (identical(_activePopover, this)) {
+      _lastDismissedOwner = _activeOwner ?? _owner;
+      _lastDismissedAt = DateTime.now();
+      _activePopover = null;
+      _activeOwner = null;
+    }
+
+    if (_popupEntry != null) {
+      AdwSubWindowManager.instance.unregisterPopup(_popupEntry!);
+      _popupEntry = null;
+    }
+    final ctrl = _popupController;
+    _popupController = null;
+    if (ctrl != null && !ctrl.isDestroyed) {
+      ctrl.destroy();
+    }
+
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+
+    final cb = _onDismiss;
+    _onDismiss = null;
+    cb?.call();
+  }
+}
+
+class _AdwPopupWindowDelegate with PopupWindowControllerDelegate {
+  final VoidCallback onDestroyedCallback;
+
+  _AdwPopupWindowDelegate({required this.onDestroyedCallback});
+
+  @override
+  void onWindowDestroyed() {
+    onDestroyedCallback();
+  }
+}
+
+/// Shows a floating Libadwaita popover menu/dialog anchored to [anchorRect]
+/// (in logical coordinates of the parent window).
+///
+/// On desktop Linux, this creates a native `PopupWindow` (`GTK_WINDOW_POPUP`
+/// positioned with `gdk_window_move_to_rect`) so the floating menu is
+/// independent of the parent window and can extend outside narrow windows.
+/// On non-Linux platforms (or in headless tests), it falls back to a root
+/// [OverlayEntry] positioned within the current window.
+AdwPopoverHandle showAdwPopover({
+  required BuildContext context,
+  required Rect anchorRect,
+  required Widget Function(BuildContext context, AdwPopoverHandle handle)
+      builder,
+  Object? owner,
+  AdwPopoverAnchor parentAnchor = AdwPopoverAnchor.bottomRight,
+  AdwPopoverAnchor childAnchor = AdwPopoverAnchor.topRight,
+  Offset offset = const Offset(0, 6),
+  BoxConstraints constraints = const BoxConstraints(
+    minWidth: 120,
+    maxWidth: 320,
+    maxHeight: 420,
+  ),
+  VoidCallback? onDismiss,
+}) {
+  final Object effectiveOwner = owner ?? anchorRect;
+
+  // Only one popover may be open at a time. Re-invoking for the same owner
+  // toggles it closed instead of opening a duplicate.
+  final active = AdwPopoverHandle._activePopover;
+  if (active != null && active.isOpen) {
+    final sameOwner = AdwPopoverHandle._activeOwner == effectiveOwner;
+    active.dismiss();
+    if (sameOwner) {
+      AdwPopoverHandle._lastDismissedOwner = null;
+      AdwPopoverHandle._lastDismissedAt = null;
+      return AdwPopoverHandle._(owner: effectiveOwner).._isDismissed = true;
+    }
+  } else if (AdwPopoverHandle._lastDismissedOwner == effectiveOwner &&
+      AdwPopoverHandle._lastDismissedAt != null &&
+      DateTime.now().difference(AdwPopoverHandle._lastDismissedAt!) <
+          const Duration(milliseconds: 350)) {
+    // Native PopupWindow (or overlay barrier) may dismiss on pointer-down
+    // right before the invoking button's onTap fires on pointer-up.
+    AdwPopoverHandle._lastDismissedOwner = null;
+    AdwPopoverHandle._lastDismissedAt = null;
+    return AdwPopoverHandle._(owner: effectiveOwner).._isDismissed = true;
+  }
+
+  AdwPopoverHandle._lastDismissedOwner = null;
+  AdwPopoverHandle._lastDismissedAt = null;
+
+  final handle = AdwPopoverHandle._(
+    onDismiss: onDismiss,
+    owner: effectiveOwner,
+  );
+  AdwPopoverHandle._activePopover = handle;
+  AdwPopoverHandle._activeOwner = effectiveOwner;
+
+  if (AdwSubWindowManager.isNativeLinuxWindowingSupported) {
+    final parentController =
+        AdwSubWindowManager.instance.resolveParentController(context);
+    if (parentController != null &&
+        (AdwSubWindowManager.instance.isRootWindowRegistered ||
+            parentController.rootView.viewId != 0)) {
+      try {
+          // Leave transparent padding around the popover surface so its soft
+          // drop shadow renders cleanly without clipping at the popup edges.
+          const EdgeInsets shadowInsets = EdgeInsets.fromLTRB(14, 8, 14, 18);
+          final safeAnchorRect = Rect.fromLTWH(
+            anchorRect.left,
+            anchorRect.top,
+            math.max(1.0, anchorRect.width),
+            math.max(1.0, anchorRect.height),
+          );
+          final adjustedConstraints = BoxConstraints(
+            minWidth: constraints.minWidth + shadowInsets.horizontal,
+            maxWidth: constraints.maxWidth.isFinite
+                ? constraints.maxWidth + shadowInsets.horizontal
+                : double.infinity,
+            minHeight: constraints.minHeight + shadowInsets.vertical,
+            maxHeight: constraints.maxHeight.isFinite
+                ? constraints.maxHeight + shadowInsets.vertical
+                : double.infinity,
+          );
+
+          final positioner = WindowPositioner(
+            parentAnchor: _toWindowPositionerAnchor(parentAnchor),
+            childAnchor: _toWindowPositionerAnchor(childAnchor),
+            offset: offset + _shadowAnchorOffset(childAnchor, shadowInsets),
+            constraintAdjustment: const WindowPositionerConstraintAdjustment(
+              flipX: true,
+              flipY: true,
+              slideX: true,
+              slideY: true,
+            ),
+          );
+
+          final popupController = PopupWindowController(
+            parent: parentController,
+            anchorRect: safeAnchorRect,
+            positioner: positioner,
+            constraints: adjustedConstraints,
+            delegate: _AdwPopupWindowDelegate(
+              onDestroyedCallback: handle.dismiss,
+            ),
+          );
+
+          if (popupController is PopupWindowControllerLinux) {
+            popupController.setAppPaintable(true);
+            popupController.setBackgroundColor(const Color(0x00000000));
+            AdwNativeWindowController.attachPopupWindow(
+              windowHandle: popupController.windowHandle.address,
+            );
+          }
+
+          final entry = AdwPopupWindowEntry(
+            controller: popupController,
+            onDismiss: handle.dismiss,
+            child: Padding(
+              padding: shadowInsets,
+              child: ConstrainedBox(
+                constraints: constraints,
+                child: Builder(
+                  builder: (popupContext) => builder(popupContext, handle),
+                ),
+              ),
+            ),
+          );
+
+          handle._popupController = popupController;
+          handle._popupEntry = entry;
+          AdwSubWindowManager.instance.registerPopup(entry);
+          return handle;
+        } catch (_) {
+          // Fall through to in-window OverlayEntry fallback.
+        }
+    }
+  }
+
+  if (!context.mounted || handle._isDismissed) {
+    return handle;
+  }
+
+  final themeData = AdwTheme.maybeOf(context);
+  final overlay = Overlay.of(context, rootOverlay: true);
+
+  final overlayEntry = OverlayEntry(
+    builder: (overlayContext) {
+      Widget content = CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): handle.dismiss,
+        },
+        child: FocusScope(
+          autofocus: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: handle.dismiss,
+            child: CustomSingleChildLayout(
+              delegate: _OverlayPopoverLayoutDelegate(
+                anchorRect: anchorRect,
+                parentAnchor: parentAnchor,
+                childAnchor: childAnchor,
+                offset: offset,
+              ),
+              child: GestureDetector(
+                onTap: () {},
+                child: ConstrainedBox(
+                  constraints: constraints,
+                  child: builder(overlayContext, handle),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (AdwTheme.maybeOf(overlayContext) == null && themeData != null) {
+        content = AdwTheme(data: themeData, child: content);
+      }
+
+      return content;
+    },
+  );
+
+  handle._overlayEntry = overlayEntry;
+  overlay.insert(overlayEntry);
+  return handle;
+}
+
+Offset _shadowAnchorOffset(
+  AdwPopoverAnchor childAnchor,
+  EdgeInsets shadowInsets,
+) {
+  final double dx = switch (childAnchor) {
+    AdwPopoverAnchor.topLeft ||
+    AdwPopoverAnchor.left ||
+    AdwPopoverAnchor.bottomLeft =>
+      -shadowInsets.left,
+    AdwPopoverAnchor.topRight ||
+    AdwPopoverAnchor.right ||
+    AdwPopoverAnchor.bottomRight =>
+      shadowInsets.right,
+    AdwPopoverAnchor.top ||
+    AdwPopoverAnchor.center ||
+    AdwPopoverAnchor.bottom =>
+      0.0,
+  };
+  final double dy = switch (childAnchor) {
+    AdwPopoverAnchor.topLeft ||
+    AdwPopoverAnchor.top ||
+    AdwPopoverAnchor.topRight =>
+      -shadowInsets.top,
+    AdwPopoverAnchor.bottomLeft ||
+    AdwPopoverAnchor.bottom ||
+    AdwPopoverAnchor.bottomRight =>
+      shadowInsets.bottom,
+    AdwPopoverAnchor.left ||
+    AdwPopoverAnchor.center ||
+    AdwPopoverAnchor.right =>
+      0.0,
+  };
+  return Offset(dx, dy);
+}
+
+class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
+  final Rect anchorRect;
+  final AdwPopoverAnchor parentAnchor;
+  final AdwPopoverAnchor childAnchor;
+  final Offset offset;
+
+  _OverlayPopoverLayoutDelegate({
+    required this.anchorRect,
+    required this.parentAnchor,
+    required this.childAnchor,
+    required this.offset,
+  });
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints(
+      maxWidth: math.max(0.0, constraints.maxWidth - 16),
+      maxHeight: math.max(0.0, constraints.maxHeight - 16),
+    );
+  }
+
+  Offset _anchorPoint(Rect rect, AdwPopoverAnchor anchor) {
+    return switch (anchor) {
+      AdwPopoverAnchor.topLeft => rect.topLeft,
+      AdwPopoverAnchor.top => rect.topCenter,
+      AdwPopoverAnchor.topRight => rect.topRight,
+      AdwPopoverAnchor.left => rect.centerLeft,
+      AdwPopoverAnchor.center => rect.center,
+      AdwPopoverAnchor.right => rect.centerRight,
+      AdwPopoverAnchor.bottomLeft => rect.bottomLeft,
+      AdwPopoverAnchor.bottom => rect.bottomCenter,
+      AdwPopoverAnchor.bottomRight => rect.bottomRight,
+    };
+  }
+
+  Offset _childOffset(Size size, AdwPopoverAnchor anchor) {
+    return switch (anchor) {
+      AdwPopoverAnchor.topLeft => Offset.zero,
+      AdwPopoverAnchor.top => Offset(-size.width / 2, 0),
+      AdwPopoverAnchor.topRight => Offset(-size.width, 0),
+      AdwPopoverAnchor.left => Offset(0, -size.height / 2),
+      AdwPopoverAnchor.center => Offset(-size.width / 2, -size.height / 2),
+      AdwPopoverAnchor.right => Offset(-size.width, -size.height / 2),
+      AdwPopoverAnchor.bottomLeft => Offset(0, -size.height),
+      AdwPopoverAnchor.bottom => Offset(-size.width / 2, -size.height),
+      AdwPopoverAnchor.bottomRight => Offset(-size.width, -size.height),
+    };
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    const double margin = 8.0;
+    final raw = _anchorPoint(anchorRect, parentAnchor) +
+        _childOffset(childSize, childAnchor) +
+        offset;
+
+    double dx = raw.dx;
+    double dy = raw.dy;
+
+    if (dy + childSize.height > size.height - margin &&
+        anchorRect.top - childSize.height - offset.dy >= margin) {
+      dy = anchorRect.top - childSize.height - offset.dy;
+    }
+
+    dx = dx.clamp(
+      margin,
+      math.max(margin, size.width - childSize.width - margin),
+    );
+    dy = dy.clamp(
+      margin,
+      math.max(margin, size.height - childSize.height - margin),
+    );
+    return Offset(dx, dy);
+  }
+
+  @override
+  bool shouldRelayout(covariant _OverlayPopoverLayoutDelegate oldDelegate) {
+    return anchorRect != oldDelegate.anchorRect ||
+        parentAnchor != oldDelegate.parentAnchor ||
+        childAnchor != oldDelegate.childAnchor ||
+        offset != oldDelegate.offset;
+  }
+}
+
+/// Which edge of an [AdwPopoverSurface] displays the pointer triangle.
+enum AdwPopoverArrowSide {
+  none,
+  top,
+  bottom,
+}
+
+/// Styled Libadwaita popover container (`popover.background > contents`).
+class AdwPopoverSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final AdwPopoverArrowSide arrowSide;
+  final double arrowWidth;
+  final double arrowHeight;
+
+  const AdwPopoverSurface({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(6),
+    this.arrowSide = AdwPopoverArrowSide.none,
+    this.arrowWidth = 18.0,
+    this.arrowHeight = 9.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.of(context);
+    final content = DefaultTextStyle(
+      style: theme.typography.body.copyWith(
+        color: theme.colors.popoverForeground,
+      ),
+      child: child,
+    );
+
+    if (arrowSide == AdwPopoverArrowSide.none) {
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: theme.colors.popoverBackground,
+          borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 0,
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Color(0x17000000),
+              blurRadius: 5,
+              spreadRadius: 1,
+              offset: Offset(0, 1),
+            ),
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 14,
+              spreadRadius: 3,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: content,
+      );
+    }
+
+    final arrowInset = EdgeInsets.only(
+      top: arrowSide == AdwPopoverArrowSide.top ? arrowHeight : 0,
+      bottom: arrowSide == AdwPopoverArrowSide.bottom ? arrowHeight : 0,
+    );
+
+    return CustomPaint(
+      painter: _AdwPopoverSurfacePainter(
+        backgroundColor: theme.colors.popoverBackground,
+        radius: AdwMetrics.cardRadius,
+        arrowSide: arrowSide,
+        arrowWidth: arrowWidth,
+        arrowHeight: arrowHeight,
+      ),
+      child: Padding(
+        padding: arrowInset,
+        child: Padding(
+          padding: padding,
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+class _AdwPopoverSurfacePainter extends CustomPainter {
+  final Color backgroundColor;
+  final double radius;
+  final AdwPopoverArrowSide arrowSide;
+  final double arrowWidth;
+  final double arrowHeight;
+
+  const _AdwPopoverSurfacePainter({
+    required this.backgroundColor,
+    required this.radius,
+    required this.arrowSide,
+    required this.arrowWidth,
+    required this.arrowHeight,
+  });
+
+  Path _buildPath(Size size) {
+    final topInset = arrowSide == AdwPopoverArrowSide.top ? arrowHeight : 0.0;
+    final bottomInset =
+        arrowSide == AdwPopoverArrowSide.bottom ? arrowHeight : 0.0;
+    final bodyRect = Rect.fromLTRB(
+      0,
+      topInset,
+      size.width,
+      size.height - bottomInset,
+    );
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(bodyRect, Radius.circular(radius)));
+
+    final centerX = size.width / 2;
+    final halfW = arrowWidth / 2;
+    if (arrowSide == AdwPopoverArrowSide.top) {
+      final arrowPath = Path()
+        ..moveTo(centerX - halfW, topInset + 1)
+        ..lineTo(centerX, 0)
+        ..lineTo(centerX + halfW, topInset + 1)
+        ..close();
+      return Path.combine(PathOperation.union, path, arrowPath);
+    } else if (arrowSide == AdwPopoverArrowSide.bottom) {
+      final baseY = size.height - bottomInset - 1;
+      final arrowPath = Path()
+        ..moveTo(centerX - halfW, baseY)
+        ..lineTo(centerX, size.height)
+        ..lineTo(centerX + halfW, baseY)
+        ..close();
+      return Path.combine(PathOperation.union, path, arrowPath);
+    }
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _buildPath(size);
+
+    // Outer ambient shadow (0 2px 14px 3px rgb(0 0 0 / 5%))
+    canvas.drawPath(
+      path.shift(const Offset(0, 2)),
+      Paint()
+        ..color = const Color(0x0D000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+    );
+
+    // Key shadow (0 1px 5px 1px rgb(0 0 0 / 9%))
+    canvas.drawPath(
+      path.shift(const Offset(0, 1)),
+      Paint()
+        ..color = const Color(0x17000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+    );
+
+    // Subtle 1px rim (0 0 0 1px rgb(0 0 0 / 5%))
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0x0D000000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // Popover surface fill
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = backgroundColor
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdwPopoverSurfacePainter oldDelegate) {
+    return backgroundColor != oldDelegate.backgroundColor ||
+        radius != oldDelegate.radius ||
+        arrowSide != oldDelegate.arrowSide ||
+        arrowWidth != oldDelegate.arrowWidth ||
+        arrowHeight != oldDelegate.arrowHeight;
+  }
+}
+
+/// Selectable menu item inside an [AdwPopoverSurface].
+class AdwPopoverMenuItem extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const AdwPopoverMenuItem({
+    super.key,
+    required this.label,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  State<AdwPopoverMenuItem> createState() => _AdwPopoverMenuItemState();
+}
+
+class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.of(context);
+    final isEnabled = widget.onTap != null;
+
+    Color bg = const Color(0x00000000);
+    if (isEnabled) {
+      if (_isPressed) {
+        bg = theme.colors.activeColor;
+      } else if (_isHovered) {
+        bg = theme.colors.hoverBackground;
+      }
+    }
+
+    return MouseRegion(
+      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (isEnabled) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (isEnabled) {
+          setState(() {
+            _isHovered = false;
+            _isPressed = false;
+          });
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel:
+            isEnabled ? () => setState(() => _isPressed = false) : null,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AdwCurves.shortDuration,
+          curve: AdwCurves.standard,
+          alignment: Alignment.centerLeft,
+          constraints: const BoxConstraints(minHeight: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(6.0),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
+                  style: theme.typography.body.copyWith(
+                    height: 1.0,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    color: isEnabled
+                        ? theme.colors.popoverForeground
+                        : theme.colors.popoverForeground.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+              if (widget.trailing != null) ...[
+                const SizedBox(width: 12),
+                widget.trailing!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal separator inside an [AdwPopoverSurface].
+class AdwPopoverDivider extends StatelessWidget {
+  const AdwPopoverDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Container(
+        height: 1,
+        color: theme.colors.borderColor,
+      ),
+    );
+  }
+}
