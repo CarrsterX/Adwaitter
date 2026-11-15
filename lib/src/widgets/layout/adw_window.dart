@@ -72,6 +72,7 @@ class AdwNativeWindowController implements AdwWindowController {
     required int windowHandle,
     required int viewHandle,
     required int viewId,
+    int? parentViewId,
   }) async {
     if (kIsWeb) return;
     try {
@@ -79,6 +80,7 @@ class AdwNativeWindowController implements AdwWindowController {
         'windowHandle': windowHandle,
         'viewHandle': viewHandle,
         'viewId': viewId,
+        if (parentViewId != null) 'parentViewId': parentViewId,
       });
     } catch (_) {}
   }

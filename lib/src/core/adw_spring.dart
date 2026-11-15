@@ -46,6 +46,22 @@ class AdwSpringParams {
     stiffness: 500.0,
   );
 
+  /// Underdamped spring matching upstream `AdwBottomSheet`
+  /// (`SPRING_DAMPING = 0.8`, `mass = 1.0`, `SPRING_STIFFNESS = 400`).
+  static const AdwSpringParams bottomSheet = AdwSpringParams(
+    dampingRatio: 0.8,
+    mass: 1.0,
+    stiffness: 400.0,
+  );
+
+  /// Underdamped spring matching upstream `AdwFloatingSheet`
+  /// (`SPRING_DAMPING = 0.62`, `mass = 1.0`, `SPRING_STIFFNESS = 500`).
+  static const AdwSpringParams floatingSheet = AdwSpringParams(
+    dampingRatio: 0.62,
+    mass: 1.0,
+    stiffness: 500.0,
+  );
+
   /// Converts these parameters into a Flutter [SpringDescription].
   SpringDescription toSpringDescription() {
     final damping =

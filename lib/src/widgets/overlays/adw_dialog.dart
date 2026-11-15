@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_spring.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -231,6 +232,8 @@ class _AdwDialogState extends State<AdwDialog> {
           ),
         );
 
+        final anim = _AdwDialogAnimationScope.maybeOf(context)?.animation;
+
         if (isBottomSheet) {
           return Stack(
             children: [
@@ -243,18 +246,57 @@ class _AdwDialogState extends State<AdwDialog> {
                 ),
               Align(
                 alignment: Alignment.bottomCenter,
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  child: GestureDetector(
+                child: AnimatedBuilder(
+                  animation: anim ?? const AlwaysStoppedAnimation<double>(1.0),
+                  builder: (context, child) {
+                    final progress = anim?.value ?? 1.0;
+                    final overshoot = math.max(0.0, progress - 1.0);
+                    return FractionalTranslation(
+                      translation: Offset(0.0, 1.0 - progress),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          if (overshoot > 0.0)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: -24,
+                              height: 25,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: theme.colors.windowBackground,
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: theme.colors.windowOutline,
+                                      width: 1.0,
+                                    ),
+                                    right: BorderSide(
+                                      color: theme.colors.windowOutline,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          child!,
+                        ],
+                      ),
+                    );
+                  },
+                  child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: _handleDragUpdate,
-                    onVerticalDragEnd: _handleDragEnd,
-                    child: AnimatedContainer(
-                      duration:
-                          _isDragging ? Duration.zero : AdwCurves.normalDuration,
-                      curve: AdwCurves.standard,
-                      transform: Matrix4.translationValues(0, _dragOffset, 0),
-                      child: sizedSheet,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: _handleDragUpdate,
+                      onVerticalDragEnd: _handleDragEnd,
+                      child: AnimatedContainer(
+                        duration: _isDragging
+                            ? Duration.zero
+                            : AdwCurves.normalDuration,
+                        curve: AdwCurves.standard,
+                        transform: Matrix4.translationValues(0, _dragOffset, 0),
+                        child: sizedSheet,
+                      ),
                     ),
                   ),
                 ),
@@ -263,8 +305,160 @@ class _AdwDialogState extends State<AdwDialog> {
           );
         }
 
-        return Center(child: sizedSheet);
+        return Center(
+          child: AnimatedBuilder(
+            animation: anim ?? const AlwaysStoppedAnimation<double>(1.0),
+            builder: (context, child) {
+              final progress = anim?.value ?? 1.0;
+              final scale = 0.8 + 0.2 * progress;
+              return Opacity(
+                opacity: progress.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: scale,
+                  child: child,
+                ),
+              );
+            },
+            child: sizedSheet,
+          ),
+        );
       },
+    );
+  }
+}
+
+class _AdwDialogAnimationScope extends InheritedWidget {
+  final Animation<double> animation;
+
+  const _AdwDialogAnimationScope({
+    required this.animation,
+    required super.child,
+  });
+
+  static _AdwDialogAnimationScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<_AdwDialogAnimationScope>();
+  }
+
+  @override
+  bool updateShouldNotify(covariant _AdwDialogAnimationScope oldWidget) {
+    return animation != oldWidget.animation;
+  }
+}
+
+class _AdwDialogRoute<T> extends PopupRoute<T> {
+  final WidgetBuilder pageBuilder;
+  final bool _barrierDismissible;
+  final bool initialBottomSheet;
+  final Duration _transitionDuration;
+  final Duration _reverseTransitionDuration;
+  final bool reduceMotion;
+
+  _AdwDialogRoute({
+    required this.pageBuilder,
+    required bool barrierDismissible,
+    required this.initialBottomSheet,
+    required Duration transitionDuration,
+    required Duration reverseTransitionDuration,
+    required this.reduceMotion,
+  })  : _barrierDismissible = barrierDismissible,
+        _transitionDuration = transitionDuration,
+        _reverseTransitionDuration = reverseTransitionDuration;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  bool get barrierDismissible => _barrierDismissible;
+
+  @override
+  String? get barrierLabel => 'Dismiss';
+
+  @override
+  Duration get transitionDuration => _transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => _reverseTransitionDuration;
+
+  @override
+  AnimationController createAnimationController() {
+    return AnimationController(
+      lowerBound: 0.0,
+      upperBound: 1.5,
+      value: 0.0,
+      duration: transitionDuration,
+      reverseDuration: reverseTransitionDuration,
+      vsync: navigator!,
+    );
+  }
+
+  @override
+  TickerFuture didPush() {
+    super.didPush();
+    if (controller == null) {
+      return TickerFuture.complete();
+    }
+    if (reduceMotion) {
+      controller!.value = 1.0;
+      return TickerFuture.complete();
+    }
+    controller!.value = 0.0;
+    final spring = initialBottomSheet
+        ? AdwSpringParams.bottomSheet
+        : AdwSpringParams.floatingSheet;
+    final sim = spring.createSimulation(start: 0.0, end: 1.0, velocity: 0.0);
+    final springFuture = controller!.animateWith(sim);
+    springFuture.whenComplete(() {
+      if (controller != null && isCurrent && controller!.value != 1.0) {
+        controller!.value = 1.0;
+      }
+    });
+    return springFuture;
+  }
+
+  @override
+  bool didPop(T? result) {
+    if (controller != null && controller!.value > 1.0) {
+      controller!.value = 1.0;
+    }
+    return super.didPop(result);
+  }
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return _AdwDialogAnimationScope(
+      animation: animation,
+      child: pageBuilder(context),
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: animation,
+              builder: (context, _) {
+                final alpha = (0.4 * animation.value.clamp(0.0, 1.0));
+                return ColoredBox(
+                  color: Color.fromRGBO(0, 0, 0, alpha),
+                );
+              },
+            ),
+          ),
+        ),
+        child,
+      ],
     );
   }
 }
@@ -283,86 +477,71 @@ Future<T?> showAdwDialog<T>({
   final mediaSize = MediaQuery.sizeOf(context);
   final initialBottomSheet =
       mediaSize.width <= 450.0 || mediaSize.height <= 360.0;
+  final reduceMotion =
+      AdwCurves.resolve(context, AdwCurves.shortDuration) == Duration.zero;
 
-  return showGeneralDialog<T>(
-    context: context,
-    barrierDismissible: barrierDismissible,
-    barrierLabel: 'Dismiss',
-    barrierColor: const Color(0x66000000),
-    transitionDuration: AdwCurves.resolve(
-      context,
-      initialBottomSheet ? AdwCurves.normalDuration : AdwCurves.shortDuration,
-    ),
-    pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      Widget content = AdwTheme(
-        data: theme,
-        child: CallbackShortcuts(
-          bindings: {
-            if (dismissOnEscape)
-              const SingleActivator(LogicalKeyboardKey.escape): () =>
-                  Navigator.of(dialogContext).maybePop(),
-          },
-          child: Focus(
-            autofocus: true,
-            child: builder(dialogContext),
+  return Navigator.of(context, rootNavigator: true).push<T>(
+    _AdwDialogRoute<T>(
+      barrierDismissible: barrierDismissible,
+      initialBottomSheet: initialBottomSheet,
+      reduceMotion: reduceMotion,
+      transitionDuration: AdwCurves.resolve(
+        context,
+        initialBottomSheet ? AdwCurves.normalDuration : AdwCurves.shortDuration,
+      ),
+      reverseTransitionDuration: AdwCurves.resolve(
+        context,
+        AdwCurves.shortDuration,
+      ),
+      pageBuilder: (dialogContext) {
+        Widget content = AdwTheme(
+          data: theme,
+          child: CallbackShortcuts(
+            bindings: {
+              if (dismissOnEscape)
+                const SingleActivator(LogicalKeyboardKey.escape): () =>
+                    Navigator.of(dialogContext).maybePop(),
+            },
+            child: Focus(
+              autofocus: true,
+              child: builder(dialogContext),
+            ),
           ),
-        ),
-      );
+        );
 
-      if (parentWindowScope != null) {
-        final controller = parentWindowScope.controller;
-        if (controller != null) {
-          content = AdwWindowResizeOverlay(
-            controller: controller,
-            enabled: !parentWindowScope.isMaximized,
-            child: content,
-          );
-        }
-        final activeListenable = controller?.activeListenable;
-        if (activeListenable != null) {
-          final innerContent = content;
-          content = ValueListenableBuilder<bool>(
-            valueListenable: activeListenable,
-            builder: (_, isActive, __) => AdwWindowScope(
+        if (parentWindowScope != null) {
+          final controller = parentWindowScope.controller;
+          if (controller != null) {
+            content = AdwWindowResizeOverlay(
+              controller: controller,
+              enabled: !parentWindowScope.isMaximized,
+              child: content,
+            );
+          }
+          final activeListenable = controller?.activeListenable;
+          if (activeListenable != null) {
+            final innerContent = content;
+            content = ValueListenableBuilder<bool>(
+              valueListenable: activeListenable,
+              builder: (_, isActive, __) => AdwWindowScope(
+                controller: controller,
+                isMaximized: parentWindowScope.isMaximized,
+                isActive: isActive,
+                child: innerContent,
+              ),
+            );
+          } else {
+            content = AdwWindowScope(
               controller: controller,
               isMaximized: parentWindowScope.isMaximized,
-              isActive: isActive,
-              child: innerContent,
-            ),
-          );
-        } else {
-          content = AdwWindowScope(
-            controller: controller,
-            isMaximized: parentWindowScope.isMaximized,
-            isActive: parentWindowScope.isActive,
-            child: content,
-          );
+              isActive: parentWindowScope.isActive,
+              child: content,
+            );
+          }
         }
-      }
 
-      return content;
-    },
-    transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: AdwCurves.standard,
-      );
-      if (initialBottomSheet) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 1),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        );
-      }
-      return FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
-          child: child,
-        ),
-      );
-    },
+        return content;
+      },
+    ),
   );
 }

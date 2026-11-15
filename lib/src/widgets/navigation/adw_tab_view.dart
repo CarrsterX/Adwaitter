@@ -4,12 +4,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_scrollbar.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../controls/adw_button.dart';
 import '../layout/adw_header_bar.dart';
 import '../layout/adw_toolbar_view.dart';
+import '../layout/adw_window_controls.dart';
 
 /// Represents a single tab page managed by an [AdwTabViewController].
 class AdwTabPage extends ChangeNotifier {
@@ -130,6 +132,8 @@ class AdwTabViewController extends ChangeNotifier {
   AdwTabPage? _selectedPage;
 
   /// Optional callback invoked when the last page is closed or detached.
+  final GlobalKey _viewKey = GlobalKey();
+
   VoidCallback? onEmpty;
 
   /// Optional callback invoked when a tab's indicator button is clicked.
@@ -296,9 +300,8 @@ class AdwTabViewController extends ChangeNotifier {
   }
 
   void closeOtherPages(AdwTabPage keepPage) {
-    final toClose = _pages
-        .where((p) => p != keepPage && !p.pinned)
-        .toList(growable: false);
+    final toClose =
+        _pages.where((p) => p != keepPage && !p.pinned).toList(growable: false);
     for (final p in toClose) {
       p.removeListener(_onPageMutated);
       _pages.remove(p);
@@ -360,9 +363,8 @@ class AdwTabViewController extends ChangeNotifier {
     page.removeListener(_onPageMutated);
     _pages.removeAt(idx);
     if (_selectedPage == page) {
-      _selectedPage = _pages.isEmpty
-          ? null
-          : _pages[math.min(idx, _pages.length - 1)];
+      _selectedPage =
+          _pages.isEmpty ? null : _pages[math.min(idx, _pages.length - 1)];
     }
     notifyListeners();
 
@@ -408,44 +410,48 @@ class AdwTabView extends StatelessWidget {
         final pages = controller.pages;
         final selectedIndex = controller.selectedIndex;
 
-        return CallbackShortcuts(
-          bindings: <ShortcutActivator, VoidCallback>{
-            if (onNewTabShortcut != null)
-              const SingleActivator(LogicalKeyboardKey.keyT, control: true):
-                  onNewTabShortcut!,
-            const SingleActivator(LogicalKeyboardKey.keyW, control: true): () {
-              final current = controller.selectedPage;
-              if (current != null && !current.pinned) {
-                controller.closePage(current);
-              }
+        return KeyedSubtree(
+          key: controller._viewKey,
+          child: CallbackShortcuts(
+            bindings: <ShortcutActivator, VoidCallback>{
+              if (onNewTabShortcut != null)
+                const SingleActivator(LogicalKeyboardKey.keyT, control: true):
+                    onNewTabShortcut!,
+              const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+                  () {
+                final current = controller.selectedPage;
+                if (current != null && !current.pinned) {
+                  controller.closePage(current);
+                }
+              },
+              const SingleActivator(LogicalKeyboardKey.tab, control: true):
+                  controller.selectNextPage,
+              const SingleActivator(
+                LogicalKeyboardKey.tab,
+                control: true,
+                shift: true,
+              ): controller.selectPreviousPage,
+              for (int i = 0; i < 9; i++)
+                SingleActivator(
+                  LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i),
+                  alt: true,
+                ): () => controller.selectIndex(i),
             },
-            const SingleActivator(LogicalKeyboardKey.tab, control: true):
-                controller.selectNextPage,
-            const SingleActivator(
-              LogicalKeyboardKey.tab,
-              control: true,
-              shift: true,
-            ): controller.selectPreviousPage,
-            for (int i = 0; i < 9; i++)
-              SingleActivator(
-                LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i),
-                alt: true,
-              ): () => controller.selectIndex(i),
-          },
-          child: Focus(
-            autofocus: true,
-            child: pages.isEmpty
-                ? const SizedBox.expand()
-                : IndexedStack(
-                    index: selectedIndex.clamp(0, pages.length - 1),
-                    children: [
-                      for (final page in pages)
-                        KeyedSubtree(
-                          key: page.pageKey,
-                          child: page.child,
-                        ),
-                    ],
-                  ),
+            child: Focus(
+              autofocus: true,
+              child: pages.isEmpty
+                  ? const SizedBox.expand()
+                  : IndexedStack(
+                      index: selectedIndex.clamp(0, pages.length - 1),
+                      children: [
+                        for (final page in pages)
+                          KeyedSubtree(
+                            key: page.pageKey,
+                            child: page.child,
+                          ),
+                      ],
+                    ),
+            ),
           ),
         );
       },
@@ -488,7 +494,7 @@ class AdwTabBar extends StatefulWidget {
 }
 
 class _AdwTabBarState extends State<AdwTabBar> {
-  int? _hoveredUnpinnedIndex;
+  AdwTabPage? _hoveredPage;
   AdwTabPage? _draggingPage;
   double _dragAccumulatedDx = 0.0;
   double _dragStartGlobalY = 0.0;
@@ -505,148 +511,170 @@ class _AdwTabBarState extends State<AdwTabBar> {
         final pinned = widget.controller.pinnedPages;
         final unpinned = widget.controller.unpinnedPages;
         final total = pinned.length + unpinned.length;
-        final shouldShow =
-            !widget.autohide || total > 1 || pinned.isNotEmpty;
+        final shouldShow = !widget.autohide || total > 1 || pinned.isNotEmpty;
         final isSingleTab = total == 1 && pinned.isEmpty;
 
-        return ClipRect(
-          child: AnimatedAlign(
-            duration: duration,
-            curve: AdwCurves.standard,
-            alignment: Alignment.topCenter,
-            heightFactor: shouldShow ? 1.0 : 0.0,
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 38),
-              decoration: widget.isInline
-                  ? null
-                  : BoxDecoration(
-                      color: theme.colors.headerBarBackground,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: theme.colors.dividerColor,
-                          width: 1.0,
+        return DecoratedBox(
+          decoration: widget.isInline || !shouldShow
+              ? const BoxDecoration()
+              : BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colors.isDark
+                          ? const Color(0x4D000000)
+                          : const Color(0x1F000006),
+                      blurRadius: 0,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+          child: ClipRect(
+            child: AnimatedAlign(
+              duration: duration,
+              curve: AdwCurves.standard,
+              alignment: Alignment.topCenter,
+              heightFactor: shouldShow ? 1.0 : 0.0,
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 40),
+                decoration: widget.isInline
+                    ? null
+                    : BoxDecoration(
+                        color: theme.colors.headerBarBackground,
+                      ),
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (widget.startActionWidget != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 5),
+                        child: widget.startActionWidget!,
+                      ),
+                    // Pinned tabs box
+                    if (pinned.isNotEmpty) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (int i = 0; i < pinned.length; i++) ...[
+                            if (i > 0)
+                              _buildTabSeparator(
+                                theme: theme,
+                                leftPage: pinned[i - 1],
+                                rightPage: pinned[i],
+                              ),
+                            _AdwTabItem(
+                              page: pinned[i],
+                              isSelected:
+                                  widget.controller.selectedPage == pinned[i],
+                              isSingleTab: false,
+                              inverted: widget.inverted,
+                              onSelect: () =>
+                                  widget.controller.selectPage(pinned[i]),
+                              onClose: () =>
+                                  widget.controller.closePage(pinned[i]),
+                              onIndicatorTap: () => widget
+                                  .controller.onIndicatorActivated
+                                  ?.call(pinned[i]),
+                              onHoverChanged: (hovered) => setState(() {
+                                if (hovered) {
+                                  _hoveredPage = pinned[i];
+                                } else if (_hoveredPage == pinned[i]) {
+                                  _hoveredPage = null;
+                                }
+                              }),
+                              onContextMenu: widget.onContextMenu != null
+                                  ? (pos) => widget.onContextMenu!(
+                                        context,
+                                        pinned[i],
+                                        pos,
+                                      )
+                                  : null,
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (unpinned.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: _buildTabSeparator(
+                            theme: theme,
+                            leftPage: pinned.last,
+                            rightPage: unpinned.first,
+                          ),
                         ),
+                    ],
+                    // Unpinned tabs box
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (unpinned.isEmpty) {
+                            return const SizedBox(height: 34);
+                          }
+                          final count = unpinned.length;
+                          final double rawTabWidth =
+                              (constraints.maxWidth - (count - 1) * 3.0) /
+                                  count;
+                          final bool needsScroll = rawTabWidth < 130.0;
+                          final double tabWidth = widget.expandTabs
+                              ? rawTabWidth.clamp(130.0, 2000.0)
+                              : rawTabWidth.clamp(130.0, 240.0);
+
+                          final tabRow = Row(
+                            mainAxisSize: widget.expandTabs && !needsScroll
+                                ? MainAxisSize.max
+                                : MainAxisSize.min,
+                            children: [
+                              for (int i = 0; i < unpinned.length; i++) ...[
+                                if (i > 0)
+                                  _buildTabSeparator(
+                                    theme: theme,
+                                    leftPage: unpinned[i - 1],
+                                    rightPage: unpinned[i],
+                                  ),
+                                if (widget.expandTabs && !needsScroll)
+                                  Expanded(
+                                    child: _buildDraggableUnpinnedTab(
+                                      context: context,
+                                      page: unpinned[i],
+                                      index: i,
+                                      tabWidth: tabWidth,
+                                      isSingleTab: isSingleTab,
+                                    ),
+                                  )
+                                else
+                                  SizedBox(
+                                    width: tabWidth,
+                                    child: _buildDraggableUnpinnedTab(
+                                      context: context,
+                                      page: unpinned[i],
+                                      index: i,
+                                      tabWidth: tabWidth,
+                                      isSingleTab: isSingleTab,
+                                    ),
+                                  ),
+                              ],
+                            ],
+                          );
+
+                          if (needsScroll) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: tabRow,
+                            );
+                          }
+                          return tabRow;
+                        },
                       ),
                     ),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (widget.startActionWidget != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 5),
-                      child: widget.startActionWidget!,
-                    ),
-                  // Pinned tabs box
-                  if (pinned.isNotEmpty) ...[
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int i = 0; i < pinned.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 2),
-                          _AdwTabItem(
-                            page: pinned[i],
-                            isSelected:
-                                widget.controller.selectedPage == pinned[i],
-                            isSingleTab: false,
-                            inverted: widget.inverted,
-                            onSelect: () =>
-                                widget.controller.selectPage(pinned[i]),
-                            onClose: () =>
-                                widget.controller.closePage(pinned[i]),
-                            onIndicatorTap: () => widget
-                                .controller.onIndicatorActivated
-                                ?.call(pinned[i]),
-                            onContextMenu: widget.onContextMenu != null
-                                ? (pos) => widget.onContextMenu!(
-                                      context,
-                                      pinned[i],
-                                      pos,
-                                    )
-                                : null,
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (unpinned.isNotEmpty)
-                      Container(
-                        width: 1,
-                        height: 20,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: theme.colors.dividerColor,
+                    if (widget.endActionWidget != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 5),
+                        child: widget.endActionWidget!,
                       ),
                   ],
-                  // Unpinned tabs box
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (unpinned.isEmpty) {
-                          return const SizedBox(height: 32);
-                        }
-                        final count = unpinned.length;
-                        final double rawTabWidth =
-                            (constraints.maxWidth - (count - 1) * 3.0) / count;
-                        final bool needsScroll = rawTabWidth < 130.0;
-                        final double tabWidth = widget.expandTabs
-                            ? rawTabWidth.clamp(130.0, 2000.0)
-                            : rawTabWidth.clamp(130.0, 240.0);
-
-                        final tabRow = Row(
-                          mainAxisSize: widget.expandTabs && !needsScroll
-                              ? MainAxisSize.max
-                              : MainAxisSize.min,
-                          children: [
-                            for (int i = 0; i < unpinned.length; i++) ...[
-                              if (i > 0)
-                                _buildTabSeparator(
-                                  theme: theme,
-                                  leftPage: unpinned[i - 1],
-                                  rightPage: unpinned[i],
-                                  leftIndex: i - 1,
-                                  rightIndex: i,
-                                ),
-                              if (widget.expandTabs && !needsScroll)
-                                Expanded(
-                                  child: _buildDraggableUnpinnedTab(
-                                    context: context,
-                                    page: unpinned[i],
-                                    index: i,
-                                    tabWidth: tabWidth,
-                                    isSingleTab: isSingleTab,
-                                  ),
-                                )
-                              else
-                                SizedBox(
-                                  width: tabWidth,
-                                  child: _buildDraggableUnpinnedTab(
-                                    context: context,
-                                    page: unpinned[i],
-                                    index: i,
-                                    tabWidth: tabWidth,
-                                    isSingleTab: isSingleTab,
-                                  ),
-                                ),
-                            ],
-                          ],
-                        );
-
-                        if (needsScroll) {
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: tabRow,
-                          );
-                        }
-                        return tabRow;
-                      },
-                    ),
-                  ),
-                  if (widget.endActionWidget != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 5),
-                      child: widget.endActionWidget!,
-                    ),
-                ],
+                ),
               ),
             ),
           ),
@@ -659,22 +687,22 @@ class _AdwTabBarState extends State<AdwTabBar> {
     required AdwThemeData theme,
     required AdwTabPage leftPage,
     required AdwTabPage rightPage,
-    required int leftIndex,
-    required int rightIndex,
   }) {
     final selected = widget.controller.selectedPage;
     final bool hidden = selected == leftPage ||
         selected == rightPage ||
-        _hoveredUnpinnedIndex == leftIndex ||
-        _hoveredUnpinnedIndex == rightIndex;
+        _hoveredPage == leftPage ||
+        _hoveredPage == rightPage ||
+        _draggingPage == leftPage ||
+        _draggingPage == rightPage;
     return AnimatedOpacity(
       duration: AdwCurves.shortDuration,
       opacity: hidden ? 0.0 : 1.0,
       child: Container(
         width: 1,
-        height: 20,
+        height: 28,
         margin: const EdgeInsets.symmetric(horizontal: 1),
-        color: theme.colors.dividerColor,
+        color: theme.colors.borderColor,
       ),
     );
   }
@@ -723,29 +751,30 @@ class _AdwTabBarState extends State<AdwTabBar> {
         }
       },
       onPanEnd: (_) {
-        _draggingPage = null;
-        _dragAccumulatedDx = 0.0;
+        setState(() {
+          _draggingPage = null;
+          _dragAccumulatedDx = 0.0;
+        });
       },
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hoveredUnpinnedIndex = index),
-        onExit: (_) {
-          if (_hoveredUnpinnedIndex == index) {
-            setState(() => _hoveredUnpinnedIndex = null);
+      child: _AdwTabItem(
+        page: page,
+        isSelected: widget.controller.selectedPage == page,
+        isSingleTab: isSingleTab,
+        inverted: widget.inverted,
+        onSelect: () => widget.controller.selectPage(page),
+        onClose: () => widget.controller.closePage(page),
+        onIndicatorTap: () =>
+            widget.controller.onIndicatorActivated?.call(page),
+        onHoverChanged: (hovered) => setState(() {
+          if (hovered) {
+            _hoveredPage = page;
+          } else if (_hoveredPage == page) {
+            _hoveredPage = null;
           }
-        },
-        child: _AdwTabItem(
-          page: page,
-          isSelected: widget.controller.selectedPage == page,
-          isSingleTab: isSingleTab,
-          inverted: widget.inverted,
-          onSelect: () => widget.controller.selectPage(page),
-          onClose: () => widget.controller.closePage(page),
-          onIndicatorTap: () =>
-              widget.controller.onIndicatorActivated?.call(page),
-          onContextMenu: widget.onContextMenu != null
-              ? (pos) => widget.onContextMenu!(context, page, pos)
-              : null,
-        ),
+        }),
+        onContextMenu: widget.onContextMenu != null
+            ? (pos) => widget.onContextMenu!(context, page, pos)
+            : null,
       ),
     );
   }
@@ -759,6 +788,7 @@ class _AdwTabItem extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
   final VoidCallback? onIndicatorTap;
+  final ValueChanged<bool>? onHoverChanged;
   final void Function(Offset globalPosition)? onContextMenu;
 
   const _AdwTabItem({
@@ -769,6 +799,7 @@ class _AdwTabItem extends StatefulWidget {
     required this.onSelect,
     required this.onClose,
     this.onIndicatorTap,
+    this.onHoverChanged,
     this.onContextMenu,
   });
 
@@ -814,11 +845,17 @@ class _AdwTabItemState extends State<_AdwTabItem> {
           },
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _isHovered = true),
-            onExit: (_) => setState(() {
-              _isHovered = false;
-              _isPressed = false;
-            }),
+            onEnter: (_) {
+              setState(() => _isHovered = true);
+              widget.onHoverChanged?.call(true);
+            },
+            onExit: (_) {
+              setState(() {
+                _isHovered = false;
+                _isPressed = false;
+              });
+              widget.onHoverChanged?.call(false);
+            },
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (_) => setState(() => _isPressed = true),
@@ -832,13 +869,10 @@ class _AdwTabItemState extends State<_AdwTabItem> {
                     duration: AdwCurves.shortDuration,
                     curve: AdwCurves.standard,
                     constraints: BoxConstraints(
-                      minHeight: 32,
+                      minHeight: 34,
                       minWidth: widget.page.pinned ? 36 : 80,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 3,
-                    ),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: bg,
                       borderRadius:
@@ -856,8 +890,8 @@ class _AdwTabItemState extends State<_AdwTabItem> {
                       child: Container(
                         height: 2,
                         decoration: BoxDecoration(
-                          color: theme.colors.accentColor
-                              .withValues(alpha: 0.65),
+                          color:
+                              theme.colors.accentColor.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -916,9 +950,8 @@ class _AdwTabItemState extends State<_AdwTabItem> {
       leadingIcon = null;
     }
 
-    final Widget? indicator = widget.page.indicatorIcon != null
-        ? _buildIndicatorWidget(fg)
-        : null;
+    final Widget? indicator =
+        widget.page.indicatorIcon != null ? _buildIndicatorWidget(fg) : null;
 
     final Widget closeSlot = SizedBox(
       width: 24,
@@ -940,22 +973,18 @@ class _AdwTabItemState extends State<_AdwTabItem> {
       child: Center(
         child: widget.inverted
             ? closeSlot
-            : (leadingIcon ?? const SizedBox.shrink()),
+            : (indicator ?? const SizedBox.shrink()),
       ),
     );
 
-    final Widget trailingSlot = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (indicator != null) indicator,
-        if (widget.inverted)
-          if (leadingIcon != null)
-            SizedBox(width: 24, height: 24, child: Center(child: leadingIcon))
-          else
-            const SizedBox(width: 24, height: 24)
-        else
-          closeSlot,
-      ],
+    final Widget trailingSlot = SizedBox(
+      width: 24,
+      height: 24,
+      child: Center(
+        child: widget.inverted
+            ? (indicator ?? const SizedBox.shrink())
+            : closeSlot,
+      ),
     );
 
     return Row(
@@ -964,18 +993,29 @@ class _AdwTabItemState extends State<_AdwTabItem> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              widget.page.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: theme.typography.body.copyWith(
-                fontSize: 13,
-                fontWeight:
-                    widget.isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: widget.isSelected
-                    ? fg
-                    : fg.withValues(alpha: 0.82),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (leadingIcon != null) ...[
+                    leadingIcon,
+                    const SizedBox(width: 6),
+                  ],
+                  Flexible(
+                    child: Text(
+                      widget.page.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: theme.typography.body.copyWith(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w400,
+                        color: fg,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1025,9 +1065,11 @@ class _TabCircleIconButtonState extends State<_TabCircleIconButton> {
     final Color bg;
     if (widget.backgroundColor != null) {
       if (_pressed) {
-        bg = Color.alphaBlend(fg.withValues(alpha: 0.20), widget.backgroundColor!);
+        bg = Color.alphaBlend(
+            fg.withValues(alpha: 0.20), widget.backgroundColor!);
       } else if (_hovered) {
-        bg = Color.alphaBlend(fg.withValues(alpha: 0.10), widget.backgroundColor!);
+        bg = Color.alphaBlend(
+            fg.withValues(alpha: 0.10), widget.backgroundColor!);
       } else {
         bg = widget.backgroundColor!;
       }
@@ -1165,24 +1207,105 @@ class AdwTabOverview extends StatefulWidget {
   State<AdwTabOverview> createState() => _AdwTabOverviewState();
 }
 
-class _AdwTabOverviewState extends State<AdwTabOverview> {
+class _AdwTabOverviewState extends State<AdwTabOverview>
+    with SingleTickerProviderStateMixin {
   bool _searchActive = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _overviewKey = GlobalKey();
+  final Map<AdwTabPage, GlobalKey> _thumbnailKeys = {};
+  final ScrollController _scrollController = ScrollController();
+  late final AnimationController _transitionController;
+  Rect? _cachedTargetRect;
+  Rect? _cachedBodyRect;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+      value: widget.open ? 1.0 : 0.0,
+    );
+    _transitionController.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed ||
+          status == AnimationStatus.completed) {
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    });
+  }
+
+  GlobalKey _thumbnailKeyFor(AdwTabPage page) =>
+      _thumbnailKeys.putIfAbsent(page, () => GlobalKey());
+
+  Rect? _measureSelectedThumbnailRect() {
+    final selected = widget.controller.selectedPage;
+    if (selected == null) return null;
+    final cardContext = _thumbnailKeys[selected]?.currentContext;
+    final overviewContext = _overviewKey.currentContext;
+    if (cardContext == null || overviewContext == null) return null;
+    final cardBox = cardContext.findRenderObject() as RenderBox?;
+    final overviewBox = overviewContext.findRenderObject() as RenderBox?;
+    if (cardBox == null ||
+        overviewBox == null ||
+        !cardBox.hasSize ||
+        !overviewBox.hasSize) {
+      return null;
+    }
+    final topLeft = cardBox.localToGlobal(Offset.zero, ancestor: overviewBox);
+    return topLeft & cardBox.size;
+  }
+
+  Rect? _measureTabViewBodyRect() {
+    final bodyContext = widget.controller._viewKey.currentContext;
+    final overviewContext = _overviewKey.currentContext;
+    if (bodyContext == null || overviewContext == null) return null;
+    final bodyBox = bodyContext.findRenderObject() as RenderBox?;
+    final overviewBox = overviewContext.findRenderObject() as RenderBox?;
+    if (bodyBox == null ||
+        overviewBox == null ||
+        !bodyBox.hasSize ||
+        !overviewBox.hasSize) {
+      return null;
+    }
+    final topLeft = bodyBox.localToGlobal(Offset.zero, ancestor: overviewBox);
+    return topLeft & bodyBox.size;
+  }
 
   @override
   void didUpdateWidget(covariant AdwTabOverview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.open && oldWidget.open) {
-      _searchActive = false;
-      _searchQuery = '';
-      _searchController.clear();
+    if (widget.open != oldWidget.open) {
+      final duration = AdwCurves.resolve(
+        context,
+        const Duration(milliseconds: 400),
+      );
+      _transitionController.duration = duration;
+
+      if (widget.open) {
+        _cachedBodyRect = _measureTabViewBodyRect();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !widget.open) return;
+          _cachedTargetRect = _measureSelectedThumbnailRect();
+          _transitionController.forward();
+        });
+      } else {
+        _searchActive = false;
+        _searchQuery = '';
+        _searchController.clear();
+        _cachedTargetRect = _measureSelectedThumbnailRect();
+        _transitionController.reverse();
+      }
     }
   }
 
   @override
   void dispose() {
+    _transitionController.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -1203,269 +1326,458 @@ class _AdwTabOverviewState extends State<AdwTabOverview> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final duration = AdwCurves.resolve(context, AdwCurves.normalDuration);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Underlying normal window content
-        IgnorePointer(
-          ignoring: widget.open,
-          child: AnimatedOpacity(
-            duration: duration,
-            curve: AdwCurves.standard,
-            opacity: widget.open ? 0.0 : 1.0,
-            child: widget.child,
-          ),
-        ),
-        // Overview layer
-        IgnorePointer(
-          ignoring: !widget.open,
-          child: AnimatedOpacity(
-            duration: duration,
-            curve: AdwCurves.standard,
-            opacity: widget.open ? 1.0 : 0.0,
-            child: AnimatedScale(
-              duration: duration,
-              curve: AdwCurves.standard,
-              scale: widget.open ? 1.0 : 0.96,
-              child: ColoredBox(
-                color: theme.colors.windowBackground,
-                child: ListenableBuilder(
-                  listenable: widget.controller,
-                  builder: (context, _) {
-                    final query = _searchQuery.trim().toLowerCase();
-                    final pinned = widget.controller.pinnedPages
-                        .where((p) =>
-                            query.isEmpty ||
-                            p.title.toLowerCase().contains(query))
-                        .toList();
-                    final unpinned = widget.controller.unpinnedPages
-                        .where((p) =>
-                            query.isEmpty ||
-                            p.title.toLowerCase().contains(query))
-                        .toList();
+    return LayoutBuilder(
+      key: _overviewKey,
+      builder: (context, viewportConstraints) {
+        final fullRect = Rect.fromLTWH(
+          0,
+          0,
+          viewportConstraints.maxWidth,
+          viewportConstraints.maxHeight,
+        );
 
-                    return AdwToolbarView(
-                      topBar: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AdwHeaderBar(
-                            isFlat: true,
-                            start: AdwButton.flat(
-                              width: 34,
-                              height: 34,
-                              padding: EdgeInsets.zero,
-                              isChecked: _searchActive,
-                              onPressed: _toggleSearch,
-                              child: CustomPaint(
-                                size: const Size(16, 16),
-                                painter: _OverviewSearchIconPainter(
-                                  color: theme.colors.windowForeground,
-                                ),
-                              ),
-                            ),
-                            title: const Text('Open Tabs'),
-                            end: widget.secondaryMenu,
-                          ),
-                          if (_searchActive)
-                            Container(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 400),
-                                  child: Container(
+        return AnimatedBuilder(
+          animation: _transitionController,
+          builder: (context, _) {
+            final rawT = _transitionController.value;
+            final showOverview = widget.open || rawT > 0.0;
+            final showChild = !widget.open || rawT < 1.0;
+
+            const adwEase = Cubic(0.25, 0.1, 0.25, 1.0);
+            final curvedT = adwEase.transform(rawT);
+            final fallbackRect = Rect.fromCenter(
+              center: fullRect.center,
+              width: fullRect.width * 0.88,
+              height: fullRect.height * 0.88,
+            );
+            final targetRect = _cachedTargetRect ?? fallbackRect;
+            final bodyRect = _cachedBodyRect ?? fullRect;
+            final currentRect = rawT <= 0.0
+                ? fullRect
+                : (Rect.lerp(fullRect, targetRect, curvedT) ?? fullRect);
+            final clipRect = rawT <= 0.0
+                ? fullRect
+                : (Rect.lerp(fullRect, bodyRect, curvedT) ?? fullRect);
+            final scaleX =
+                clipRect.width > 0 ? currentRect.width / clipRect.width : 1.0;
+            final scaleY = clipRect.height > 0
+                ? currentRect.height / clipRect.height
+                : 1.0;
+            final morphRadius = BorderRadius.lerp(
+                  BorderRadius.zero,
+                  BorderRadius.circular(12),
+                  curvedT,
+                ) ??
+                BorderRadius.zero;
+            final dimAlpha = (0.35 * (1.0 - curvedT)).clamp(0.0, 0.35);
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (showOverview)
+                  IgnorePointer(
+                    ignoring: !widget.open,
+                    child: ColoredBox(
+                      color: theme.colors.isDark
+                          ? const Color(0xFF28282C)
+                          : const Color(0xFFF3F3F5),
+                      child: ListenableBuilder(
+                        listenable: widget.controller,
+                        builder: (context, _) {
+                          final totalCount = widget.controller.pages.length;
+                          final query = _searchQuery.trim().toLowerCase();
+                          final pinned = widget.controller.pinnedPages
+                              .where((p) =>
+                                  query.isEmpty ||
+                                  p.title.toLowerCase().contains(query))
+                              .toList();
+                          final unpinned = widget.controller.unpinnedPages
+                              .where((p) =>
+                                  query.isEmpty ||
+                                  p.title.toLowerCase().contains(query))
+                              .toList();
+
+                          return AdwToolbarView(
+                            topBar: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AdwHeaderBar(
+                                  isFlat: true,
+                                  windowControls: const AdwWindowControls(
+                                    showMinimize: false,
+                                    showMaximize: false,
+                                    showClose: true,
+                                  ),
+                                  start: AdwButton.flat(
+                                    width: 34,
                                     height: 34,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: theme.colors.windowForeground
-                                          .withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(
-                                        AdwMetrics.entryRadius,
+                                    padding: EdgeInsets.zero,
+                                    isChecked: _searchActive,
+                                    onPressed: _toggleSearch,
+                                    child: CustomPaint(
+                                      size: const Size(16, 16),
+                                      painter: _OverviewSearchIconPainter(
+                                        color: theme.colors.windowForeground,
                                       ),
                                     ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        CustomPaint(
-                                          size: const Size(14, 14),
-                                          painter: _OverviewSearchIconPainter(
-                                            color:
-                                                theme.colors.secondaryForeground,
+                                  ),
+                                  title: Text(
+                                    totalCount == 1
+                                        ? '1 tab'
+                                        : '$totalCount tabs',
+                                  ),
+                                  end: widget.secondaryMenu,
+                                ),
+                                if (_searchActive)
+                                  Container(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      4,
+                                      12,
+                                      8,
+                                    ),
+                                    child: Center(
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 400,
+                                        ),
+                                        child: Container(
+                                          height: 34,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: theme.colors.windowForeground
+                                                .withValues(alpha: 0.08),
+                                            borderRadius: BorderRadius.circular(
+                                              AdwMetrics.entryRadius,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              CustomPaint(
+                                                size: const Size(14, 14),
+                                                painter:
+                                                    _OverviewSearchIconPainter(
+                                                  color: theme.colors
+                                                      .secondaryForeground,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: EditableText(
+                                                  controller: _searchController,
+                                                  focusNode: _searchFocusNode,
+                                                  style: theme.typography.body
+                                                      .copyWith(
+                                                    height: 1.0,
+                                                    leadingDistribution:
+                                                        TextLeadingDistribution
+                                                            .even,
+                                                  ),
+                                                  cursorColor:
+                                                      theme.colors.accentColor,
+                                                  backgroundCursorColor:
+                                                      theme.colors.dividerColor,
+                                                  onChanged: (v) => setState(
+                                                    () => _searchQuery = v,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: EditableText(
-                                            controller: _searchController,
-                                            focusNode: _searchFocusNode,
-                                            style:
-                                                theme.typography.body.copyWith(
-                                              height: 1.0,
-                                              leadingDistribution:
-                                                  TextLeadingDistribution.even,
-                                            ),
-                                            cursorColor:
-                                                theme.colors.accentColor,
-                                            backgroundCursorColor:
-                                                theme.colors.dividerColor,
-                                            onChanged: (v) => setState(
-                                              () => _searchQuery = v,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      content: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(18, 12, 18, 84),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (pinned.isNotEmpty) ...[
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      for (final page in pinned)
-                                        SizedBox(
-                                          width: 140,
-                                          height: 110,
-                                          child: _AdwTabThumbnailCard(
-                                            page: page,
-                                            isSelected: widget
-                                                    .controller.selectedPage ==
-                                                page,
-                                            onSelect: () {
-                                              widget.controller
-                                                  .selectPage(page);
-                                              widget.onOpenChanged(false);
-                                            },
-                                            onCloseOrUnpin: () => widget
-                                                .controller
-                                                .setPagePinned(page, false),
-                                            onIndicatorTap: () => widget
-                                                .controller.onIndicatorActivated
-                                                ?.call(page),
-                                            onContextMenu:
-                                                widget.onContextMenu != null
-                                                    ? (pos) =>
-                                                        widget.onContextMenu!(
-                                                          context,
-                                                          page,
-                                                          pos,
-                                                        )
-                                                    : null,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final cols = math.max(
-                                      1,
-                                      (constraints.maxWidth / 220).floor(),
-                                    );
-                                    final cardWidth = (constraints.maxWidth -
-                                            (cols - 1) * 16.0) /
-                                        cols;
-                                    final cardHeight = cardWidth * 0.78;
-
-                                    return Wrap(
-                                      spacing: 16,
-                                      runSpacing: 16,
-                                      children: [
-                                        for (final page in unpinned)
-                                          SizedBox(
-                                            width: cardWidth,
-                                            height: cardHeight,
-                                            child: _AdwTabThumbnailCard(
-                                              page: page,
-                                              isSelected: widget.controller
-                                                      .selectedPage ==
-                                                  page,
-                                              onSelect: () {
-                                                widget.controller
-                                                    .selectPage(page);
-                                                widget.onOpenChanged(false);
-                                              },
-                                              onCloseOrUnpin: () => widget
-                                                  .controller
-                                                  .closePage(page),
-                                              onIndicatorTap: () => widget
-                                                  .controller
-                                                  .onIndicatorActivated
-                                                  ?.call(page),
-                                              onContextMenu:
-                                                  widget.onContextMenu != null
-                                                      ? (pos) =>
-                                                          widget.onContextMenu!(
-                                                            context,
-                                                            page,
-                                                            pos,
-                                                          )
-                                                      : null,
-                                            ),
-                                          ),
-                                      ],
-                                    );
-                                  },
-                                ),
                               ],
                             ),
-                          ),
-                          if (widget.enableNewTab)
-                            Positioned(
-                              right: 18,
-                              bottom: 18,
-                              child: AdwButton.pill(
-                                onPressed: () {
-                                  widget.onCreateTab?.call();
-                                  widget.onOpenChanged(false);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  child: CustomPaint(
-                                    size: const Size(16, 16),
-                                    painter: _PlusPainter(
-                                      color: theme.colors.windowForeground,
+                            content: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                AdwScrollbar(
+                                  axisDirection: AxisDirection.down,
+                                  controller: _scrollController,
+                                  child: SingleChildScrollView(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      18,
+                                      12,
+                                      18,
+                                      84,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        if (pinned.isNotEmpty) ...[
+                                          Wrap(
+                                            spacing: 12,
+                                            runSpacing: 12,
+                                            children: [
+                                              for (final page in pinned)
+                                                SizedBox(
+                                                  width: 140,
+                                                  height: 110,
+                                                  child: _AdwTabThumbnailCard(
+                                                    thumbnailKey:
+                                                        _thumbnailKeyFor(page),
+                                                    page: page,
+                                                    isSelected: widget
+                                                            .controller
+                                                            .selectedPage ==
+                                                        page,
+                                                    onSelect: () {
+                                                      widget.controller
+                                                          .selectPage(page);
+                                                      widget
+                                                          .onOpenChanged(false);
+                                                    },
+                                                    onCloseOrUnpin: () => widget
+                                                        .controller
+                                                        .setPagePinned(
+                                                      page,
+                                                      false,
+                                                    ),
+                                                    onIndicatorTap: () => widget
+                                                        .controller
+                                                        .onIndicatorActivated
+                                                        ?.call(page),
+                                                    onContextMenu: widget
+                                                                .onContextMenu !=
+                                                            null
+                                                        ? (pos) => widget
+                                                                .onContextMenu!(
+                                                              context,
+                                                              page,
+                                                              pos,
+                                                            )
+                                                        : null,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 20),
+                                        ],
+                                        LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final cols = math.max(
+                                              1,
+                                              (constraints.maxWidth / 220)
+                                                  .floor(),
+                                            );
+                                            final cardWidth =
+                                                (constraints.maxWidth -
+                                                        (cols - 1) * 16.0) /
+                                                    cols;
+                                            final bodyAspect =
+                                                (_cachedBodyRect != null &&
+                                                        _cachedBodyRect!.width >
+                                                            0)
+                                                    ? (_cachedBodyRect!.height /
+                                                            _cachedBodyRect!
+                                                                .width)
+                                                        .clamp(0.62, 0.82)
+                                                    : 0.68;
+                                            final cardHeight =
+                                                cardWidth * bodyAspect + 34.0;
+
+                                            return Wrap(
+                                              spacing: 16,
+                                              runSpacing: 16,
+                                              children: [
+                                                for (final page in unpinned)
+                                                  SizedBox(
+                                                    width: cardWidth,
+                                                    height: cardHeight,
+                                                    child: _AdwTabThumbnailCard(
+                                                      thumbnailKey:
+                                                          _thumbnailKeyFor(
+                                                        page,
+                                                      ),
+                                                      page: page,
+                                                      isSelected: widget
+                                                              .controller
+                                                              .selectedPage ==
+                                                          page,
+                                                      onSelect: () {
+                                                        widget.controller
+                                                            .selectPage(page);
+                                                        widget.onOpenChanged(
+                                                          false,
+                                                        );
+                                                      },
+                                                      onCloseOrUnpin: () =>
+                                                          widget.controller
+                                                              .closePage(page),
+                                                      onIndicatorTap: () => widget
+                                                          .controller
+                                                          .onIndicatorActivated
+                                                          ?.call(page),
+                                                      onContextMenu: widget
+                                                                  .onContextMenu !=
+                                                              null
+                                                          ? (pos) => widget
+                                                                  .onContextMenu!(
+                                                                context,
+                                                                page,
+                                                                pos,
+                                                              )
+                                                          : null,
+                                                    ),
+                                                  ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              ),
+                                if (widget.enableNewTab)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 18,
+                                    child: Center(
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x38000000),
+                                              blurRadius: 12,
+                                              offset: Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: AdwButton.pill(
+                                          style: AdwButtonStyle.suggested,
+                                          height: 44,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 24,
+                                            vertical: 12,
+                                          ),
+                                          onPressed: () {
+                                            widget.onCreateTab?.call();
+                                            widget.onOpenChanged(false);
+                                          },
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              CustomPaint(
+                                                size: const Size(16, 16),
+                                                painter:
+                                                    _OverviewTabNewIconPainter(
+                                                  color: theme
+                                                      .colors.accentForeground,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'New Tab',
+                                                style: theme.typography.heading
+                                                    .copyWith(
+                                                  color: theme
+                                                      .colors.accentForeground,
+                                                  height: 1.0,
+                                                  leadingDistribution:
+                                                      TextLeadingDistribution
+                                                          .even,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ),
+                if (showOverview && dimAlpha > 0)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Color.fromRGBO(0, 0, 0, dimAlpha),
+                      ),
+                    ),
+                  ),
+                Positioned.fromRect(
+                  rect: currentRect,
+                  child: Offstage(
+                    offstage: !showChild,
+                    child: IgnorePointer(
+                      ignoring: widget.open || rawT > 0.0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: morphRadius,
+                          boxShadow: rawT > 0.0
+                              ? [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(
+                                      0,
+                                      0,
+                                      0,
+                                      0.28 * curvedT.clamp(0.0, 1.0),
+                                    ),
+                                    blurRadius: 18 * curvedT,
+                                    offset: Offset(0, 4 * curvedT),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: morphRadius,
+                          child: rawT <= 0.0
+                              ? widget.child
+                              : OverflowBox(
+                                  alignment: Alignment.topLeft,
+                                  minWidth: fullRect.width,
+                                  maxWidth: fullRect.width,
+                                  minHeight: fullRect.height,
+                                  maxHeight: fullRect.height,
+                                  child: Transform(
+                                    alignment: Alignment.topLeft,
+                                    transform: Matrix4.diagonal3Values(
+                                      scaleX,
+                                      scaleY,
+                                      1.0,
+                                    )..translateByDouble(
+                                        -clipRect.left,
+                                        -clipRect.top,
+                                        0.0,
+                                        1.0,
+                                      ),
+                                    child: widget.child,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ],
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
 
 class _AdwTabThumbnailCard extends StatefulWidget {
+  final GlobalKey? thumbnailKey;
   final AdwTabPage page;
   final bool isSelected;
   final VoidCallback onSelect;
@@ -1474,6 +1786,7 @@ class _AdwTabThumbnailCard extends StatefulWidget {
   final void Function(Offset globalPosition)? onContextMenu;
 
   const _AdwTabThumbnailCard({
+    this.thumbnailKey,
     required this.page,
     required this.isSelected,
     required this.onSelect,
@@ -1487,8 +1800,6 @@ class _AdwTabThumbnailCard extends StatefulWidget {
 }
 
 class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
@@ -1499,7 +1810,7 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
       builder: (context, _) {
         final previewColor =
             widget.page.thumbnailColor ?? theme.colors.cardBackground;
-        final pillBg = previewColor.withValues(alpha: 0.78);
+        const closeBg = Color(0x88242428);
 
         return Listener(
           onPointerDown: (event) {
@@ -1511,27 +1822,10 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
           },
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
             child: GestureDetector(
               onTap: widget.onSelect,
-              child: Container(
+              child: Padding(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: widget.isSelected
-                      ? fg.withValues(alpha: 0.10)
-                      : (_hovered
-                          ? fg.withValues(alpha: 0.06)
-                          : const Color(0x00000000)),
-                  borderRadius: BorderRadius.circular(16),
-                  border: widget.isSelected
-                      ? Border.all(
-                          color:
-                              theme.colors.accentColor.withValues(alpha: 0.65),
-                          width: 2,
-                        )
-                      : null,
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1540,6 +1834,7 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                         clipBehavior: Clip.none,
                         children: [
                           Container(
+                            key: widget.thumbnailKey,
                             decoration: BoxDecoration(
                               color: previewColor,
                               borderRadius: BorderRadius.circular(12),
@@ -1548,47 +1843,71 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                                 width: 1,
                               ),
                             ),
-                            alignment: Alignment.center,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                widget.page.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.typography.heading.copyWith(
-                                  fontSize: 15,
-                                  color: fg.withValues(alpha: 0.85),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(11),
+                              child: IgnorePointer(
+                                child: ExcludeFocus(
+                                  child: ExcludeSemantics(
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        if (constraints.maxWidth <= 0 ||
+                                            constraints.maxHeight <= 0) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        const virtualWidth = 680.0;
+                                        final aspect = constraints.maxHeight /
+                                            constraints.maxWidth;
+                                        final virtualHeight =
+                                            virtualWidth * aspect;
+                                        return FittedBox(
+                                          fit: BoxFit.cover,
+                                          alignment: Alignment.center,
+                                          child: SizedBox(
+                                            width: virtualWidth,
+                                            height: virtualHeight,
+                                            child: widget.page.child,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                           if (widget.page.indicatorIcon != null)
                             Positioned(
-                              left: 6,
-                              top: 6,
+                              left: 8,
+                              top: 8,
                               child: _TabCircleIconButton(
-                                backgroundColor: pillBg,
+                                backgroundColor: closeBg,
                                 onTap: widget.page.indicatorActivates
                                     ? widget.onIndicatorTap
                                     : null,
                                 child: IconTheme(
-                                  data: IconThemeData(size: 14, color: fg),
+                                  data: const IconThemeData(
+                                    size: 14,
+                                    color: Color(0xFFFFFFFF),
+                                  ),
                                   child: widget.page.indicatorIcon!,
                                 ),
                               ),
                             ),
                           Positioned(
-                            right: 6,
-                            top: 6,
+                            right: 8,
+                            top: 8,
                             child: _TabCircleIconButton(
-                              backgroundColor: pillBg,
+                              backgroundColor: closeBg,
                               onTap: widget.onCloseOrUnpin,
                               child: CustomPaint(
                                 size: const Size(12, 12),
                                 painter: widget.page.pinned
-                                    ? _TabUnpinPainter(color: fg)
-                                    : _TabCloseCrossPainter(color: fg),
+                                    ? const _TabUnpinPainter(
+                                        color: Color(0xFFFFFFFF),
+                                      )
+                                    : const _TabCloseCrossPainter(
+                                        color: Color(0xFFFFFFFF),
+                                      ),
                               ),
                             ),
                           ),
@@ -1617,7 +1936,7 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                           const SizedBox(width: 6),
                         ] else if (widget.page.icon != null) ...[
                           IconTheme(
-                            data: IconThemeData(size: 14, color: fg),
+                            data: IconThemeData(size: 16, color: fg),
                             child: widget.page.icon!,
                           ),
                           const SizedBox(width: 6),
@@ -1627,9 +1946,9 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                             widget.page.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.typography.caption.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            style: theme.typography.body.copyWith(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w400,
                               color: fg,
                             ),
                           ),
@@ -1801,17 +2120,28 @@ class _OverviewSearchIconPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final u = size.width / 16.0;
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final ring = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addOval(
+          Rect.fromCircle(center: Offset(6.5 * u, 6.5 * u), radius: 6.5 * u))
+      ..addOval(
+          Rect.fromCircle(center: Offset(6.5 * u, 6.5 * u), radius: 4.5 * u));
+    canvas.drawPath(ring, fillPaint);
+
+    final handlePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = 2.0 * u
       ..strokeCap = StrokeCap.round;
-    final center = Offset(size.width * 0.44, size.height * 0.44);
-    canvas.drawCircle(center, size.width * 0.28, paint);
     canvas.drawLine(
-      Offset(size.width * 0.65, size.height * 0.65),
-      Offset(size.width * 0.88, size.height * 0.88),
-      paint,
+      Offset(10.3 * u, 10.3 * u),
+      Offset(14.0 * u, 14.0 * u),
+      handlePaint,
     );
   }
 
@@ -1820,32 +2150,35 @@ class _OverviewSearchIconPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _PlusPainter extends CustomPainter {
+class _OverviewTabNewIconPainter extends CustomPainter {
   final Color color;
 
-  const _PlusPainter({required this.color});
+  const _OverviewTabNewIconPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
+    final u = size.width / 16.0;
     final paint = Paint()
       ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(size.width * 0.5, size.height * 0.18),
-      Offset(size.width * 0.5, size.height * 0.82),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.18, size.height * 0.5),
-      Offset(size.width * 0.82, size.height * 0.5),
-      paint,
-    );
+      ..style = PaintingStyle.fill;
+
+    final frame = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, 16 * u, 16 * u),
+        Radius.circular(3 * u),
+      ))
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(2 * u, 2 * u, 12 * u, 12 * u),
+        Radius.circular(1 * u),
+      ));
+    canvas.drawPath(frame, paint);
+
+    canvas.drawRect(Rect.fromLTWH(7 * u, 4 * u, 2 * u, 8 * u), paint);
+    canvas.drawRect(Rect.fromLTWH(4 * u, 7 * u, 8 * u, 2 * u), paint);
   }
 
   @override
-  bool shouldRepaint(covariant _PlusPainter oldDelegate) =>
+  bool shouldRepaint(covariant _OverviewTabNewIconPainter oldDelegate) =>
       oldDelegate.color != color;
 }
-

@@ -103,6 +103,7 @@ class AdwSubWindowManager extends ChangeNotifier {
       minHeight: 294,
     ),
     String title = '',
+    int? parentViewId = 0,
     required AdwSubWindowBuilder builder,
     VoidCallback? onClosed,
   }) {
@@ -133,6 +134,7 @@ class AdwSubWindowManager extends ChangeNotifier {
         windowHandle: linuxController.windowHandle.address,
         viewHandle: linuxController.flutterViewHandle.address,
         viewId: linuxController.rootView.viewId,
+        parentViewId: parentViewId,
       );
       controller = linuxController;
     } else {
