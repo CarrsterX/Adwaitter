@@ -99,7 +99,7 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
             curve: AdwCurves.standard,
             constraints:
                 const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             foregroundDecoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
               border: Border.all(

@@ -125,6 +125,7 @@ class AdwTypography {
         ],
         color: color,
         height: height,
+        leadingDistribution: TextLeadingDistribution.even,
         letterSpacing: letterSpacing,
       );
     }

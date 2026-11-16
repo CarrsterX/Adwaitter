@@ -75,7 +75,7 @@ class AdwExpanderRow extends StatefulWidget {
     this.enableExpansion = true,
     this.onEnabledChanged,
     this.onExpandedChanged,
-    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
   });
 
   Widget? get effectivePrefix => prefix ?? leading;

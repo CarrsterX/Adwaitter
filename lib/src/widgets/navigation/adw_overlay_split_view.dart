@@ -42,6 +42,7 @@ class AdwOverlaySplitView extends StatefulWidget {
 class _AdwOverlaySplitViewState extends State<AdwOverlaySplitView>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool? _lastCollapsed;
 
   @override
   void initState() {
@@ -89,6 +90,20 @@ class _AdwOverlaySplitViewState extends State<AdwOverlaySplitView>
       builder: (context, constraints) {
         final isCollapsed =
             widget.collapsed ?? (constraints.maxWidth < widget.collapseBreakpoint);
+        if (_lastCollapsed != isCollapsed) {
+          final isInitial = _lastCollapsed == null;
+          _lastCollapsed = isCollapsed;
+          if (isCollapsed && widget.showSidebar) {
+            if (isInitial) {
+              _controller.value = 0.0;
+            }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && widget.showSidebar) {
+                widget.onShowSidebarChanged?.call(false);
+              }
+            });
+          }
+        }
         final isStart = widget.sidebarPosition == AdwSplitViewPosition.start;
 
         final sidebarPane = Container(

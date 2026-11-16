@@ -30,7 +30,7 @@ class AdwButtonRow extends StatefulWidget {
     this.endIcon,
     this.style = AdwButtonRowStyle.standard,
     this.onPressed,
-    this.minHeight = 45.0,
+    this.minHeight = 40.0,
   });
 
   /// Suggested-action button row (accent-colored background with light text).
@@ -40,7 +40,7 @@ class AdwButtonRow extends StatefulWidget {
     this.startIcon,
     this.endIcon,
     this.onPressed,
-    this.minHeight = 45.0,
+    this.minHeight = 40.0,
   }) : style = AdwButtonRowStyle.suggested;
 
   /// Destructive-action button row (alert red label).
@@ -50,7 +50,7 @@ class AdwButtonRow extends StatefulWidget {
     this.startIcon,
     this.endIcon,
     this.onPressed,
-    this.minHeight = 45.0,
+    this.minHeight = 40.0,
   }) : style = AdwButtonRowStyle.destructive;
 
   @override

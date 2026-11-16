@@ -30,7 +30,7 @@ class AdwActionRow extends StatefulWidget {
     this.trailing,
     this.suffix,
     this.onPressed,
-    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     this.minHeight = AdwMetrics.rowMinHeight,
     this.isActivatable = true,
     this.isProperty = false,
@@ -47,7 +47,7 @@ class AdwActionRow extends StatefulWidget {
     this.trailing,
     this.suffix,
     this.onPressed,
-    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     this.minHeight = AdwMetrics.rowMinHeight,
     this.isActivatable = true,
   }) : isProperty = true;
@@ -62,6 +62,19 @@ class AdwActionRow extends StatefulWidget {
 class _AdwActionRowState extends State<AdwActionRow> {
   bool _isHovered = false;
   bool _isPressed = false;
+  FocusNode? _propertySelectionFocusNode;
+
+  FocusNode _getPropertySelectionFocusNode() {
+    return _propertySelectionFocusNode ??= FocusNode(
+      debugLabel: 'AdwActionRow.propertySelection',
+    );
+  }
+
+  @override
+  void dispose() {
+    _propertySelectionFocusNode?.dispose();
+    super.dispose();
+  }
 
   bool get _isClickable => widget.onPressed != null && widget.isActivatable;
 
@@ -102,19 +115,33 @@ class _AdwActionRowState extends State<AdwActionRow> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DefaultTextStyle(
-                    style: widget.isProperty
-                        ? theme.typography.subtitle
-                        : theme.typography.body,
+                    style: (widget.isProperty
+                            ? theme.typography.subtitle
+                            : theme.typography.body)
+                        .copyWith(height: 1.2),
                     child: widget.title,
                   ),
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 2),
-                    DefaultTextStyle(
-                      style: widget.isProperty
-                          ? theme.typography.body
-                          : theme.typography.subtitle,
-                      child: widget.subtitle!,
-                    ),
+                    if (widget.isProperty)
+                      DefaultSelectionStyle(
+                        selectionColor:
+                            theme.colors.accentColor.withValues(alpha: 0.3),
+                        cursorColor: theme.colors.accentColor,
+                        child: SelectableRegion(
+                          focusNode: _getPropertySelectionFocusNode(),
+                          selectionControls: EmptyTextSelectionControls(),
+                          child: DefaultTextStyle(
+                            style: theme.typography.body.copyWith(height: 1.2),
+                            child: widget.subtitle!,
+                          ),
+                        ),
+                      )
+                    else
+                      DefaultTextStyle(
+                        style: theme.typography.subtitle.copyWith(height: 1.2),
+                        child: widget.subtitle!,
+                      ),
                   ],
                 ],
               ),
@@ -135,7 +162,8 @@ class _AdwActionRowState extends State<AdwActionRow> {
     );
 
     return MouseRegion(
-      cursor: _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor:
+          _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) {
         if (_isClickable) setState(() => _isHovered = true);
       },
@@ -168,4 +196,3 @@ class _AdwActionRowState extends State<AdwActionRow> {
     );
   }
 }
-

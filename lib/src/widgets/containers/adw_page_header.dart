@@ -23,7 +23,7 @@ List<Widget> buildAdwPageHeader({
         ),
       ),
       if (title != null || description != null || hasContentAfter)
-        const SizedBox(height: 36),
+        const SizedBox(height: 37),
     ],
     if (title != null) ...[
       DefaultTextStyle(

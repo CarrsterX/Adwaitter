@@ -39,8 +39,8 @@ abstract final class AdwMetrics {
   /// Standard height of a Libadwaita header bar (46px).
   static const double headerBarHeight = 46.0;
 
-  /// Standard minimum height of a preference action row (55px).
-  static const double rowMinHeight = 55.0;
+  /// Standard minimum height of a preference action row (54px).
+  static const double rowMinHeight = 54.0;
 
   /// Standard minimum height of interactive push buttons (34px).
   static const double buttonMinHeight = 34.0;

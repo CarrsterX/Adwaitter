@@ -54,23 +54,26 @@ class AdwPreferencesGroup extends StatelessWidget {
         children: [
           if (title != null || headerSuffix != null)
             Padding(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 left: 2,
                 right: 0,
-                bottom: headerSuffix != null ? 8 : 12,
+                bottom: 6,
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (title != null)
-                    Expanded(
-                      child: DefaultTextStyle(
-                        style: theme.typography.heading,
-                        child: title!,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 34.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (title != null)
+                      Expanded(
+                        child: DefaultTextStyle(
+                          style: theme.typography.heading,
+                          child: title!,
+                        ),
                       ),
-                    ),
-                  if (headerSuffix != null) headerSuffix!,
-                ],
+                    if (headerSuffix != null) headerSuffix!,
+                  ],
+                ),
               ),
             ),
           if (description != null)

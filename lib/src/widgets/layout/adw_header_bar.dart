@@ -35,6 +35,7 @@ class AdwHeaderBar extends StatelessWidget {
   final bool showStartWindowControls;
   final bool showEndWindowControls;
   final bool showBackButton;
+  final bool showTitle;
   final Widget? windowControls;
   final EdgeInsetsGeometry padding;
   final bool isFlat;
@@ -50,6 +51,7 @@ class AdwHeaderBar extends StatelessWidget {
     this.showStartWindowControls = true,
     this.showEndWindowControls = true,
     this.showBackButton = true,
+    this.showTitle = true,
     this.windowControls,
     this.padding = defaultPadding,
     this.isFlat = false,
@@ -83,9 +85,9 @@ class AdwHeaderBar extends StatelessWidget {
     }
 
     // Resolve effective title content
-    Widget? effectiveTitle =
-        (bottomSheetScope?.hideTitle ?? false) ? null : titleWidget;
-    if (effectiveTitle == null && !(bottomSheetScope?.hideTitle ?? false)) {
+    final hideTitle = !showTitle || (bottomSheetScope?.hideTitle ?? false);
+    Widget? effectiveTitle = hideTitle ? null : titleWidget;
+    if (effectiveTitle == null && !hideTitle) {
       if (title is String || subtitle is String) {
         effectiveTitle = AdwWindowTitle(
           title: title is String ? title as String : '',

@@ -88,10 +88,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
     final theme = AdwTheme.of(context);
     final textDirection = Directionality.of(context);
     final l10n = AdwLocalizations.of(context);
-    final itemStyle = theme.typography.body.copyWith(
-      height: 1.15,
-      leadingDistribution: TextLeadingDistribution.even,
-    );
+    final itemStyle = theme.typography.body;
 
     double maxItemTextWidth = 0.0;
     for (final item in widget.items) {
@@ -105,8 +102,8 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
       }
       painter.dispose();
     }
-    // Container padding (12) + item horizontal padding (20) + gap (8) + checkmark (16) + scrollbar clearance (10).
-    final double popoverWidth = (maxItemTextWidth + 66.0).clamp(
+    // Container padding (12) + item horizontal padding (24) + gap (8) + checkmark (16) + scrollbar clearance (10).
+    final double popoverWidth = (maxItemTextWidth + 70.0).clamp(
       widget.enableSearch ? 180.0 : 140.0,
       280.0,
     );
@@ -179,7 +176,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
           curve: AdwCurves.standard,
           constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
           color: rowBg,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
               if (widget.prefix != null) ...[
@@ -223,8 +220,6 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.copyWith(
                         color: theme.colors.windowForeground,
-                        height: 1.0,
-                        leadingDistribution: TextLeadingDistribution.even,
                       ),
                     ),
                   ),
@@ -451,7 +446,7 @@ class _AdwPopoverItemState extends State<_AdwPopoverItem> {
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
@@ -461,14 +456,8 @@ class _AdwPopoverItemState extends State<_AdwPopoverItem> {
               Expanded(
                 child: Text(
                   widget.label,
-                  textHeightBehavior: const TextHeightBehavior(
-                    applyHeightToFirstAscent: false,
-                    applyHeightToLastDescent: false,
-                  ),
                   style: theme.typography.body.copyWith(
                     color: theme.colors.popoverForeground,
-                    height: 1.0,
-                    leadingDistribution: TextLeadingDistribution.even,
                   ),
                 ),
               ),
