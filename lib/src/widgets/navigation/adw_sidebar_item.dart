@@ -57,7 +57,7 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
     final effectiveFg = theme.colors.windowForeground;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 1.0),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -74,8 +74,8 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: AdwCurves.shortDuration,
-            constraints: const BoxConstraints(minHeight: 42.0),
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            constraints: const BoxConstraints(minHeight: 40.0),
+            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 3.0),
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(9.0),
