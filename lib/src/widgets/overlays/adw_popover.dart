@@ -444,11 +444,13 @@ class AdwPopoverSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final content = DefaultTextStyle(
-      style: theme.typography.body.copyWith(
-        color: theme.colors.popoverForeground,
+    final content = _AdwPopoverMenuScope(
+      child: DefaultTextStyle(
+        style: theme.typography.body.copyWith(
+          color: theme.colors.popoverForeground,
+        ),
+        child: child,
       ),
-      child: child,
     );
 
     if (arrowSide == AdwPopoverArrowSide.none) {
@@ -603,17 +605,87 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
   }
 }
 
+class _AdwPopoverMenuScope extends StatefulWidget {
+  final Widget child;
+
+  const _AdwPopoverMenuScope({required this.child});
+
+  static _AdwPopoverMenuScopeData? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_AdwPopoverMenuScopeData>();
+  }
+
+  @override
+  State<_AdwPopoverMenuScope> createState() => _AdwPopoverMenuScopeState();
+}
+
+class _AdwPopoverMenuScopeState extends State<_AdwPopoverMenuScope> {
+  Object? _highlightedToken;
+
+  bool _claimInitial(Object token) {
+    _highlightedToken ??= token;
+    return _highlightedToken == token;
+  }
+
+  void _setHighlighted(Object token) {
+    if (_highlightedToken != token) {
+      setState(() => _highlightedToken = token);
+    }
+  }
+
+  void _clearHighlighted(Object token) {
+    if (_highlightedToken == token) {
+      setState(() => _highlightedToken = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdwPopoverMenuScopeData(
+      highlightedToken: _highlightedToken,
+      claimInitial: _claimInitial,
+      setHighlighted: _setHighlighted,
+      clearHighlighted: _clearHighlighted,
+      child: widget.child,
+    );
+  }
+}
+
+class _AdwPopoverMenuScopeData extends InheritedWidget {
+  final Object? highlightedToken;
+  final bool Function(Object token) claimInitial;
+  final void Function(Object token) setHighlighted;
+  final void Function(Object token) clearHighlighted;
+
+  const _AdwPopoverMenuScopeData({
+    required this.highlightedToken,
+    required this.claimInitial,
+    required this.setHighlighted,
+    required this.clearHighlighted,
+    required super.child,
+  });
+
+  @override
+  bool updateShouldNotify(covariant _AdwPopoverMenuScopeData oldWidget) {
+    return highlightedToken != oldWidget.highlightedToken;
+  }
+}
+
 /// Selectable menu item inside an [AdwPopoverSurface].
 class AdwPopoverMenuItem extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final bool isHighlighted;
+  final ValueChanged<bool>? onHoverChanged;
 
   const AdwPopoverMenuItem({
     super.key,
     required this.label,
     this.onTap,
     this.trailing,
+    this.isHighlighted = false,
+    this.onHoverChanged,
   });
 
   @override
@@ -621,27 +693,39 @@ class AdwPopoverMenuItem extends StatefulWidget {
 }
 
 class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
+  final Object _itemToken = Object();
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final menuScope = _AdwPopoverMenuScope.maybeOf(context);
     final isEnabled = widget.onTap != null;
+    final isScopeHighlighted =
+        isEnabled && menuScope != null && menuScope.claimInitial(_itemToken);
+    final isHighlighted = widget.isHighlighted || isScopeHighlighted;
+    final hoverFill = theme.colors.isDark
+        ? const Color(0xFF4A4A4D)
+        : const Color(0xFFEBEBEB);
 
-    Color bg = const Color(0x00000000);
+    Color bg = hoverFill.withValues(alpha: 0.0);
     if (isEnabled) {
       if (_isPressed) {
         bg = theme.colors.activeColor;
-      } else if (_isHovered) {
-        bg = theme.colors.hoverBackground;
+      } else if (_isHovered || isHighlighted) {
+        bg = hoverFill;
       }
     }
 
     return MouseRegion(
       cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) {
-        if (isEnabled) setState(() => _isHovered = true);
+        if (isEnabled) {
+          setState(() => _isHovered = true);
+          menuScope?.setHighlighted(_itemToken);
+          widget.onHoverChanged?.call(true);
+        }
       },
       onExit: (_) {
         if (isEnabled) {
@@ -649,6 +733,8 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
             _isHovered = false;
             _isPressed = false;
           });
+          menuScope?.clearHighlighted(_itemToken);
+          widget.onHoverChanged?.call(false);
         }
       },
       child: GestureDetector(

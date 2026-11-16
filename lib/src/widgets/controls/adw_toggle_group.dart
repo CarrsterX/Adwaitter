@@ -51,13 +51,25 @@ class AdwToggleItem<T> {
   }
 }
 
+/// Visual style variants for [AdwToggleGroup] matching Libadwaita CSS classes.
+enum AdwToggleGroupStyle {
+  /// Standard recessed container with rounded segments.
+  standard,
+
+  /// Transparent container with no dividers (`.flat` in Libadwaita).
+  flat,
+
+  /// Fully pill-shaped capsule container and segments (`.round` in Libadwaita).
+  round,
+}
+
 /// Official Libadwaita segmented toggle group (`AdwToggleGroup`).
 ///
 /// Follows upstream Libadwaita linked button bar specifications:
 /// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/...`
 /// - CSS selector: `.linked.toggle-group`
 ///
-/// Displays multiple mutually-exclusive options in a unified rounded container (6px radius)
+/// Displays multiple mutually-exclusive options in a unified rounded container
 /// with an animated active pill indicator and 1px dividers between unselected items.
 class AdwToggleGroup<T> extends StatelessWidget {
   /// The list of selectable items.
@@ -73,10 +85,16 @@ class AdwToggleGroup<T> extends StatelessWidget {
   final double height;
 
   /// Padding surrounding each individual toggle segment.
-  final EdgeInsetsGeometry itemPadding;
+  final EdgeInsetsGeometry? itemPadding;
 
   /// Whether all segments expand to share equal width across the container.
   final bool homogeneous;
+
+  /// Visual style variant (`standard`, `flat`, or `round`).
+  final AdwToggleGroupStyle style;
+
+  /// Layout orientation (`Axis.horizontal` or `Axis.vertical`).
+  final Axis orientation;
 
   const AdwToggleGroup({
     super.key,
@@ -84,13 +102,22 @@ class AdwToggleGroup<T> extends StatelessWidget {
     required this.selectedValue,
     this.onChanged,
     this.height = AdwMetrics.buttonMinHeight,
-    this.itemPadding = const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    this.itemPadding,
     this.homogeneous = false,
+    this.style = AdwToggleGroupStyle.standard,
+    this.orientation = Axis.horizontal,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final isFlat = style == AdwToggleGroupStyle.flat;
+    final isRound = style == AdwToggleGroupStyle.round;
+    final isVertical = orientation == Axis.vertical;
+    final outerRadius = isRound ? 999.0 : AdwMetrics.buttonRadius;
+    final innerRadius = isRound
+        ? 999.0
+        : (isFlat ? AdwMetrics.buttonRadius : AdwMetrics.buttonRadius - 3.0);
     final List<Widget> children = [];
 
     for (int index = 0; index < items.length; index++) {
@@ -98,11 +125,24 @@ class AdwToggleGroup<T> extends StatelessWidget {
       final isSelected = item.value == selectedValue;
       final isLast = index == items.length - 1;
       final nextIsSelected = !isLast && items[index + 1].value == selectedValue;
+      final effectivePadding = itemPadding ??
+          (item.label != null
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
+              : const EdgeInsets.symmetric(horizontal: 6, vertical: 2));
+
+      final double segMinWidth = item.label == null
+          ? (isVertical && !isFlat ? 28.0 : 34.0)
+          : 0.0;
+      final double segMinHeight = isFlat ? height : height - 6.0;
 
       final segment = _AdwToggleSegment<T>(
         item: item,
         isSelected: isSelected,
-        padding: itemPadding,
+        isFlat: isFlat,
+        padding: effectivePadding,
+        borderRadius: innerRadius,
+        minWidth: segMinWidth,
+        minHeight: segMinHeight,
         onSelected: item.enabled && onChanged != null
             ? () => onChanged!(item.value)
             : null,
@@ -110,32 +150,54 @@ class AdwToggleGroup<T> extends StatelessWidget {
 
       children.add(homogeneous ? Expanded(child: segment) : segment);
 
-      if (!isLast && !isSelected && !nextIsSelected) {
+      if (!isLast) {
+        final showDivider = !isFlat && !isSelected && !nextIsSelected;
+        final dividerDuration =
+            AdwCurves.resolve(context, const Duration(milliseconds: 240));
+        final inset = isRound ? 6.0 : 3.0;
         children.add(
-          Container(
-            width: 1,
-            height: height * 0.5,
-            color: theme.colors.dividerColor,
+          AnimatedContainer(
+            duration: dividerDuration,
+            curve: Curves.easeOutCubic,
+            margin: isVertical
+                ? EdgeInsets.symmetric(vertical: 1.0, horizontal: inset)
+                : EdgeInsets.symmetric(horizontal: 1.0, vertical: inset),
+            width: isVertical ? double.infinity : 1.0,
+            height: isVertical ? 1.0 : null,
+            color: showDivider
+                ? theme.colors.dividerColor
+                : theme.colors.dividerColor.withValues(alpha: 0.0),
           ),
         );
       }
     }
 
+    final trackColor = isFlat
+        ? const Color(0x00000000)
+        : (theme.colors.isDark
+            ? const Color(0xFF47474B)
+            : const Color(0xFFEBEBEB));
+
     return Container(
-      height: height,
+      height: isVertical ? null : height,
       decoration: BoxDecoration(
-        color: theme.colors.cardBackground,
-        borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
-        border: Border.all(
-          color: theme.colors.borderColor,
-          width: 1,
-        ),
+        color: trackColor,
+        borderRadius: BorderRadius.circular(outerRadius),
       ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: homogeneous ? MainAxisSize.max : MainAxisSize.min,
-        children: children,
-      ),
+      padding: isFlat ? EdgeInsets.zero : const EdgeInsets.all(3),
+      child: isVertical
+          ? IntrinsicWidth(
+              child: Column(
+                mainAxisSize: homogeneous ? MainAxisSize.max : MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            )
+          : Row(
+              mainAxisSize: homogeneous ? MainAxisSize.max : MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
     );
   }
 }
@@ -143,13 +205,21 @@ class AdwToggleGroup<T> extends StatelessWidget {
 class _AdwToggleSegment<T> extends StatefulWidget {
   final AdwToggleItem<T> item;
   final bool isSelected;
+  final bool isFlat;
   final EdgeInsetsGeometry padding;
+  final double borderRadius;
+  final double minWidth;
+  final double minHeight;
   final VoidCallback? onSelected;
 
   const _AdwToggleSegment({
     required this.item,
     required this.isSelected,
+    this.isFlat = false,
     required this.padding,
+    required this.borderRadius,
+    this.minWidth = 0.0,
+    this.minHeight = 0.0,
     this.onSelected,
   });
 
@@ -166,19 +236,28 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
+    final duration =
+        AdwCurves.resolve(context, const Duration(milliseconds: 240));
 
-    Color bg = const Color(0x00000000);
+    final Color selectedBg = theme.colors.isDark
+        ? (widget.isFlat
+            ? const Color(0xFF47474B)
+            : const Color(0xFF6C6C6F))
+        : (widget.isFlat
+            ? const Color(0xFFEBEBEB)
+            : const Color(0xFFFFFFFF));
+
+    Color bg = selectedBg.withValues(alpha: 0.0);
     Color fg = theme.colors.foreground;
 
     if (widget.isSelected) {
-      bg = theme.colors.buttonBackground;
+      bg = selectedBg;
       fg = theme.colors.foreground;
     } else if (_isClickable) {
       if (_isPressed) {
-        bg = theme.colors.activeColor;
+        bg = selectedBg.withValues(alpha: 0.55);
       } else if (_isHovered) {
-        bg = theme.colors.hoverColor;
+        bg = selectedBg.withValues(alpha: 0.30);
       }
     }
 
@@ -205,10 +284,9 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
           ],
           if (widget.item.label != null)
             DefaultTextStyle(
-              style: theme.typography.body.copyWith(
+              style: theme.typography.heading.copyWith(
                 color: fg,
                 height: 1.0,
-                fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               child: widget.item.label!,
             ),
@@ -242,20 +320,26 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
         onTap: widget.onSelected,
         child: AnimatedContainer(
           duration: duration,
-          curve: AdwCurves.standard,
+          curve: Curves.easeOutCubic,
+          constraints: BoxConstraints(
+            minWidth: widget.minWidth,
+            minHeight: widget.minHeight,
+          ),
           padding: widget.padding,
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius - 2),
-            boxShadow: widget.isSelected
-                ? const [
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            boxShadow: widget.isFlat
+                ? null
+                : [
                     BoxShadow(
-                      color: Color(0x1F000000),
+                      color: widget.isSelected
+                          ? const Color(0x1F000000)
+                          : const Color(0x00000000),
                       blurRadius: 3,
-                      offset: Offset(0, 1),
+                      offset: const Offset(0, 1),
                     ),
-                  ]
-                : null,
+                  ],
           ),
           child: Center(
             child: DefaultTextStyle(
