@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, ValueListenable, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
@@ -272,6 +273,7 @@ class AdwWindow extends StatefulWidget {
   final Widget child;
   final bool showShadow;
   final bool showBorder;
+  final bool resizeToAvoidBottomInset;
 
   const AdwWindow({
     super.key,
@@ -281,6 +283,7 @@ class AdwWindow extends StatefulWidget {
     required this.child,
     this.showShadow = true,
     this.showBorder = true,
+    this.resizeToAvoidBottomInset = true,
   });
 
   @override
@@ -400,7 +403,25 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     );
 
     if (isMobile) {
-      windowContent = SafeArea(child: windowContent);
+      final double bottomInset = widget.resizeToAvoidBottomInset
+          ? MediaQuery.viewInsetsOf(context).bottom
+          : 0.0;
+      final double safeBottom = math.max(
+        MediaQuery.paddingOf(context).bottom,
+        MediaQuery.viewPaddingOf(context).bottom,
+      );
+      final double effectiveBottom = math.max(safeBottom, bottomInset);
+      windowContent = MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: widget.resizeToAvoidBottomInset,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: effectiveBottom),
+          child: SafeArea(
+            bottom: false,
+            child: windowContent,
+          ),
+        ),
+      );
     }
 
     final Widget windowContentWithResizers = isMobile

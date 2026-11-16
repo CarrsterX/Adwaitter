@@ -1473,11 +1473,18 @@ class _AdwTabOverviewState extends State<AdwTabOverview>
                                                   controller: _searchController,
                                                   focusNode: _searchFocusNode,
                                                   selectionControls:
-                                                      AdwTextSelectionControls
-                                                          .forPlatform(context),
+                                                      Overlay.maybeOf(context) !=
+                                                              null
+                                                          ? AdwTextSelectionControls
+                                                              .forPlatform(
+                                                                  context)
+                                                          : null,
                                                   contextMenuBuilder:
-                                                      AdwTextSelectionControls
-                                                          .contextMenuBuilder,
+                                                      Overlay.maybeOf(context) !=
+                                                              null
+                                                          ? AdwTextSelectionControls
+                                                              .contextMenuBuilder
+                                                          : null,
                                                   onTapOutside: (_) =>
                                                       _searchFocusNode.unfocus(),
                                                   style: theme.typography.body

@@ -1,4 +1,7 @@
-import 'package:flutter/services.dart' show LogicalKeyboardKey, SystemNavigator;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/services.dart'
+    show LogicalKeyboardKey, MethodChannel, SystemNavigator;
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_scroll_behavior.dart';
@@ -92,6 +95,22 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
     setState(() {});
   }
 
+  static const MethodChannel _styleChannel = MethodChannel('libadwaitter/style');
+  Color? _lastNativeBackground;
+
+  /// Keeps the Android Activity window background equal to the Adwaita window
+  /// background so no white frame is exposed while the surface is resized
+  /// (virtual keyboard, popovers with search, etc.).
+  void _syncNativeWindowBackground(Color color) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (_lastNativeBackground == color) return;
+    _lastNativeBackground = color;
+    _styleChannel
+        .invokeMethod<void>('setWindowBackground', <String, Object>{
+      'color': color.toARGB32(),
+    }).catchError((_) {});
+  }
+
   bool _hasAnyPoppableNavigator() {
     final navContext = AdwSubWindowManager.instance.navigatorKey.currentContext;
     if (navContext == null) return false;
@@ -181,6 +200,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
                   accent: effectiveAccent,
                   accentColorOverride: effectiveCustomAccent,
                 ));
+        _syncNativeWindowBackground(defaultTheme.colors.windowBackground);
 
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
           valueListenable: _windowBorderRadius,

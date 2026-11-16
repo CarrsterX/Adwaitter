@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart' show HapticFeedback, MethodChannel;
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -31,11 +34,41 @@ class _AdwSwitchState extends State<AdwSwitch> {
   bool _isHovered = false;
   bool _isPressed = false;
   double? _dragProgress;
+  bool _hapticTriggeredThisGesture = false;
 
   bool get _isEnabled => widget.onChanged != null;
 
+  static const MethodChannel _styleChannel = MethodChannel('libadwaitter/style');
+
+  void _triggerHapticLock(bool targetChecked) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _styleChannel.invokeMethod<void>(
+        'performSwitchHaptic',
+        <String, Object>{'checked': targetChecked},
+      ).catchError((_) {
+        HapticFeedback.lightImpact();
+      });
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AdwSwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      if (_hapticTriggeredThisGesture) {
+        _hapticTriggeredThisGesture = false;
+      } else if (_isEnabled) {
+        _triggerHapticLock(widget.value);
+      }
+    }
+  }
+
   void _handleTap() {
     if (_isEnabled) {
+      _hapticTriggeredThisGesture = true;
+      _triggerHapticLock(!widget.value);
       widget.onChanged!(!widget.value);
     }
   }
@@ -155,6 +188,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
         onTap: _handleTap,
         onHorizontalDragStart: (_) {
           if (!_isEnabled) return;
+          _hapticTriggeredThisGesture = false;
           setState(() {
             _isPressed = true;
             _dragProgress = widget.value ? 1.0 : 0.0;
@@ -163,9 +197,14 @@ class _AdwSwitchState extends State<AdwSwitch> {
         onHorizontalDragUpdate: (details) {
           if (!_isEnabled || _dragProgress == null) return;
           final delta = details.primaryDelta ?? 0.0;
+          final double prev = _dragProgress!;
+          final double next = (prev + delta / travelDistance).clamp(0.0, 1.0);
+          if ((prev < 0.5 && next >= 0.5) || (prev >= 0.5 && next < 0.5)) {
+            _hapticTriggeredThisGesture = true;
+            _triggerHapticLock(next >= 0.5);
+          }
           setState(() {
-            _dragProgress =
-                (_dragProgress! + delta / travelDistance).clamp(0.0, 1.0);
+            _dragProgress = next;
           });
         },
         onHorizontalDragEnd: (details) {
@@ -182,7 +221,13 @@ class _AdwSwitchState extends State<AdwSwitch> {
             _dragProgress = null;
           });
           if (nextValue != widget.value) {
+            if (!_hapticTriggeredThisGesture) {
+              _hapticTriggeredThisGesture = true;
+              _triggerHapticLock(nextValue);
+            }
             widget.onChanged!(nextValue);
+          } else {
+            _hapticTriggeredThisGesture = false;
           }
         },
         onHorizontalDragCancel: () {

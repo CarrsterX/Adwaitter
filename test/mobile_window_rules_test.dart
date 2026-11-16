@@ -1,5 +1,6 @@
 import 'package:adwaitter/adwaitter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -398,5 +399,177 @@ void main() {
     await tester.dragFrom(const Offset(200, 400), const Offset(0, -300));
     await tester.pumpAndSettle();
     expect(scrollController.offset, 0.0);
+  });
+
+  testWidgets(
+      'AdwWindow and AdwDialog resize/shift above virtual keyboard viewInsets on Android',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+      tester.view.resetViewInsets();
+    });
+
+    await tester.pumpWidget(
+      AdwApplication(
+        home: AdwWindow(
+          headerBar: const AdwHeaderBar(title: Text('KeyboardTest')),
+          child: Builder(
+            builder: (ctx) => Align(
+              alignment: Alignment.bottomCenter,
+              child: AdwButton(
+                onPressed: () => showAdwDialog<void>(
+                  context: ctx,
+                  builder: (_) => const AdwDialog(
+                    title: 'InputDialog',
+                    child: SizedBox(height: 100, child: Text('InputBody')),
+                  ),
+                ),
+                child: const Text('BottomButton'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final buttonRect = tester.getRect(find.text('BottomButton'));
+    // Must sit right above the 300px keyboard without adding the 48px navbar twice.
+    expect(buttonRect.bottom, lessThanOrEqualTo(500.0));
+    expect(buttonRect.bottom, greaterThan(452.0));
+
+    await tester.tap(find.text('BottomButton'));
+    await tester.pumpAndSettle();
+    final dialogRect = tester.getRect(find.byType(AdwDialog));
+    expect(dialogRect.bottom, lessThanOrEqualTo(500.0));
+  });
+
+  testWidgets(
+      'Transitioning viewInsets from 0 to >0 preserves widget state and focus',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.viewInsets = FakeViewPadding.zero;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetViewInsets();
+    });
+
+    await tester.pumpWidget(
+      const AdwApplication(
+        home: AdwWindow(
+          child: Center(
+            child: AdwEntryRow(
+              title: Text('Entry'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(AdwEntryRow));
+    await tester.pump();
+    final editableBefore = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(editableBefore.widget.focusNode.hasFocus, isTrue);
+
+    // Simulate virtual keyboard opening without unmounting AdwEntryRow.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pump(const Duration(milliseconds: 300));
+    final editableAfter = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(identical(editableBefore, editableAfter), isTrue);
+    expect(editableAfter.widget.focusNode.hasFocus, isTrue);
+  });
+
+  testWidgets('AdwSwitch triggers haptic lock on Android and iOS but not Linux',
+      (WidgetTester tester) async {
+    final List<String> hapticCalls = <String>[];
+    final List<bool> androidChannelCalls = <bool>[];
+    const styleChannel = MethodChannel('libadwaitter/style');
+
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'HapticFeedback.vibrate') {
+          hapticCalls.add(methodCall.arguments as String? ?? 'default');
+        }
+        return null;
+      },
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      styleChannel,
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'performSwitchHaptic') {
+          final args = methodCall.arguments as Map<dynamic, dynamic>;
+          androidChannelCalls.add(args['checked'] as bool);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(styleChannel, null);
+    });
+
+    bool value = false;
+    Widget buildSwitch() => AdwApplication(
+          home: AdwWindow(
+            child: Center(
+              child: StatefulBuilder(
+                builder: (_, setState) => AdwSwitch(
+                  value: value,
+                  onChanged: (next) => setState(() => value = next),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    // Android: tap triggers native performSwitchHaptic with target checked state.
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildSwitch());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AdwSwitch));
+    await tester.pumpAndSettle();
+    expect(androidChannelCalls, [true]);
+
+    // iOS: tap triggers lightImpact haptic.
+    hapticCalls.clear();
+    androidChannelCalls.clear();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    await tester.pumpWidget(buildSwitch());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AdwSwitch));
+    await tester.pumpAndSettle();
+    expect(hapticCalls, ['HapticFeedbackType.lightImpact']);
+
+    // Linux: no haptic feedback.
+    hapticCalls.clear();
+    androidChannelCalls.clear();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    await tester.pumpWidget(buildSwitch());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AdwSwitch));
+    await tester.pumpAndSettle();
+    expect(hapticCalls, isEmpty);
+    expect(androidChannelCalls, isEmpty);
   });
 }

@@ -479,7 +479,24 @@ Future<T?> showAdwDialog<T>({
 
         if (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS) {
-          content = SafeArea(child: content);
+          final double bottomInset =
+              MediaQuery.viewInsetsOf(dialogContext).bottom;
+          final double safeBottom = math.max(
+            MediaQuery.paddingOf(dialogContext).bottom,
+            MediaQuery.viewPaddingOf(dialogContext).bottom,
+          );
+          final double effectiveBottom = math.max(safeBottom, bottomInset);
+          content = MediaQuery.removeViewInsets(
+            context: dialogContext,
+            removeBottom: true,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: effectiveBottom),
+              child: SafeArea(
+                bottom: false,
+                child: content,
+              ),
+            ),
+          );
         }
 
         if (parentWindowScope != null) {

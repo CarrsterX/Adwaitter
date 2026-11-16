@@ -363,10 +363,12 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
                             cursorOpacityAnimates: true,
                             showCursor: true,
                             enableInteractiveSelection: true,
-                            selectionControls:
-                                AdwTextSelectionControls.forPlatform(context),
-                            contextMenuBuilder:
-                                AdwTextSelectionControls.contextMenuBuilder,
+                            selectionControls: Overlay.maybeOf(context) != null
+                                ? AdwTextSelectionControls.forPlatform(context)
+                                : null,
+                            contextMenuBuilder: Overlay.maybeOf(context) != null
+                                ? AdwTextSelectionControls.contextMenuBuilder
+                                : null,
                             onTapOutside: (_) => _searchFocusNode.unfocus(),
                             style: theme.typography.body.copyWith(
                               fontSize: 14,

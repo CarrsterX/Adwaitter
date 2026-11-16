@@ -51,7 +51,7 @@ class AdwPopoverHandle {
 
   PopupWindowController? _popupController;
   AdwPopupWindowEntry? _popupEntry;
-  OverlayEntry? _overlayEntry;
+  PopupRoute<void>? _popupRoute;
   VoidCallback? _onDismiss;
   VoidCallback? _onDisposePlacement;
   Object? _owner;
@@ -93,8 +93,11 @@ class AdwPopoverHandle {
       ctrl.destroy();
     }
 
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    final route = _popupRoute;
+    _popupRoute = null;
+    if (route != null && route.isActive) {
+      route.navigator?.removeRoute(route);
+    }
 
     final cb = _onDismiss;
     _onDismiss = null;
@@ -228,15 +231,51 @@ AdwPopoverHandle showAdwPopover({
             );
           }
 
+          final linuxPlacement = _AdwPopoverPlacement();
+          void syncLinuxPlacement() {
+            if (!handle.isOpen) return;
+            final Offset offsetFromParent = popupController.offsetFromParent;
+            if (offsetFromParent == Offset.zero &&
+                safeAnchorRect.topLeft != Offset.zero) {
+              return;
+            }
+            final double popupLeft = offsetFromParent.dx + shadowInsets.left;
+            final double popupTop = offsetFromParent.dy + shadowInsets.top;
+            final double nextArrowX = safeAnchorRect.center.dx - popupLeft;
+            if (linuxPlacement.arrowCenterX != nextArrowX) {
+              linuxPlacement.arrowCenterX = nextArrowX;
+              linuxPlacement.notifyArrowRepaint();
+            }
+
+            if (parentAnchor == AdwPopoverAnchor.bottom &&
+                popupTop + 2.0 < safeAnchorRect.top) {
+              linuxPlacement.updateArrowSide(AdwPopoverArrowSide.bottom);
+            } else if (parentAnchor == AdwPopoverAnchor.top &&
+                popupTop > safeAnchorRect.bottom - 2.0) {
+              linuxPlacement.updateArrowSide(AdwPopoverArrowSide.top);
+            } else {
+              linuxPlacement.updateArrowSide(null);
+            }
+          }
+
+          popupController.addListener(syncLinuxPlacement);
+          handle._onDisposePlacement = () {
+            popupController.removeListener(syncLinuxPlacement);
+            linuxPlacement.dispose();
+          };
+
           final entry = AdwPopupWindowEntry(
             controller: popupController,
             onDismiss: handle.dismiss,
-            child: Padding(
-              padding: shadowInsets,
-              child: ConstrainedBox(
-                constraints: constraints,
-                child: Builder(
-                  builder: (popupContext) => builder(popupContext, handle),
+            child: _AdwPopoverPlacementScope(
+              placement: linuxPlacement,
+              child: Padding(
+                padding: shadowInsets,
+                child: ConstrainedBox(
+                  constraints: constraints,
+                  child: Builder(
+                    builder: (popupContext) => builder(popupContext, handle),
+                  ),
                 ),
               ),
             ),
@@ -257,47 +296,47 @@ AdwPopoverHandle showAdwPopover({
   }
 
   final themeData = AdwTheme.maybeOf(context);
-  final overlay = Overlay.of(context, rootOverlay: true);
+  final nav = Navigator.of(context, rootNavigator: true);
   final placement = _AdwPopoverPlacement();
   handle._onDisposePlacement = placement.dispose;
 
-  final overlayEntry = OverlayEntry(
-    builder: (overlayContext) {
+  final route = _AdwPopoverRoute(
+    onPopped: handle.dismiss,
+    pageBuilder: (routeContext) {
+      final Widget popoverChild = GestureDetector(
+        onTap: () {},
+        child: ConstrainedBox(
+          constraints: constraints,
+          child: Builder(
+            builder: (ctx) => builder(ctx, handle),
+          ),
+        ),
+      );
+
       Widget content = _AdwPopoverPlacementScope(
         placement: placement,
         child: CallbackShortcuts(
           bindings: <ShortcutActivator, VoidCallback>{
             const SingleActivator(LogicalKeyboardKey.escape): handle.dismiss,
           },
-          child: FocusScope(
-            autofocus: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: handle.dismiss,
-              onVerticalDragStart: (_) {},
-              onHorizontalDragStart: (_) {},
-              child: CustomSingleChildLayout(
-                delegate: _OverlayPopoverLayoutDelegate(
-                  anchorRect: anchorRect,
-                  parentAnchor: parentAnchor,
-                  childAnchor: childAnchor,
-                  offset: offset,
-                  placement: placement,
-                ),
-                child: GestureDetector(
-                  onTap: () {},
-                  child: ConstrainedBox(
-                    constraints: constraints,
-                    child: builder(overlayContext, handle),
-                  ),
-                ),
-              ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handle.dismiss,
+            onVerticalDragStart: (_) {},
+            onHorizontalDragStart: (_) {},
+            child: _AdwOverlayPopoverPositioner(
+              anchorRect: anchorRect,
+              parentAnchor: parentAnchor,
+              childAnchor: childAnchor,
+              offset: offset,
+              placement: placement,
+              child: popoverChild,
             ),
           ),
         ),
       );
 
-      if (AdwTheme.maybeOf(overlayContext) == null && themeData != null) {
+      if (AdwTheme.maybeOf(routeContext) == null && themeData != null) {
         content = AdwTheme(data: themeData, child: content);
       }
 
@@ -305,9 +344,52 @@ AdwPopoverHandle showAdwPopover({
     },
   );
 
-  handle._overlayEntry = overlayEntry;
-  overlay.insert(overlayEntry);
+  handle._popupRoute = route;
+  nav.push<void>(route);
   return handle;
+}
+
+class _AdwPopoverRoute extends PopupRoute<void> {
+  final WidgetBuilder pageBuilder;
+  final VoidCallback onPopped;
+
+  _AdwPopoverRoute({
+    required this.pageBuilder,
+    required this.onPopped,
+  });
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  String? get barrierLabel => 'Dismiss';
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return pageBuilder(context);
+  }
+
+  @override
+  bool didPop(void result) {
+    final popped = super.didPop(result);
+    if (popped) {
+      onPopped();
+    }
+    return popped;
+  }
 }
 
 Offset _shadowAnchorOffset(
@@ -349,6 +431,7 @@ class _AdwPopoverPlacement {
   double? arrowCenterX;
   final ValueNotifier<AdwPopoverArrowSide?> resolvedArrowSide =
       ValueNotifier<AdwPopoverArrowSide?>(null);
+  final _ArrowRepaintNotifier arrowRepaint = _ArrowRepaintNotifier();
 
   void updateArrowSide(AdwPopoverArrowSide? side) {
     if (resolvedArrowSide.value == side) return;
@@ -357,9 +440,18 @@ class _AdwPopoverPlacement {
     });
   }
 
+  void notifyArrowRepaint() {
+    arrowRepaint.notify();
+  }
+
   void dispose() {
     resolvedArrowSide.dispose();
+    arrowRepaint.dispose();
   }
+}
+
+class _ArrowRepaintNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
 }
 
 class _AdwPopoverPlacementScope extends InheritedWidget {
@@ -382,11 +474,46 @@ class _AdwPopoverPlacementScope extends InheritedWidget {
   }
 }
 
+class _AdwOverlayPopoverPositioner extends StatelessWidget {
+  final Rect anchorRect;
+  final AdwPopoverAnchor parentAnchor;
+  final AdwPopoverAnchor childAnchor;
+  final Offset offset;
+  final _AdwPopoverPlacement placement;
+  final Widget child;
+
+  const _AdwOverlayPopoverPositioner({
+    required this.anchorRect,
+    required this.parentAnchor,
+    required this.childAnchor,
+    required this.offset,
+    required this.placement,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return CustomSingleChildLayout(
+      delegate: _OverlayPopoverLayoutDelegate(
+        anchorRect: anchorRect,
+        parentAnchor: parentAnchor,
+        childAnchor: childAnchor,
+        offset: offset,
+        bottomInset: bottomInset,
+        placement: placement,
+      ),
+      child: child,
+    );
+  }
+}
+
 class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   final Rect anchorRect;
   final AdwPopoverAnchor parentAnchor;
   final AdwPopoverAnchor childAnchor;
   final Offset offset;
+  final double bottomInset;
   final _AdwPopoverPlacement? placement;
 
   _OverlayPopoverLayoutDelegate({
@@ -394,6 +521,7 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
     required this.parentAnchor,
     required this.childAnchor,
     required this.offset,
+    this.bottomInset = 0.0,
     this.placement,
   });
 
@@ -401,7 +529,7 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
     return BoxConstraints(
       maxWidth: math.max(0.0, constraints.maxWidth - 16),
-      maxHeight: math.max(0.0, constraints.maxHeight - 16),
+      maxHeight: math.max(0.0, constraints.maxHeight - bottomInset - 16),
     );
   }
 
@@ -440,17 +568,18 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
         _childOffset(childSize, childAnchor) +
         offset;
 
+    final double effectiveHeight = math.max(0.0, size.height - bottomInset);
     double dx = raw.dx;
     double dy = raw.dy;
     AdwPopoverArrowSide? flippedSide;
 
-    if (dy + childSize.height > size.height - margin &&
+    if (dy + childSize.height > effectiveHeight - margin &&
         anchorRect.top - childSize.height - offset.dy >= margin) {
       dy = anchorRect.top - childSize.height - offset.dy;
       flippedSide = AdwPopoverArrowSide.bottom;
     } else if (dy < margin &&
         anchorRect.bottom + childSize.height + offset.dy <=
-            size.height - margin) {
+            effectiveHeight - margin) {
       dy = anchorRect.bottom + offset.dy;
       flippedSide = AdwPopoverArrowSide.top;
     }
@@ -461,7 +590,7 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
     );
     dy = dy.clamp(
       margin,
-      math.max(margin, size.height - childSize.height - margin),
+      math.max(margin, effectiveHeight - childSize.height - margin),
     );
     if (placement != null) {
       placement!.arrowCenterX = anchorRect.center.dx - dx;
@@ -475,7 +604,8 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
     return anchorRect != oldDelegate.anchorRect ||
         parentAnchor != oldDelegate.parentAnchor ||
         childAnchor != oldDelegate.childAnchor ||
-        offset != oldDelegate.offset;
+        offset != oldDelegate.offset ||
+        bottomInset != oldDelegate.bottomInset;
   }
 }
 
@@ -598,7 +728,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
   final double? arrowOffset;
   final _AdwPopoverPlacement? placement;
 
-  const _AdwPopoverSurfacePainter({
+  _AdwPopoverSurfacePainter({
     required this.backgroundColor,
     required this.radius,
     required this.arrowSide,
@@ -606,7 +736,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     required this.arrowHeight,
     this.arrowOffset,
     this.placement,
-  });
+  }) : super(repaint: placement?.arrowRepaint);
 
   Path _buildPath(Size size) {
     final topInset = arrowSide == AdwPopoverArrowSide.top ? arrowHeight : 0.0;
