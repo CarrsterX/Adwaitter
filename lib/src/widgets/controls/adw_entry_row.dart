@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
+
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -552,6 +554,9 @@ class _AdwPureEditableText extends StatelessWidget {
           cursorOpacityAnimates: false,
           showCursor: false,
           enableInteractiveSelection: true,
+          selectionControls: AdwTextSelectionControls.forPlatform(context),
+          contextMenuBuilder: AdwTextSelectionControls.contextMenuBuilder,
+          onTapOutside: (_) => focusNode.unfocus(),
           obscureText: obscureText,
           keyboardType: keyboardType ?? TextInputType.text,
           inputFormatters: inputFormatters,

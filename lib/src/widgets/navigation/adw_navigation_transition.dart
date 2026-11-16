@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -324,6 +325,51 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     super.dispose();
   }
 
+  bool _isAndroidGestureNav(BuildContext context) {
+    if (defaultTargetPlatform != TargetPlatform.android) return false;
+    final insets =
+        MediaQuery.maybeSystemGestureInsetsOf(context) ?? EdgeInsets.zero;
+    return insets.left > 0.0 || insets.right > 0.0;
+  }
+
+  bool _isTopmostInAncestorNavigators() {
+    final navContext = widget.route.navigator?.context;
+    if (navContext == null) return true;
+    final parentRoute = ModalRoute.of(navContext);
+    return parentRoute == null || parentRoute.isCurrent;
+  }
+
+  bool _hasPoppableDescendantNavigator() {
+    if (!mounted) return false;
+    bool found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element is StatefulElement && element.state is NavigatorState) {
+        final navState = element.state as NavigatorState;
+        if (navState != widget.route.navigator && navState.canPop()) {
+          found = true;
+          return;
+        }
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
+  }
+
+  bool get _canHandleSystemBack {
+    final nav = widget.route.navigator;
+    if (nav == null || _isAnimatingOut) return false;
+    if (widget.route.isFirst || !widget.route.isCurrent) return false;
+    if (widget.route.popDisposition == RoutePopDisposition.doNotPop) {
+      return false;
+    }
+    if (!_isTopmostInAncestorNavigators()) return false;
+    if (_hasPoppableDescendantNavigator()) return false;
+    return true;
+  }
+
   bool get _canInteractivePop {
     final nav = widget.route.navigator;
     if (!widget.allowSwipeBack || nav == null || _isAnimatingOut) {
@@ -434,12 +480,20 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
-    if (!_canInteractivePop || _isDragging) {
+    if (!_canHandleSystemBack || _isDragging) {
       return false;
     }
     _isSystemPredictiveBack = true;
     _startGesture();
     return true;
+  }
+
+  @override
+  Future<bool> didPopRoute() async {
+    if (!_canHandleSystemBack) return false;
+    final nav = widget.route.navigator;
+    if (nav == null) return false;
+    return nav.maybePop();
   }
 
   @override
@@ -537,58 +591,80 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   @override
   Widget build(BuildContext context) {
+    final platform = defaultTargetPlatform;
+    final bool isAndroidGestureNav = _isAndroidGestureNav(context);
+    final bool isIOS = platform == TargetPlatform.iOS;
+    final bool allowWindowSwipe = !isAndroidGestureNav;
+    final bool effectiveEdgeOnly = isIOS ? true : widget.edgeOnly;
+    final double effectiveEdgeWidth = isIOS
+        ? math.max(
+            widget.edgeWidth,
+            (MediaQuery.maybePaddingOf(context)?.left ?? 0.0) + 28.0,
+          )
+        : widget.edgeWidth;
+    final bool effectiveAllowMouseDrag =
+        (isIOS || isAndroidGestureNav) ? false : widget.allowMouseDrag;
+    final bool allowTrackpadSwipe =
+        platform != TargetPlatform.android && platform != TargetPlatform.iOS;
+
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerPanZoomStart: _handlePointerPanZoomStart,
-      onPointerPanZoomUpdate: _handlePointerPanZoomUpdate,
-      onPointerPanZoomEnd: _handlePointerPanZoomEnd,
+      onPointerPanZoomStart:
+          allowTrackpadSwipe ? _handlePointerPanZoomStart : null,
+      onPointerPanZoomUpdate:
+          allowTrackpadSwipe ? _handlePointerPanZoomUpdate : null,
+      onPointerPanZoomEnd:
+          allowTrackpadSwipe ? _handlePointerPanZoomEnd : null,
       child: RawGestureDetector(
         behavior: HitTestBehavior.translucent,
-        gestures: <Type, GestureRecognizerFactory>{
-          HorizontalDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<
-              HorizontalDragGestureRecognizer>(
-            // Trackpad gestures are handled exclusively via PointerPanZoom events above
-            // to avoid double-counting deltas with HorizontalDragGestureRecognizer.
-            () => HorizontalDragGestureRecognizer(
-              supportedDevices: widget.allowMouseDrag
-                  ? const {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.stylus,
-                    }
-                  : const {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.stylus,
-                    },
-            ),
-            (HorizontalDragGestureRecognizer instance) {
-              instance
-                ..onStart = (details) {
-                  if (_isDragging || !_canInteractivePop) return;
-                  if (AdwCarousel.shouldBlockParentSwipeBack(
-                      details.globalPosition)) {
-                    return;
-                  }
-                  if (widget.edgeOnly &&
-                      details.localPosition.dx > widget.edgeWidth) {
-                    return;
-                  }
-                  _startGesture();
-                }
-                ..onUpdate = (details) {
-                  if (!_isDragging) return;
-                  final width = context.size?.width ?? 400.0;
-                  _updateGestureDelta(details.delta.dx, width);
-                }
-                ..onEnd = (details) {
-                  if (!_isDragging) return;
-                  final width = context.size?.width ?? 400.0;
-                  _endGesture(details.velocity.pixelsPerSecond.dx, width);
-                }
-                ..onCancel = _cancelGesture;
-            },
-          ),
-        },
+        gestures: !allowWindowSwipe
+            ? const <Type, GestureRecognizerFactory>{}
+            : <Type, GestureRecognizerFactory>{
+                HorizontalDragGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                        HorizontalDragGestureRecognizer>(
+                  // Trackpad gestures are handled exclusively via PointerPanZoom events above
+                  // to avoid double-counting deltas with HorizontalDragGestureRecognizer.
+                  () => HorizontalDragGestureRecognizer(
+                    supportedDevices: effectiveAllowMouseDrag
+                        ? const {
+                            PointerDeviceKind.touch,
+                            PointerDeviceKind.mouse,
+                            PointerDeviceKind.stylus,
+                          }
+                        : const {
+                            PointerDeviceKind.touch,
+                            PointerDeviceKind.stylus,
+                          },
+                  ),
+                  (HorizontalDragGestureRecognizer instance) {
+                    instance
+                      ..onStart = (details) {
+                        if (_isDragging || !_canInteractivePop) return;
+                        if (AdwCarousel.shouldBlockParentSwipeBack(
+                            details.globalPosition)) {
+                          return;
+                        }
+                        if (effectiveEdgeOnly &&
+                            details.localPosition.dx > effectiveEdgeWidth) {
+                          return;
+                        }
+                        _startGesture();
+                      }
+                      ..onUpdate = (details) {
+                        if (!_isDragging) return;
+                        final width = context.size?.width ?? 400.0;
+                        _updateGestureDelta(details.delta.dx, width);
+                      }
+                      ..onEnd = (details) {
+                        if (!_isDragging) return;
+                        final width = context.size?.width ?? 400.0;
+                        _endGesture(details.velocity.pixelsPerSecond.dx, width);
+                      }
+                      ..onCancel = _cancelGesture;
+                  },
+                ),
+              },
         child: IgnorePointer(
           ignoring: _isAnimatingOut,
           child: widget.child,

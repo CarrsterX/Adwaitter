@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -134,17 +136,12 @@ class AdwHeaderBar extends StatelessWidget {
         Widget? startControls;
         Widget? endControls;
 
+        final bool isMobilePlatform =
+            defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS;
+
         if (showWindowControls) {
-          if (windowControls != null) {
-            if (showEndWindowControls && layout.endButtons.isNotEmpty) {
-              endControls = windowControls;
-            } else if (showStartWindowControls &&
-                layout.startButtons.isNotEmpty) {
-              startControls = windowControls;
-            } else if (showEndWindowControls) {
-              endControls = windowControls;
-            }
-          } else if (dialogScope != null) {
+          if (dialogScope != null) {
             final closeOnStart = layout.startButtons.contains('close') &&
                 !layout.endButtons.contains('close');
             if (closeOnStart && showStartWindowControls) {
@@ -152,14 +149,25 @@ class AdwHeaderBar extends StatelessWidget {
             } else if (!closeOnStart && showEndWindowControls) {
               endControls = _AdwDialogCloseButton(onPressed: dialogScope.close);
             }
-          } else {
-            if (showStartWindowControls && layout.startButtons.isNotEmpty) {
-              startControls =
-                  const AdwWindowControls(side: AdwWindowControlsSide.start);
-            }
-            if (showEndWindowControls && layout.endButtons.isNotEmpty) {
-              endControls =
-                  const AdwWindowControls(side: AdwWindowControlsSide.end);
+          } else if (!isMobilePlatform) {
+            if (windowControls != null) {
+              if (showEndWindowControls && layout.endButtons.isNotEmpty) {
+                endControls = windowControls;
+              } else if (showStartWindowControls &&
+                  layout.startButtons.isNotEmpty) {
+                startControls = windowControls;
+              } else if (showEndWindowControls) {
+                endControls = windowControls;
+              }
+            } else {
+              if (showStartWindowControls && layout.startButtons.isNotEmpty) {
+                startControls =
+                    const AdwWindowControls(side: AdwWindowControlsSide.start);
+              }
+              if (showEndWindowControls && layout.endButtons.isNotEmpty) {
+                endControls =
+                    const AdwWindowControls(side: AdwWindowControlsSide.end);
+              }
             }
           }
         }

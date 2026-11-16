@@ -135,7 +135,14 @@ class AdwColorScheme {
   });
 
   /// Official Libadwaita Light Color Scheme.
-  factory AdwColorScheme.light({AdwAccentColor accent = AdwAccentColor.blue}) {
+  factory AdwColorScheme.light({
+    AdwAccentColor accent = AdwAccentColor.blue,
+    Color? accentColorOverride,
+  }) {
+    final effectiveAccent = accentColorOverride ?? accent.color;
+    final accentFg = effectiveAccent.computeLuminance() > 0.55
+        ? const Color(0xCC000006)
+        : const Color(0xFFFFFFFF);
     return AdwColorScheme(
       isDark: false,
       windowBackground: const Color(0xFFFAFAFB),
@@ -153,8 +160,8 @@ class AdwColorScheme {
       popoverForeground: const Color(0xCC000006),
       borderColor: const Color(0x26000000), // ~15% opacity
       dividerColor: const Color(0x1A000000), // ~10% opacity
-      accentColor: accent.color,
-      accentForeground: const Color(0xFFFFFFFF),
+      accentColor: effectiveAccent,
+      accentForeground: accentFg,
       destructiveColor: AdwColors.red3,
       destructiveForeground: const Color(0xFFFFFFFF),
       successColor: AdwColors.green4,
@@ -168,7 +175,14 @@ class AdwColorScheme {
   }
 
   /// Official Libadwaita Dark Color Scheme.
-  factory AdwColorScheme.dark({AdwAccentColor accent = AdwAccentColor.blue}) {
+  factory AdwColorScheme.dark({
+    AdwAccentColor accent = AdwAccentColor.blue,
+    Color? accentColorOverride,
+  }) {
+    final effectiveAccent = accentColorOverride ?? accent.color;
+    final accentFg = effectiveAccent.computeLuminance() > 0.55
+        ? const Color(0xCC000006)
+        : const Color(0xFFFFFFFF);
     return AdwColorScheme(
       isDark: true,
       windowBackground: const Color(0xFF222226),
@@ -186,8 +200,8 @@ class AdwColorScheme {
       popoverForeground: const Color(0xFFFFFFFF),
       borderColor: const Color(0x26FFFFFF), // ~15% opacity
       dividerColor: const Color(0x1AFFFFFF), // ~10% opacity
-      accentColor: accent.color,
-      accentForeground: const Color(0xFFFFFFFF),
+      accentColor: effectiveAccent,
+      accentForeground: accentFg,
       destructiveColor: AdwColors.red4,
       destructiveForeground: const Color(0xFFFFFFFF),
       successColor: AdwColors.green5,
@@ -211,8 +225,14 @@ class AdwThemeData {
     required this.typography,
   });
 
-  factory AdwThemeData.light({AdwAccentColor accent = AdwAccentColor.blue}) {
-    final colors = AdwColorScheme.light(accent: accent);
+  factory AdwThemeData.light({
+    AdwAccentColor accent = AdwAccentColor.blue,
+    Color? accentColorOverride,
+  }) {
+    final colors = AdwColorScheme.light(
+      accent: accent,
+      accentColorOverride: accentColorOverride,
+    );
     final typography = AdwTypography.fromColors(
       foreground: colors.windowForeground,
       secondaryForeground: colors.secondaryForeground,
@@ -220,8 +240,14 @@ class AdwThemeData {
     return AdwThemeData(colors: colors, typography: typography);
   }
 
-  factory AdwThemeData.dark({AdwAccentColor accent = AdwAccentColor.blue}) {
-    final colors = AdwColorScheme.dark(accent: accent);
+  factory AdwThemeData.dark({
+    AdwAccentColor accent = AdwAccentColor.blue,
+    Color? accentColorOverride,
+  }) {
+    final colors = AdwColorScheme.dark(
+      accent: accent,
+      accentColorOverride: accentColorOverride,
+    );
     final typography = AdwTypography.fromColors(
       foreground: colors.windowForeground,
       secondaryForeground: colors.secondaryForeground,
@@ -235,6 +261,15 @@ class AdwThemeData {
       return AdwThemeData.dark(accent: accent);
     } else {
       return AdwThemeData.light(accent: accent);
+    }
+  }
+
+  /// Returns a copy of this theme data with a custom [accentColor].
+  AdwThemeData withAccentColor(Color accentColor) {
+    if (colors.isDark) {
+      return AdwThemeData.dark(accentColorOverride: accentColor);
+    } else {
+      return AdwThemeData.light(accentColorOverride: accentColor);
     }
   }
 }

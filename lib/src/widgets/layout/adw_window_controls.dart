@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -248,6 +250,11 @@ class AdwWindowControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      return const SizedBox.shrink();
+    }
+
     final windowScope = AdwWindowScope.maybeOf(context);
     final controller = windowScope?.controller;
     final isMaximized = windowScope?.isMaximized ?? false;

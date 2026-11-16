@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
 import '../../l10n/adw_localizations.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
@@ -362,6 +363,11 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
                             cursorOpacityAnimates: true,
                             showCursor: true,
                             enableInteractiveSelection: true,
+                            selectionControls:
+                                AdwTextSelectionControls.forPlatform(context),
+                            contextMenuBuilder:
+                                AdwTextSelectionControls.contextMenuBuilder,
+                            onTapOutside: (_) => _searchFocusNode.unfocus(),
                             style: theme.typography.body.copyWith(
                               fontSize: 14,
                               color: theme.colors.popoverForeground,

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -208,13 +210,14 @@ class AdwDialog extends StatelessWidget {
         if (isBottomSheet) {
           return Stack(
             children: [
-              if (canClose)
-                Positioned.fill(
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerUp: (_) => Navigator.of(context).maybePop(),
-                  ),
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: canClose ? () => Navigator.of(context).maybePop() : () {},
+                  onVerticalDragStart: (_) {},
+                  onHorizontalDragStart: (_) {},
                 ),
+              ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: AnimatedBuilder(
@@ -404,7 +407,13 @@ class _AdwDialogRoute<T> extends PopupRoute<T> {
     return Stack(
       children: [
         Positioned.fill(
-          child: IgnorePointer(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _barrierDismissible
+                ? () => Navigator.of(context).maybePop()
+                : () {},
+            onVerticalDragStart: (_) {},
+            onHorizontalDragStart: (_) {},
             child: AnimatedBuilder(
               animation: animation,
               builder: (context, _) {
@@ -467,6 +476,11 @@ Future<T?> showAdwDialog<T>({
             ),
           ),
         );
+
+        if (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) {
+          content = SafeArea(child: content);
+        }
 
         if (parentWindowScope != null) {
           final controller = parentWindowScope.controller;

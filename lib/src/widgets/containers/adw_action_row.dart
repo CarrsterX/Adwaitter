@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -128,12 +129,23 @@ class _AdwActionRowState extends State<AdwActionRow> {
                         selectionColor:
                             theme.colors.accentColor.withValues(alpha: 0.3),
                         cursorColor: theme.colors.accentColor,
-                        child: SelectableRegion(
-                          focusNode: _getPropertySelectionFocusNode(),
-                          selectionControls: EmptyTextSelectionControls(),
-                          child: DefaultTextStyle(
-                            style: theme.typography.body.copyWith(height: 1.2),
-                            child: widget.subtitle!,
+                        child: TextFieldTapRegion(
+                          onTapOutside: (_) {
+                            final node = _propertySelectionFocusNode;
+                            if (node != null && node.hasFocus) {
+                              node.unfocus();
+                            }
+                          },
+                          child: SelectableRegion(
+                            focusNode: _getPropertySelectionFocusNode(),
+                            selectionControls:
+                                AdwTextSelectionControls.forPlatform(context),
+                            contextMenuBuilder: AdwTextSelectionControls
+                                .selectableContextMenuBuilder,
+                            child: DefaultTextStyle(
+                              style: theme.typography.body.copyWith(height: 1.2),
+                              child: widget.subtitle!,
+                            ),
                           ),
                         ),
                       )

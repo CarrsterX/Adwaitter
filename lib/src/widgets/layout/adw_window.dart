@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show ValueListenable, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, ValueListenable, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -341,10 +342,13 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final bool isMobile =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
     final effectiveIsMaximized =
-        widget.isMaximized ?? _effectiveController.isMaximized;
+        widget.isMaximized ?? (isMobile ? true : _effectiveController.isMaximized);
     final isSquareCorners =
-        effectiveIsMaximized || _effectiveController.isTiled;
+        isMobile || effectiveIsMaximized || _effectiveController.isTiled;
 
     final borderRadius = isSquareCorners
         ? BorderRadius.zero
@@ -395,11 +399,17 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       ],
     );
 
-    final Widget windowContentWithResizers = AdwWindowResizeOverlay(
-      controller: _effectiveController,
-      enabled: !effectiveIsMaximized,
-      child: windowContent,
-    );
+    if (isMobile) {
+      windowContent = SafeArea(child: windowContent);
+    }
+
+    final Widget windowContentWithResizers = isMobile
+        ? windowContent
+        : AdwWindowResizeOverlay(
+            controller: _effectiveController,
+            enabled: !effectiveIsMaximized,
+            child: windowContent,
+          );
 
     return AdwWindowScope(
       controller: _effectiveController,

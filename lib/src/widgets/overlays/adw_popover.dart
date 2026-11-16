@@ -53,6 +53,7 @@ class AdwPopoverHandle {
   AdwPopupWindowEntry? _popupEntry;
   OverlayEntry? _overlayEntry;
   VoidCallback? _onDismiss;
+  VoidCallback? _onDisposePlacement;
   Object? _owner;
   bool _isDismissed = false;
 
@@ -71,6 +72,9 @@ class AdwPopoverHandle {
   void dismiss() {
     if (_isDismissed) return;
     _isDismissed = true;
+    final disposePlacement = _onDisposePlacement;
+    _onDisposePlacement = null;
+    disposePlacement?.call();
 
     if (identical(_activePopover, this)) {
       _lastDismissedOwner = _activeOwner ?? _owner;
@@ -254,30 +258,38 @@ AdwPopoverHandle showAdwPopover({
 
   final themeData = AdwTheme.maybeOf(context);
   final overlay = Overlay.of(context, rootOverlay: true);
+  final placement = _AdwPopoverPlacement();
+  handle._onDisposePlacement = placement.dispose;
 
   final overlayEntry = OverlayEntry(
     builder: (overlayContext) {
-      Widget content = CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.escape): handle.dismiss,
-        },
-        child: FocusScope(
-          autofocus: true,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: handle.dismiss,
-            child: CustomSingleChildLayout(
-              delegate: _OverlayPopoverLayoutDelegate(
-                anchorRect: anchorRect,
-                parentAnchor: parentAnchor,
-                childAnchor: childAnchor,
-                offset: offset,
-              ),
-              child: GestureDetector(
-                onTap: () {},
-                child: ConstrainedBox(
-                  constraints: constraints,
-                  child: builder(overlayContext, handle),
+      Widget content = _AdwPopoverPlacementScope(
+        placement: placement,
+        child: CallbackShortcuts(
+          bindings: <ShortcutActivator, VoidCallback>{
+            const SingleActivator(LogicalKeyboardKey.escape): handle.dismiss,
+          },
+          child: FocusScope(
+            autofocus: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: handle.dismiss,
+              onVerticalDragStart: (_) {},
+              onHorizontalDragStart: (_) {},
+              child: CustomSingleChildLayout(
+                delegate: _OverlayPopoverLayoutDelegate(
+                  anchorRect: anchorRect,
+                  parentAnchor: parentAnchor,
+                  childAnchor: childAnchor,
+                  offset: offset,
+                  placement: placement,
+                ),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: ConstrainedBox(
+                    constraints: constraints,
+                    child: builder(overlayContext, handle),
+                  ),
                 ),
               ),
             ),
@@ -333,17 +345,56 @@ Offset _shadowAnchorOffset(
   return Offset(dx, dy);
 }
 
+class _AdwPopoverPlacement {
+  double? arrowCenterX;
+  final ValueNotifier<AdwPopoverArrowSide?> resolvedArrowSide =
+      ValueNotifier<AdwPopoverArrowSide?>(null);
+
+  void updateArrowSide(AdwPopoverArrowSide? side) {
+    if (resolvedArrowSide.value == side) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      resolvedArrowSide.value = side;
+    });
+  }
+
+  void dispose() {
+    resolvedArrowSide.dispose();
+  }
+}
+
+class _AdwPopoverPlacementScope extends InheritedWidget {
+  final _AdwPopoverPlacement placement;
+
+  const _AdwPopoverPlacementScope({
+    required this.placement,
+    required super.child,
+  });
+
+  static _AdwPopoverPlacement? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_AdwPopoverPlacementScope>()
+        ?.placement;
+  }
+
+  @override
+  bool updateShouldNotify(covariant _AdwPopoverPlacementScope oldWidget) {
+    return placement != oldWidget.placement;
+  }
+}
+
 class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   final Rect anchorRect;
   final AdwPopoverAnchor parentAnchor;
   final AdwPopoverAnchor childAnchor;
   final Offset offset;
+  final _AdwPopoverPlacement? placement;
 
   _OverlayPopoverLayoutDelegate({
     required this.anchorRect,
     required this.parentAnchor,
     required this.childAnchor,
     required this.offset,
+    this.placement,
   });
 
   @override
@@ -391,10 +442,17 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
 
     double dx = raw.dx;
     double dy = raw.dy;
+    AdwPopoverArrowSide? flippedSide;
 
     if (dy + childSize.height > size.height - margin &&
         anchorRect.top - childSize.height - offset.dy >= margin) {
       dy = anchorRect.top - childSize.height - offset.dy;
+      flippedSide = AdwPopoverArrowSide.bottom;
+    } else if (dy < margin &&
+        anchorRect.bottom + childSize.height + offset.dy <=
+            size.height - margin) {
+      dy = anchorRect.bottom + offset.dy;
+      flippedSide = AdwPopoverArrowSide.top;
     }
 
     dx = dx.clamp(
@@ -405,6 +463,10 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
       margin,
       math.max(margin, size.height - childSize.height - margin),
     );
+    if (placement != null) {
+      placement!.arrowCenterX = anchorRect.center.dx - dx;
+      placement!.updateArrowSide(flippedSide);
+    }
     return Offset(dx, dy);
   }
 
@@ -431,6 +493,7 @@ class AdwPopoverSurface extends StatelessWidget {
   final AdwPopoverArrowSide arrowSide;
   final double arrowWidth;
   final double arrowHeight;
+  final double? arrowOffset;
 
   const AdwPopoverSurface({
     super.key,
@@ -439,6 +502,7 @@ class AdwPopoverSurface extends StatelessWidget {
     this.arrowSide = AdwPopoverArrowSide.none,
     this.arrowWidth = 18.0,
     this.arrowHeight = 9.0,
+    this.arrowOffset,
   });
 
   @override
@@ -483,26 +547,44 @@ class AdwPopoverSurface extends StatelessWidget {
       );
     }
 
-    final arrowInset = EdgeInsets.only(
-      top: arrowSide == AdwPopoverArrowSide.top ? arrowHeight : 0,
-      bottom: arrowSide == AdwPopoverArrowSide.bottom ? arrowHeight : 0,
-    );
+    final placement = _AdwPopoverPlacementScope.maybeOf(context);
 
-    return CustomPaint(
-      painter: _AdwPopoverSurfacePainter(
-        backgroundColor: theme.colors.popoverBackground,
-        radius: AdwMetrics.cardRadius,
-        arrowSide: arrowSide,
-        arrowWidth: arrowWidth,
-        arrowHeight: arrowHeight,
-      ),
-      child: Padding(
-        padding: arrowInset,
-        child: Padding(
-          padding: padding,
-          child: content,
+    Widget buildWithArrowSide(AdwPopoverArrowSide effectiveArrowSide) {
+      final arrowInset = EdgeInsets.only(
+        top: effectiveArrowSide == AdwPopoverArrowSide.top ? arrowHeight : 0,
+        bottom:
+            effectiveArrowSide == AdwPopoverArrowSide.bottom ? arrowHeight : 0,
+      );
+
+      return CustomPaint(
+        painter: _AdwPopoverSurfacePainter(
+          backgroundColor: theme.colors.popoverBackground,
+          radius: AdwMetrics.cardRadius,
+          arrowSide: effectiveArrowSide,
+          arrowWidth: arrowWidth,
+          arrowHeight: arrowHeight,
+          arrowOffset: arrowOffset,
+          placement: placement,
         ),
-      ),
+        child: Padding(
+          padding: arrowInset,
+          child: Padding(
+            padding: padding,
+            child: content,
+          ),
+        ),
+      );
+    }
+
+    if (placement == null) {
+      return buildWithArrowSide(arrowSide);
+    }
+
+    return ValueListenableBuilder<AdwPopoverArrowSide?>(
+      valueListenable: placement.resolvedArrowSide,
+      builder: (context, overriddenSide, _) {
+        return buildWithArrowSide(overriddenSide ?? arrowSide);
+      },
     );
   }
 }
@@ -513,6 +595,8 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
   final AdwPopoverArrowSide arrowSide;
   final double arrowWidth;
   final double arrowHeight;
+  final double? arrowOffset;
+  final _AdwPopoverPlacement? placement;
 
   const _AdwPopoverSurfacePainter({
     required this.backgroundColor,
@@ -520,6 +604,8 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     required this.arrowSide,
     required this.arrowWidth,
     required this.arrowHeight,
+    this.arrowOffset,
+    this.placement,
   });
 
   Path _buildPath(Size size) {
@@ -536,8 +622,13 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     final path = Path()
       ..addRRect(RRect.fromRectAndRadius(bodyRect, Radius.circular(radius)));
 
-    final centerX = size.width / 2;
     final halfW = arrowWidth / 2;
+    final double rawCenterX =
+        arrowOffset ?? placement?.arrowCenterX ?? (size.width / 2);
+    final double minCenterX = radius + halfW + 2.0;
+    final double maxCenterX =
+        math.max(minCenterX, size.width - radius - halfW - 2.0);
+    final double centerX = rawCenterX.clamp(minCenterX, maxCenterX);
     if (arrowSide == AdwPopoverArrowSide.top) {
       final arrowPath = Path()
         ..moveTo(centerX - halfW, topInset + 1)
@@ -601,7 +692,9 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
         radius != oldDelegate.radius ||
         arrowSide != oldDelegate.arrowSide ||
         arrowWidth != oldDelegate.arrowWidth ||
-        arrowHeight != oldDelegate.arrowHeight;
+        arrowHeight != oldDelegate.arrowHeight ||
+        arrowOffset != oldDelegate.arrowOffset ||
+        placement != oldDelegate.placement;
   }
 }
 

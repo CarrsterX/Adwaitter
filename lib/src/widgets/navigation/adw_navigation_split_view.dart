@@ -99,7 +99,7 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
     return AdwNavigationPage(
       tag: 'sidebar',
       title: widget.sidebarTitle,
-      canPop: false,
+      canPop: true,
       child: AnimatedBuilder(
         animation: _slotNotifier,
         builder: (context, _) {

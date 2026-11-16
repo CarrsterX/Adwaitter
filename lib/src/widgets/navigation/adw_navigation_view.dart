@@ -214,7 +214,7 @@ class AdwNavigationView extends StatefulWidget {
 
 class _AdwNavigationViewState extends State<AdwNavigationView> {
   late final AdwNavigationViewController _controller;
-  late final _AdwNavObserver _observer;
+  late final AdwNavigationViewObserver _observer;
   bool _ownsController = false;
 
   @override
@@ -237,7 +237,12 @@ class _AdwNavigationViewState extends State<AdwNavigationView> {
       allowMouseDrag: widget.allowMouseDrag,
     );
     _controller.addListener(_onStackChanged);
-    _observer = _AdwNavObserver(onPop: _controller._handleRoutePopped);
+    _observer = AdwNavigationViewObserver(
+      controller: _controller,
+      onPop: _controller._handleRoutePopped,
+      onPopCompleted: _dispatchNavigationNotification,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _dispatchNavigationNotification());
   }
 
   @override
@@ -249,8 +254,16 @@ class _AdwNavigationViewState extends State<AdwNavigationView> {
     super.dispose();
   }
 
+  void _dispatchNavigationNotification() {
+    if (!mounted) return;
+    NavigationNotification(canHandlePop: _controller.canPop).dispatch(context);
+  }
+
   void _onStackChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _dispatchNavigationNotification());
+    }
   }
 
   Route<dynamic> _buildPageRoute(
@@ -300,14 +313,21 @@ class _AdwNavigationViewState extends State<AdwNavigationView> {
   }
 }
 
-class _AdwNavObserver extends NavigatorObserver {
+class AdwNavigationViewObserver extends NavigatorObserver {
+  final AdwNavigationViewController controller;
   final void Function(Route<dynamic> route) onPop;
+  final VoidCallback? onPopCompleted;
 
-  _AdwNavObserver({required this.onPop});
+  AdwNavigationViewObserver({
+    required this.controller,
+    required this.onPop,
+    this.onPopCompleted,
+  });
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
     onPop(route);
+    route.popped.whenComplete(() => onPopCompleted?.call());
   }
 }

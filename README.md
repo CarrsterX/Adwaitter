@@ -7,3 +7,7 @@ Cross-platform **GNOME Adwaita UI** widget library and design system for Flutter
 - **[Adwaitter_Icons](https://github.com/CarrsterX/Adwaitter_Icons)**: Official GNOME Adwaita symbolic icons packaged for Flutter.
 - **[Fluttpak](https://github.com/CarrsterX/Fluttpak)**: Flatpak packaging & XDG Desktop Portals integration for Flutter.
 - **[Snaptter](https://github.com/CarrsterX/Snaptter)**: Snap packaging & strict confinement integration for Flutter.
+
+## Android Setup
+
+`Adwaitter` enables Android defaults automatically out of the box—including system/gesture navigation bar safe zones, hidden desktop window controls, modal/nested-navigation `frameworkHandlesBack` sync, automatic gesture-vs-button navigation detection, Android 14+ **Predictive Back** (`android:enableOnBackInvokedCallback="true"` via manifest merger), and Android 12+ Material You dynamic accent color (`AdwaitterPlugin`). No manual changes to `AndroidManifest.xml` or `MainActivity` are required.

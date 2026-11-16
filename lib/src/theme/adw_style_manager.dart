@@ -61,6 +61,9 @@ class AdwStyleManager extends ChangeNotifier {
   AdwSystemAppearance _systemAppearance = const AdwSystemAppearance();
   AdwSystemColorScheme? _colorSchemeOverride;
   AdwAccentColor? _accentColorOverride;
+  Color? _customAccentColorOverride;
+  Color? _systemDynamicAccentLight;
+  Color? _systemDynamicAccentDark;
   bool _hasPlatformBridge = false;
 
   /// Current appearance reported by the host desktop environment.
@@ -73,6 +76,25 @@ class AdwStyleManager extends ChangeNotifier {
   /// Active accent color (override if set, otherwise host system accent color).
   AdwAccentColor get accentColor =>
       _accentColorOverride ?? _systemAppearance.accentColor;
+
+  /// Optional custom accent [Color] override (e.g. Android 12+ wallpaper
+  /// dynamic color or a custom app accent). Returns `null` when an explicit
+  /// [AdwAccentColor] enum override is active or no dynamic color is present.
+  Color? get resolvedCustomAccentColor {
+    if (_customAccentColorOverride != null) return _customAccentColorOverride;
+    if (_accentColorOverride != null) return null;
+    if (_systemDynamicAccentLight == null && _systemDynamicAccentDark == null) {
+      return null;
+    }
+    return isDark
+        ? (_systemDynamicAccentDark ?? _systemDynamicAccentLight)
+        : (_systemDynamicAccentLight ?? _systemDynamicAccentDark);
+  }
+
+  /// Effective resolved accent [Color], combining custom/dynamic colors and
+  /// standard [AdwAccentColor] tokens.
+  Color get effectiveAccentColor =>
+      resolvedCustomAccentColor ?? accentColor.color;
 
   /// Whether high-contrast mode is enabled on the host desktop.
   bool get highContrast => _systemAppearance.highContrast;
@@ -103,8 +125,19 @@ class AdwStyleManager extends ChangeNotifier {
 
   /// Centrally overrides the application's accent color (pass `null` to follow system).
   set accentColor(AdwAccentColor? value) {
-    if (_accentColorOverride == value) return;
+    if (_accentColorOverride == value && _customAccentColorOverride == null) {
+      return;
+    }
+    _customAccentColorOverride = null;
     _accentColorOverride = value;
+    notifyListeners();
+  }
+
+  /// Centrally overrides the application's accent with a custom [Color]
+  /// (pass `null` to fall back to system/dynamic or [accentColor]).
+  set customAccentColor(Color? value) {
+    if (_customAccentColorOverride == value) return;
+    _customAccentColorOverride = value;
     notifyListeners();
   }
 
@@ -124,6 +157,37 @@ class AdwStyleManager extends ChangeNotifier {
         }
       });
       instance._fetchInitialAppearance();
+    } else if (!kIsWeb && Platform.isAndroid) {
+      instance._fetchAndroidDynamicAccent();
+    }
+  }
+
+  /// Refreshes system appearance / dynamic accent from the host platform.
+  void refreshSystemAppearance() {
+    if (!kIsWeb && Platform.isAndroid) {
+      _fetchAndroidDynamicAccent();
+    } else if (!kIsWeb && Platform.isLinux) {
+      _fetchInitialAppearance();
+    }
+  }
+
+  Future<void> _fetchAndroidDynamicAccent() async {
+    try {
+      final Map<dynamic, dynamic>? result = await _channel
+          .invokeMethod<Map<dynamic, dynamic>>('getSystemDynamicAccent');
+      if (result == null) return;
+      final int? lightArgb = result['light'] as int?;
+      final int? darkArgb = result['dark'] as int?;
+      final Color? nextLight = lightArgb != null ? Color(lightArgb) : null;
+      final Color? nextDark = darkArgb != null ? Color(darkArgb) : null;
+      if (nextLight != _systemDynamicAccentLight ||
+          nextDark != _systemDynamicAccentDark) {
+        _systemDynamicAccentLight = nextLight;
+        _systemDynamicAccentDark = nextDark;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Gracefully fall back to standard Adwaita accent colors if unavailable
     }
   }
 

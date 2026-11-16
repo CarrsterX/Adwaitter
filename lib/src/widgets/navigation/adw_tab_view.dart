@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_scrollbar.dart';
+import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -1471,6 +1472,14 @@ class _AdwTabOverviewState extends State<AdwTabOverview>
                                                 child: EditableText(
                                                   controller: _searchController,
                                                   focusNode: _searchFocusNode,
+                                                  selectionControls:
+                                                      AdwTextSelectionControls
+                                                          .forPlatform(context),
+                                                  contextMenuBuilder:
+                                                      AdwTextSelectionControls
+                                                          .contextMenuBuilder,
+                                                  onTapOutside: (_) =>
+                                                      _searchFocusNode.unfocus(),
                                                   style: theme.typography.body
                                                       .copyWith(
                                                     height: 1.0,

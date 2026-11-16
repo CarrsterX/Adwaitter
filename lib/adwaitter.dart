@@ -5,6 +5,7 @@ library adwaitter;
 export 'src/core/adw_scroll_behavior.dart';
 export 'src/core/adw_scrollbar.dart';
 export 'src/core/adw_spring.dart';
+export 'src/core/adw_text_selection.dart';
 
 // Theme and design tokens
 export 'src/l10n/adw_localizations.dart';

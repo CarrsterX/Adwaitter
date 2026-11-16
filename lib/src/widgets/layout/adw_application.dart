@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/services.dart' show LogicalKeyboardKey, SystemNavigator;
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_scroll_behavior.dart';
@@ -7,6 +7,7 @@ import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_style_manager.dart';
 import '../../theme/adw_theme.dart';
 import '../navigation/adw_navigation_transition.dart';
+import '../navigation/adw_navigation_view.dart';
 import 'adw_sub_window.dart';
 import 'adw_window.dart';
 
@@ -50,10 +51,12 @@ class AdwApplication extends StatefulWidget {
 class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObserver {
   final ValueNotifier<BorderRadius> _windowBorderRadius =
       ValueNotifier<BorderRadius>(BorderRadius.zero);
+  AppLifecycleState? _appLifecycleState;
 
   @override
   void initState() {
     super.initState();
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     AdwSubWindowManager.ensureInitialized();
     WidgetsBinding.instance.addObserver(this);
     AdwDesktopSettings.initialize();
@@ -76,9 +79,59 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    if (state == AppLifecycleState.resumed) {
+      AdwStyleManager.instance.refreshSystemAppearance();
+    }
+  }
+
+  @override
   void didChangePlatformBrightness() {
     AdwStyleManager.instance.handlePlatformBrightnessChanged();
     setState(() {});
+  }
+
+  bool _hasAnyPoppableNavigator() {
+    final navContext = AdwSubWindowManager.instance.navigatorKey.currentContext;
+    if (navContext == null) return false;
+    bool found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element is StatefulElement && element.state is NavigatorState) {
+        final navState = element.state as NavigatorState;
+        final adwObserver = navState.widget.observers
+            .whereType<AdwNavigationViewObserver>()
+            .firstOrNull;
+        final bool canPop = adwObserver != null
+            ? adwObserver.controller.canPop
+            : navState.canPop();
+        if (canPop) {
+          found = true;
+          return;
+        }
+      }
+      element.visitChildren(visit);
+    }
+
+    navContext.visitChildElements(visit);
+    return found;
+  }
+
+  bool _handleNavigationNotification(NavigationNotification notification) {
+    switch (_appLifecycleState) {
+      case null:
+      case AppLifecycleState.detached:
+        return true;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.resumed:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        final bool effectiveCanHandlePop =
+            notification.canHandlePop || _hasAnyPoppableNavigator();
+        SystemNavigator.setFrameworkHandlesBack(effectiveCanHandlePop);
+        return true;
+    }
   }
 
   bool _isDarkMode(BuildContext context) {
@@ -95,12 +148,16 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final effectiveAccent = widget.accentColor ?? AdwStyleManager.instance.accentColor;
+    final Color? effectiveCustomAccent = widget.accentColor == null
+        ? AdwStyleManager.instance.resolvedCustomAccentColor
+        : null;
 
     return WidgetsApp(
       navigatorKey: AdwSubWindowManager.instance.navigatorKey,
       title: widget.title,
-      color: effectiveAccent.color,
+      color: effectiveCustomAccent ?? effectiveAccent.color,
       debugShowCheckedModeBanner: false,
+      onNavigationNotification: _handleNavigationNotification,
       routes: widget.routes,
       initialRoute: widget.initialRoute,
       onGenerateRoute: widget.onGenerateRoute,
@@ -114,8 +171,16 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
       builder: (context, child) {
         final isDark = _isDarkMode(context);
         final defaultTheme = isDark
-            ? (widget.darkTheme ?? AdwThemeData.dark(accent: effectiveAccent))
-            : (widget.theme ?? AdwThemeData.light(accent: effectiveAccent));
+            ? (widget.darkTheme ??
+                AdwThemeData.dark(
+                  accent: effectiveAccent,
+                  accentColorOverride: effectiveCustomAccent,
+                ))
+            : (widget.theme ??
+                AdwThemeData.light(
+                  accent: effectiveAccent,
+                  accentColorOverride: effectiveCustomAccent,
+                ));
 
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
           valueListenable: _windowBorderRadius,
