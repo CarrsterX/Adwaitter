@@ -84,9 +84,14 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
         onPointerDown: (_) {
           setState(() => _isPressed = true);
         },
-        onPointerUp: (_) {
+        onPointerUp: (event) {
+          final wasPressed = _isPressed;
           setState(() => _isPressed = false);
-          if (_isHovered) {
+          final inBounds = event.localPosition.dx >= 0 &&
+              event.localPosition.dx <= widget.buttonSize &&
+              event.localPosition.dy >= 0 &&
+              event.localPosition.dy <= widget.buttonSize;
+          if (wasPressed && inBounds) {
             widget.onPressed?.call();
           }
         },
