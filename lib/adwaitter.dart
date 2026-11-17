@@ -70,3 +70,4 @@ export 'src/widgets/overlays/adw_toast.dart';
 // Widgets: Display
 export 'src/widgets/display/adw_emblem.dart';
 
+export 'src/widgets/display/adw_spinner.dart';
