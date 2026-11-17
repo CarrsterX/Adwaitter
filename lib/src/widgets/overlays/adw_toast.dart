@@ -16,7 +16,7 @@ class AdwToast {
   const AdwToast({
     required this.title,
     this.action,
-    this.timeout = const Duration(seconds: 4),
+    this.timeout = const Duration(seconds: 5),
     this.onDismissed,
   });
 }
@@ -51,32 +51,46 @@ class AdwToastOverlay extends StatefulWidget {
   State<AdwToastOverlay> createState() => _AdwToastOverlayState();
 }
 
-class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProviderStateMixin {
+class _AdwToastOverlayState extends State<AdwToastOverlay>
+    with SingleTickerProviderStateMixin {
   final List<AdwToast> _queue = [];
   AdwToast? _currentToast;
   Timer? _timer;
+  bool _isDismissing = false;
+  bool _isToastHovered = false;
+  bool _isCloseHovered = false;
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
+  late final Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: AdwCurves.normalDuration,
+      duration: const Duration(milliseconds: 350),
+      reverseDuration: const Duration(milliseconds: 280),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: AdwCurves.standard,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.linear,
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.4),
+      begin: const Offset(0, 2.0),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
-      curve: AdwCurves.standard,
+      curve: Curves.easeInOutCubic,
+    ));
+    _scaleAnimation = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.linear,
     ));
   }
 
@@ -89,9 +103,61 @@ class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProv
 
   /// Adds and presents a new [AdwToast].
   void addToast(AdwToast toast) {
+    if (_currentToast != null) {
+      final currentHasAction = _currentToast!.action != null;
+      final newHasAction = toast.action != null;
+      // Same toast type (or current has an action): queue and wait.
+      if (currentHasAction || currentHasAction == newHasAction) {
+        _queue.add(toast);
+        return;
+      }
+      _timer?.cancel();
+      _queue.clear();
+      _currentToast?.onDismissed?.call();
+      setState(() {
+        _currentToast = toast;
+        _isDismissing = false;
+      });
+      _animController.forward(from: 0.0);
+      if (!_isToastHovered) {
+        _timer = Timer(toast.timeout, _dismissCurrentToast);
+      }
+      return;
+    }
     _queue.add(toast);
-    if (_currentToast == null) {
-      _showNextToast();
+    _showNextToast();
+  }
+
+  /// Replaces [replacing] in-place if it is currently displayed, resetting
+  /// its timeout, or adds [toast] normally otherwise.
+  void replaceOrAddToast(AdwToast toast, {AdwToast? replacing}) {
+    if (replacing != null && _currentToast == replacing && !_isDismissing) {
+      setState(() {
+        _currentToast = toast;
+      });
+      _timer?.cancel();
+      if (!_isToastHovered) {
+        _timer = Timer(toast.timeout, _dismissCurrentToast);
+      }
+      return;
+    }
+    addToast(toast);
+  }
+
+  /// Dismisses [toast] if it is currently displayed or queued.
+  void dismissToast(AdwToast toast) {
+    if (_currentToast == toast) {
+      _dismissCurrentToast();
+    } else {
+      _queue.remove(toast);
+    }
+  }
+
+  /// Dismisses the current toast and clears any queued toasts.
+  void dismissAll() {
+    _queue.clear();
+    if (_currentToast != null) {
+      _dismissCurrentToast();
     }
   }
 
@@ -103,18 +169,22 @@ class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProv
 
     setState(() {
       _currentToast = _queue.removeAt(0);
+      _isDismissing = false;
     });
 
     _animController.forward(from: 0.0);
 
     _timer?.cancel();
-    _timer = Timer(_currentToast!.timeout, () {
-      _dismissCurrentToast();
-    });
+    if (!_isToastHovered) {
+      _timer = Timer(_currentToast!.timeout, () {
+        _dismissCurrentToast();
+      });
+    }
   }
 
   void _dismissCurrentToast() {
     _timer?.cancel();
+    setState(() => _isDismissing = true);
     _animController.reverse().then((_) {
       _currentToast?.onDismissed?.call();
       _showNextToast();
@@ -130,45 +200,110 @@ class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProv
         widget.child,
         if (_currentToast != null)
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 24 + (adwBottomSystemInset(context)),
+            left: 12,
+            right: 12,
+            bottom: 22 + adwBottomSystemInset(context),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF38383C)
-                          : const Color(0xFF2E2E32),
-                      borderRadius: BorderRadius.circular(AdwMetrics.pillRadius),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x38000000),
-                          blurRadius: 16,
-                          offset: Offset(0, 4),
+                opacity: _isDismissing
+                    ? _fadeAnimation
+                    : const AlwaysStoppedAnimation(1.0),
+                child: ScaleTransition(
+                  scale: _isDismissing
+                      ? _scaleAnimation
+                      : const AlwaysStoppedAnimation(1.0),
+                  child: SlideTransition(
+                    position: _isDismissing
+                        ? const AlwaysStoppedAnimation(Offset.zero)
+                        : _slideAnimation,
+                    child: MouseRegion(
+                      onEnter: (_) {
+                        _isToastHovered = true;
+                        _timer?.cancel();
+                      },
+                      onExit: (_) {
+                        _isToastHovered = false;
+                        if (_currentToast != null && !_isDismissing) {
+                          _timer?.cancel();
+                          _timer = Timer(_currentToast!.timeout, () {
+                            _dismissCurrentToast();
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(18, 7, 8, 7),
+                        decoration: BoxDecoration(
+                          color: theme.colors.isDark
+                              ? const Color(0xFF505053)
+                              : const Color(0xFF2E2E32),
+                          borderRadius:
+                              BorderRadius.circular(AdwMetrics.pillRadius),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x38000000),
+                              blurRadius: 16,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DefaultTextStyle(
-                          style: theme.typography.body.copyWith(
-                            color: const Color(0xFFFFFFFF),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          child: _currentToast!.title,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: DefaultTextStyle(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.typography.body.copyWith(
+                                  color: const Color(0xFFFFFFFF),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.0,
+                                ),
+                                child: _currentToast!.title,
+                              ),
+                            ),
+                            if (_currentToast!.action != null) ...[
+                              const SizedBox(width: 64),
+                              _currentToast!.action!,
+                            ],
+                            SizedBox(
+                              width: _currentToast!.action != null ? 6 : 12,
+                            ),
+                            MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              onEnter: (_) =>
+                                  setState(() => _isCloseHovered = true),
+                              onExit: (_) =>
+                                  setState(() => _isCloseHovered = false),
+                              child: GestureDetector(
+                                onTap: _dismissCurrentToast,
+                                behavior: HitTestBehavior.opaque,
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _isCloseHovered
+                                        ? const Color(0x24FFFFFF)
+                                        : const Color(0x00000000),
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '✕',
+                                      style: TextStyle(
+                                        color: Color(0xFFFFFFFF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        if (_currentToast!.action != null) ...[
-                          const SizedBox(width: 14),
-                          _currentToast!.action!,
-                        ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -179,4 +314,3 @@ class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProv
     );
   }
 }
-
