@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_theme.dart';
 import '../navigation/adw_carousel.dart';
@@ -16,6 +17,11 @@ class AdwToolbarView extends StatefulWidget {
   final bool topBarScrollShadow;
   final bool bottomBarScrollShadow;
 
+  /// Whether [content] reserves bottom safe-area padding for the system navbar
+  /// when [bottomBar] is absent. Set to `false` for scrollable pages that
+  /// should scroll edge-to-edge behind a transparent system navigation bar.
+  final bool bottomSafeArea;
+
   const AdwToolbarView({
     super.key,
     this.topBar,
@@ -23,6 +29,7 @@ class AdwToolbarView extends StatefulWidget {
     this.bottomBar,
     this.topBarScrollShadow = true,
     this.bottomBarScrollShadow = false,
+    this.bottomSafeArea = true,
   });
 
   @override
@@ -157,11 +164,41 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
     return Column(
       verticalDirection: VerticalDirection.up,
       children: [
-        if (widget.bottomBar != null) widget.bottomBar!,
-        Expanded(child: body),
+        if (widget.bottomBar != null)
+          _BottomInsetPadding(child: widget.bottomBar!),
+        Expanded(
+          child: (widget.bottomBar == null && widget.bottomSafeArea)
+              ? _BottomInsetPadding(child: body)
+              : body,
+        ),
         if (widget.topBar != null) widget.topBar!,
       ],
     );
   }
 }
 
+
+/// Reserves the system navigation bar inset below [child] and marks it as
+/// consumed so nested widgets do not pad twice.
+class _BottomInsetPadding extends StatelessWidget {
+  final Widget child;
+
+  const _BottomInsetPadding({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final double inset = adwBottomSystemInset(context);
+    if (inset <= 0.0) return child;
+    final data = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: inset),
+      child: MediaQuery(
+        data: data.copyWith(
+          padding: data.padding.copyWith(bottom: 0.0),
+          viewPadding: data.viewPadding.copyWith(bottom: 0.0),
+        ),
+        child: child,
+      ),
+    );
+  }
+}

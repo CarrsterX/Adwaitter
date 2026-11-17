@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -92,6 +93,8 @@ class AdwViewSwitcherBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final duration = AdwCurves.resolve(context, AdwCurves.normalDuration);
+    final double bottomSafeInset =
+        reveal ? (adwBottomSystemInset(context)) : 0.0;
 
     return ClipRect(
       child: AnimatedAlign(
@@ -112,21 +115,23 @@ class AdwViewSwitcherBar extends StatelessWidget {
                     ),
                   ),
                 ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            children: [
-              for (int i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(width: 3),
-                Expanded(
-                  child: _ViewSwitcherTab(
-                    item: items[i],
-                    isSelected: i == currentIndex,
-                    policy: AdwViewSwitcherPolicy.narrow,
-                    onTap: () => onIndexChanged(i),
+          padding: EdgeInsets.fromLTRB(8, 6, 8, 6 + bottomSafeInset),
+          child: AdwBottomInsetConsumer(
+ child: Row(
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 3),
+                  Expanded(
+                    child: _ViewSwitcherTab(
+                      item: items[i],
+                      isSelected: i == currentIndex,
+                      policy: AdwViewSwitcherPolicy.narrow,
+                      onTap: () => onIndexChanged(i),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

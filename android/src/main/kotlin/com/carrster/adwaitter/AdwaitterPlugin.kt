@@ -62,6 +62,15 @@ class AdwaitterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
+        if (call.method == "isInMultiWindowMode") {
+            val inMultiWindow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                activity?.isInMultiWindowMode ?: false
+            } else {
+                false
+            }
+            result.success(inMultiWindow)
+            return
+        }
         if (call.method == "performSwitchHaptic") {
             val checked = call.argument<Boolean>("checked") ?: true
             val view = activity?.window?.decorView

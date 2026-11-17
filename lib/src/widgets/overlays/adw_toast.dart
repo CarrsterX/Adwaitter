@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -131,7 +132,7 @@ class _AdwToastOverlayState extends State<AdwToastOverlay> with SingleTickerProv
           Positioned(
             left: 20,
             right: 20,
-            bottom: 24,
+            bottom: 24 + (adwBottomSystemInset(context)),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: FadeTransition(

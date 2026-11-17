@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -155,10 +157,33 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
+    final windowScope = AdwWindowScope.maybeOf(context);
+    final isWindowActive = windowScope?.isActive ?? true;
+    final bool isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    final bool applyTop = windowScope?.applyTopSafeArea ?? true;
+    final double bottomInset = windowScope?.bottomSafeInset ?? 0.0;
     final effectiveSidebarBg = isWindowActive
         ? theme.colors.sidebarBackground
         : theme.colors.sidebarBackdropBackground;
+
+    Widget wrapPaneSafeArea(Widget child, {bool left = true, bool right = true}) {
+      if (!isMobile) return child;
+      return MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SafeArea(
+            top: applyTop,
+            bottom: false,
+            left: left,
+            right: right,
+            child: child,
+          ),
+        ),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -176,11 +201,13 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
             isCollapsed: true,
             showContentPage: _showContentPage,
             showSidebarPage: _showSidebarPage,
-            child: AdwNavigationView(
-              key: const ValueKey('adw_split_collapsed_nav'),
-              controller: _collapsedNavController,
-              initialPage: sidebarPage,
-              initialPages: initialPages,
+            child: wrapPaneSafeArea(
+              AdwNavigationView(
+                key: const ValueKey('adw_split_collapsed_nav'),
+                controller: _collapsedNavController,
+                initialPage: sidebarPage,
+                initialPages: initialPages,
+              ),
             ),
           );
         }
@@ -205,7 +232,8 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
                   child: AnimatedContainer(
                     duration: AdwCurves.normalDuration,
                     curve: AdwCurves.standard,
-                    width: widget.sidebarWidth,
+                    width: widget.sidebarWidth +
+                        (isMobile ? MediaQuery.paddingOf(context).left : 0.0),
                     decoration: BoxDecoration(
                       color: effectiveSidebarBg,
                       border: widget.showBorder
@@ -217,7 +245,7 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
                             )
                           : null,
                     ),
-                    child: widget.sidebar,
+                    child: wrapPaneSafeArea(widget.sidebar, right: false),
                   ),
                 ),
               Expanded(
@@ -226,7 +254,7 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
                   onPointerDown: (_) => _preferContentOnCollapse = true,
                   child: Container(
                     color: theme.colors.windowBackground,
-                    child: widget.content,
+                    child: wrapPaneSafeArea(widget.content, left: false),
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_clamp.dart';
 import 'adw_page_header.dart';
@@ -29,10 +30,15 @@ class AdwStatusPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final double bottomSafeInset =
+        adwBottomSystemInset(context);
+    final EdgeInsetsGeometry resolvedPadding = bottomSafeInset > 0.0
+        ? padding.add(EdgeInsets.only(bottom: bottomSafeInset))
+        : padding;
 
     return Center(
       child: SingleChildScrollView(
-        padding: padding,
+        padding: resolvedPadding,
         child: AdwClamp(
           maximumSize: maxWidth,
           minimumMargin: 16.0,

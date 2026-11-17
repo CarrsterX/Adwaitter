@@ -4,6 +4,7 @@ import 'package:flutter/services.dart'
     show LogicalKeyboardKey, MethodChannel, SystemNavigator;
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../core/adw_scroll_behavior.dart';
 import '../../theme/adw_colors.dart';
 import '../../theme/adw_desktop_settings.dart';
@@ -326,9 +327,13 @@ class _AdwSubWindowHost extends StatelessWidget {
         );
       },
       home: Builder(
-        builder: (innerContext) => AdwWindow(
-          controller: handle.adwController,
-          child: handle.builder(innerContext, handle),
+        builder: (innerContext) => AdwBottomInsetConsumer(
+          // Secondary/modal windows are not edge-to-edge with the system
+          // navbar, so they must not reserve its inset.
+          child: AdwWindow(
+            controller: handle.adwController,
+            child: handle.builder(innerContext, handle),
+          ),
         ),
       ),
       builder: (context, child) {

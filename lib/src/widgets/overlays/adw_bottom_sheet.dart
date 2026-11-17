@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_spring.dart';
+import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -264,8 +267,13 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final bool isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    final double navBottomInset =
+        isMobile ? adwBottomSystemInset(context) : 0.0;
     final hasBottomBar = widget.bottomBar != null && widget.revealBottomBar;
-    final effectiveBottomBarHeight = hasBottomBar ? widget.bottomBarHeight : 0.0;
+    final effectiveBottomBarHeight =
+        hasBottomBar ? (widget.bottomBarHeight + navBottomInset) : 0.0;
 
     return CallbackShortcuts(
       bindings: {
@@ -310,29 +318,34 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
               close: () {
                 if (widget.canClose) _setOpen(false);
               },
-              child: Stack(
-                children: [
-                  Positioned.fill(child: widget.sheet),
-                  if (widget.showDragHandle)
-                    Positioned(
-                      top: 15.0,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: Center(
-                          child: Container(
-                            width: 54.0,
-                            height: 6.0,
-                            decoration: BoxDecoration(
-                              color:
-                                  theme.colors.foreground.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(99.0),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: navBottomInset),
+                child: AdwBottomInsetConsumer(
+ child: Stack(
+                    children: [
+                      Positioned.fill(child: widget.sheet),
+                      if (widget.showDragHandle)
+                        Positioned(
+                          top: 15.0,
+                          left: 0,
+                          right: 0,
+                          child: IgnorePointer(
+                            child: Center(
+                              child: Container(
+                                width: 54.0,
+                                height: 6.0,
+                                decoration: BoxDecoration(
+                                  color: theme.colors.foreground
+                                      .withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(99.0),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -523,7 +536,14 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                                         )
                                       : KeyedSubtree(
                                           key: const ValueKey('bottomBar'),
-                                          child: bottomBarChild,
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: navBottomInset,
+                                            ),
+                                            child: AdwBottomInsetConsumer(
+ child: bottomBarChild,
+                                            ),
+                                          ),
                                         ),
                                 ),
                               ),

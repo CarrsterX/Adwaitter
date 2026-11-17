@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, ValueListenable, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
@@ -9,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../navigation/adw_navigation_split_view.dart';
 import 'adw_application.dart';
 
 /// Window edge identifiers for native border resize operations.
@@ -230,12 +230,16 @@ class AdwWindowScope extends InheritedWidget {
   final AdwWindowController? controller;
   final bool isMaximized;
   final bool isActive;
+  final bool applyTopSafeArea;
+  final double bottomSafeInset;
 
   const AdwWindowScope({
     super.key,
     this.controller,
     required this.isMaximized,
     this.isActive = true,
+    this.applyTopSafeArea = true,
+    this.bottomSafeInset = 0.0,
     required super.child,
   });
 
@@ -254,7 +258,9 @@ class AdwWindowScope extends InheritedWidget {
   bool updateShouldNotify(covariant AdwWindowScope oldWidget) {
     return controller != oldWidget.controller ||
         isMaximized != oldWidget.isMaximized ||
-        isActive != oldWidget.isActive;
+        isActive != oldWidget.isActive ||
+        applyTopSafeArea != oldWidget.applyTopSafeArea ||
+        bottomSafeInset != oldWidget.bottomSafeInset;
   }
 }
 
@@ -274,6 +280,7 @@ class AdwWindow extends StatefulWidget {
   final bool showShadow;
   final bool showBorder;
   final bool resizeToAvoidBottomInset;
+  final bool bottomSafeArea;
 
   const AdwWindow({
     super.key,
@@ -284,6 +291,7 @@ class AdwWindow extends StatefulWidget {
     this.showShadow = true,
     this.showBorder = true,
     this.resizeToAvoidBottomInset = true,
+    this.bottomSafeArea = false,
   });
 
   @override
@@ -291,8 +299,10 @@ class AdwWindow extends StatefulWidget {
 }
 
 class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
+  static const MethodChannel _styleChannel = MethodChannel('libadwaitter/style');
   late final AdwWindowController _effectiveController;
   bool _isActive = true;
+  bool _isAndroidDesktopWindow = false;
 
   @override
   void initState() {
@@ -303,6 +313,23 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     _effectiveController.activeListenable?.addListener(_onActiveChanged);
     _effectiveController.windowStateListenable
         ?.addListener(_onWindowStateChanged);
+    _refreshAndroidWindowMode();
+  }
+
+  Future<void> _refreshAndroidWindowMode() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final bool? inMultiWindow =
+          await _styleChannel.invokeMethod<bool>('isInMultiWindowMode');
+      if (mounted && inMultiWindow != null && inMultiWindow != _isAndroidDesktopWindow) {
+        setState(() => _isAndroidDesktopWindow = inMultiWindow);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeMetrics() {
+    _refreshAndroidWindowMode();
   }
 
   @override
@@ -402,26 +429,32 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       ],
     );
 
+    double effectiveBottom = 0.0;
+    final bool delegateSafeAreaToSplitView =
+        isMobile && widget.headerBar == null && widget.child is AdwNavigationSplitView;
+
     if (isMobile) {
       final double bottomInset = widget.resizeToAvoidBottomInset
           ? MediaQuery.viewInsetsOf(context).bottom
           : 0.0;
-      final double safeBottom = math.max(
-        MediaQuery.paddingOf(context).bottom,
-        MediaQuery.viewPaddingOf(context).bottom,
-      );
-      final double effectiveBottom = math.max(safeBottom, bottomInset);
-      windowContent = MediaQuery.removeViewInsets(
-        context: context,
-        removeBottom: widget.resizeToAvoidBottomInset,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: effectiveBottom),
-          child: SafeArea(
-            bottom: false,
-            child: windowContent,
+      // Edge-to-edge: only pad the window for the virtual keyboard, never for
+      // the system navbar (fixed bottom bars/sheets handle navbar insets).
+      effectiveBottom = bottomInset;
+
+      if (!delegateSafeAreaToSplitView) {
+        windowContent = MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: widget.resizeToAvoidBottomInset,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: effectiveBottom),
+            child: SafeArea(
+              top: !_isAndroidDesktopWindow,
+              bottom: widget.bottomSafeArea,
+              child: windowContent,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     final Widget windowContentWithResizers = isMobile
@@ -436,6 +469,8 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       controller: _effectiveController,
       isMaximized: effectiveIsMaximized,
       isActive: effectiveIsActive,
+      applyTopSafeArea: !_isAndroidDesktopWindow,
+      bottomSafeInset: effectiveBottom,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colors.windowBackground,

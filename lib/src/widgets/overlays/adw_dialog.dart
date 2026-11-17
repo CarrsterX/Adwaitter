@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_spring.dart';
+import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -174,7 +175,23 @@ class AdwDialog extends StatelessWidget {
                     close: () => Navigator.of(context).maybePop(),
                     title: title,
                     isBottomSheet: isBottomSheet,
-                    child: child,
+                    child: () {
+                      final bool isMobile =
+                          defaultTargetPlatform == TargetPlatform.android ||
+                              defaultTargetPlatform == TargetPlatform.iOS;
+                      // Floating (non bottom-sheet) dialogs never touch the
+                      // system navbar, so they must not reserve its inset.
+                      if (!isBottomSheet) {
+                        return AdwBottomInsetConsumer(child: child);
+                      }
+                      final double navBottomInset =
+                          isMobile ? adwBottomSystemInset(context) : 0.0;
+                      if (navBottomInset <= 0.0) return child;
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: navBottomInset),
+                        child: AdwBottomInsetConsumer(child: child),
+                      );
+                    }(),
                   ),
                 ),
                 if (!isWindowActive)
@@ -481,16 +498,11 @@ Future<T?> showAdwDialog<T>({
             defaultTargetPlatform == TargetPlatform.iOS) {
           final double bottomInset =
               MediaQuery.viewInsetsOf(dialogContext).bottom;
-          final double safeBottom = math.max(
-            MediaQuery.paddingOf(dialogContext).bottom,
-            MediaQuery.viewPaddingOf(dialogContext).bottom,
-          );
-          final double effectiveBottom = math.max(safeBottom, bottomInset);
           content = MediaQuery.removeViewInsets(
             context: dialogContext,
             removeBottom: true,
             child: Padding(
-              padding: EdgeInsets.only(bottom: effectiveBottom),
+              padding: EdgeInsets.only(bottom: bottomInset),
               child: SafeArea(
                 bottom: false,
                 child: content,

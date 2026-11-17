@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_insets.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_clamp.dart';
@@ -36,10 +37,15 @@ class AdwPreferencesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final hasHeader = icon != null || title != null || description != null;
-    final resolvedPadding = padding ??
+    final double bottomSafeInset =
+        adwBottomSystemInset(context);
+    final basePadding = padding ??
         (hasHeader
             ? const EdgeInsets.only(top: 38.0, bottom: 35.0)
             : const EdgeInsets.symmetric(vertical: 24.0));
+    final resolvedPadding = bottomSafeInset > 0.0
+        ? basePadding.add(EdgeInsets.only(bottom: bottomSafeInset))
+        : basePadding;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),

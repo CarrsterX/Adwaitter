@@ -61,9 +61,9 @@ void main() {
       const AdwApplication(
         home: AdwWindow(
           headerBar: AdwHeaderBar(title: Text('TopBar')),
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Text('BottomContent'),
+          child: AdwToolbarView(
+            content: Center(child: Text('Body')),
+            bottomBar: Text('BottomBar'),
           ),
         ),
       ),
@@ -71,10 +71,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final topBarRect = tester.getRect(find.byType(AdwHeaderBar));
-    final bottomTextRect = tester.getRect(find.text('BottomContent'));
+    final bottomBarRect = tester.getRect(find.text('BottomBar'));
 
     expect(topBarRect.top, 32.0);
-    expect(bottomTextRect.bottom, lessThanOrEqualTo(800.0 - 48.0));
+    expect(bottomBarRect.bottom, lessThanOrEqualTo(800.0 - 48.0));
   });
 
   testWidgets(
@@ -571,5 +571,188 @@ void main() {
     await tester.pumpAndSettle();
     expect(hapticCalls, isEmpty);
     expect(androidChannelCalls, isEmpty);
+  });
+
+  testWidgets('AdwWindow removes top safe area in Android desktop/multi-window mode',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 32, bottom: 0);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+    });
+
+    const styleChannel = MethodChannel('libadwaitter/style');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      styleChannel,
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'isInMultiWindowMode') {
+          return true;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(styleChannel, null);
+    });
+
+    await tester.pumpWidget(
+      const AdwApplication(
+        home: AdwWindow(
+          headerBar: AdwHeaderBar(title: Text('DesktopAndroid')),
+          child: Center(child: Text('Body')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final topBarRect = tester.getRect(find.byType(AdwHeaderBar));
+    expect(topBarRect.top, 0.0);
+  });
+
+  testWidgets(
+      'AdwNavigationSplitView + AdwToolbarView protects non-scrollable bottom content on mobile',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 32, bottom: 48);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+    });
+
+    final controller = AdwCarouselController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      AdwApplication(
+        home: AdwWindow(
+          child: AdwNavigationSplitView(
+            breakpoint: 600,
+            sidebar: const AdwToolbarView(
+              bottomSafeArea: false,
+              topBar: AdwHeaderBar(title: Text('Sidebar')),
+              content: SizedBox.expand(child: Text('SidebarBody')),
+            ),
+            content: AdwToolbarView(
+              topBar: const AdwHeaderBar(title: Text('Content')),
+              content: Column(
+                children: [
+                  Expanded(
+                    child: AdwCarousel(
+                      controller: controller,
+                      children: const [Center(child: Text('Slide1'))],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 32,
+                    child: Center(
+                      child: AdwCarouselIndicatorDots(controller: controller),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final indicatorRect = tester.getRect(find.byType(AdwCarouselIndicatorDots));
+    expect(indicatorRect.bottom, lessThanOrEqualTo(800.0 - 48.0));
+
+    // Expanded (landscape) split view also protects non-scrollable bottom content
+    // while allowing scrollable panes with bottomSafeArea: false to go edge-to-edge.
+    tester.view.physicalSize = const Size(900, 500);
+    tester.view.padding = const FakeViewPadding(top: 24, left: 48, bottom: 32);
+    await tester.pumpAndSettle();
+
+    final expandedIndicatorRect =
+        tester.getRect(find.byType(AdwCarouselIndicatorDots));
+    expect(expandedIndicatorRect.bottom, lessThanOrEqualTo(500.0 - 32.0));
+
+    final sidebarRect = tester.getRect(find.text('SidebarBody'));
+    expect(sidebarRect.bottom, 500.0);
+  });
+
+  testWidgets(
+      'AdwDialog bottom sheet avoids double bottom padding when wrapping AdwToolbarView',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 32, bottom: 48);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+    });
+
+    await tester.pumpWidget(
+      const AdwApplication(
+        home: AdwDialog(
+          title: 'Sheet',
+          contentHeight: 300,
+          child: AdwToolbarView(
+            topBar: AdwHeaderBar(isFlat: true, title: Text('Sheet')),
+            content: Align(
+              alignment: Alignment.bottomCenter,
+              child: Text('SheetFooter'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final footerRect = tester.getRect(find.text('SheetFooter'));
+    // Exactly 48px above bottom (not 96px from double SafeArea).
+    expect(footerRect.bottom, 800.0 - 48.0);
+  });
+
+  testWidgets('Floating AdwDialog does not reserve system navbar inset',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(800, 800);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 32, bottom: 48);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+    });
+
+    await tester.pumpWidget(
+      const AdwApplication(
+        home: AdwDialog(
+          title: 'Floating',
+          presentationMode: AdwDialogPresentationMode.floating,
+          contentHeight: 300,
+          child: AdwToolbarView(
+            content: Align(
+              alignment: Alignment.bottomCenter,
+              child: Text('FloatFooter'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dialogRect = tester.getRect(find.byType(AdwToolbarView));
+    final footerRect = tester.getRect(find.text('FloatFooter'));
+    expect(footerRect.bottom, lessThanOrEqualTo(dialogRect.bottom));
+    expect(dialogRect.bottom - footerRect.bottom, lessThan(10.0));
   });
 }
