@@ -391,16 +391,20 @@ typedef AdwTabContextMenuCallback = void Function(
 /// Dynamic tabbed container widget (`AdwTabView`).
 ///
 /// Displays the active [AdwTabPage] while preserving widget state across tabs
-/// and handling standard GNOME keyboard shortcuts (`Ctrl+T`, `Ctrl+W`,
-/// `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Alt+1..9`).
+/// and handling standard GNOME keyboard shortcuts (`Ctrl+T`, `Ctrl+N`, `Ctrl+W`,
+/// `Ctrl+Tab` / `Ctrl+Page_Down`, `Ctrl+Shift+Tab` / `Ctrl+Page_Up`,
+/// `Ctrl+Home`, `Ctrl+End`, `Shift+Ctrl+Page_Up`, `Shift+Ctrl+Page_Down`,
+/// `Alt+1..9`, and `Alt+0`).
 class AdwTabView extends StatelessWidget {
   final AdwTabViewController controller;
   final VoidCallback? onNewTabShortcut;
+  final VoidCallback? onNewWindowShortcut;
 
   const AdwTabView({
     super.key,
     required this.controller,
     this.onNewTabShortcut,
+    this.onNewWindowShortcut,
   });
 
   @override
@@ -410,6 +414,7 @@ class AdwTabView extends StatelessWidget {
       builder: (context, _) {
         final pages = controller.pages;
         final selectedIndex = controller.selectedIndex;
+        final isRtl = Directionality.of(context) == TextDirection.rtl;
 
         return KeyedSubtree(
           key: controller._viewKey,
@@ -418,6 +423,9 @@ class AdwTabView extends StatelessWidget {
               if (onNewTabShortcut != null)
                 const SingleActivator(LogicalKeyboardKey.keyT, control: true):
                     onNewTabShortcut!,
+              if (onNewWindowShortcut != null)
+                const SingleActivator(LogicalKeyboardKey.keyN, control: true):
+                    onNewWindowShortcut!,
               const SingleActivator(LogicalKeyboardKey.keyW, control: true):
                   () {
                 final current = controller.selectedPage;
@@ -428,15 +436,64 @@ class AdwTabView extends StatelessWidget {
               const SingleActivator(LogicalKeyboardKey.tab, control: true):
                   controller.selectNextPage,
               const SingleActivator(
+                LogicalKeyboardKey.pageDown,
+                control: true,
+              ): controller.selectNextPage,
+              const SingleActivator(
                 LogicalKeyboardKey.tab,
                 control: true,
                 shift: true,
               ): controller.selectPreviousPage,
+              const SingleActivator(
+                LogicalKeyboardKey.pageUp,
+                control: true,
+              ): controller.selectPreviousPage,
+              const SingleActivator(LogicalKeyboardKey.home, control: true):
+                  () {
+                if (controller.pages.isNotEmpty) {
+                  controller.selectIndex(0);
+                }
+              },
+              const SingleActivator(LogicalKeyboardKey.end, control: true): () {
+                if (controller.pages.isNotEmpty) {
+                  controller.selectIndex(controller.pages.length - 1);
+                }
+              },
+              const SingleActivator(
+                LogicalKeyboardKey.pageUp,
+                control: true,
+                shift: true,
+              ): () {
+                final current = controller.selectedPage;
+                if (current != null) {
+                  final delta = isRtl ? 1 : -1;
+                  controller.reorderPage(
+                    current,
+                    controller.selectedIndex + delta,
+                  );
+                }
+              },
+              const SingleActivator(
+                LogicalKeyboardKey.pageDown,
+                control: true,
+                shift: true,
+              ): () {
+                final current = controller.selectedPage;
+                if (current != null) {
+                  final delta = isRtl ? -1 : 1;
+                  controller.reorderPage(
+                    current,
+                    controller.selectedIndex + delta,
+                  );
+                }
+              },
               for (int i = 0; i < 9; i++)
                 SingleActivator(
                   LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i),
                   alt: true,
                 ): () => controller.selectIndex(i),
+              const SingleActivator(LogicalKeyboardKey.digit0, alt: true): () =>
+                  controller.selectIndex(9),
             },
             child: Focus(
               autofocus: true,

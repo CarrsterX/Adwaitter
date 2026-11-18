@@ -15,6 +15,7 @@ class AdwPreferencesPage extends StatelessWidget {
   final Widget? icon;
   final Widget? title;
   final Widget? description;
+  final Widget? banner;
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
   final double maxWidth;
@@ -26,6 +27,7 @@ class AdwPreferencesPage extends StatelessWidget {
     this.icon,
     this.title,
     this.description,
+    this.banner,
     required this.children,
     this.padding,
     this.maxWidth = AdwMetrics.preferencesPageMaxWidth,
@@ -46,7 +48,7 @@ class AdwPreferencesPage extends StatelessWidget {
         ? basePadding.add(EdgeInsets.only(bottom: bottomSafeInset))
         : basePadding;
 
-    return SingleChildScrollView(
+    final scrollView = SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
       padding: resolvedPadding,
       child: AdwClamp(
@@ -86,6 +88,18 @@ class AdwPreferencesPage extends StatelessWidget {
         ),
       ),
     );
+
+    if (banner != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          banner!,
+          Expanded(child: scrollView),
+        ],
+      );
+    }
+
+    return scrollView;
   }
 }
 

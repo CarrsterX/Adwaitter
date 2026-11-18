@@ -67,6 +67,8 @@ export 'src/widgets/overlays/adw_banner.dart';
 export 'src/widgets/overlays/adw_bottom_sheet.dart';
 export 'src/widgets/overlays/adw_dialog.dart';
 export 'src/widgets/overlays/adw_popover.dart';
+export 'src/widgets/overlays/adw_preferences_dialog.dart';
+export 'src/widgets/overlays/adw_shortcuts_dialog.dart';
 export 'src/widgets/overlays/adw_toast.dart';
 
 // Widgets: Display
