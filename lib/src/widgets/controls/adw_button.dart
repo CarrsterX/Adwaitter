@@ -183,7 +183,9 @@ class _AdwButtonState extends State<AdwButton> {
         } else if (_isHovered) {
           backgroundColor = foregroundColor.withValues(alpha: 0.15);
         } else {
-          backgroundColor = foregroundColor.withValues(alpha: 0.10);
+          backgroundColor = foregroundColor.withValues(
+            alpha: theme.colors.isDark ? 0.12 : 0.08,
+          );
         }
         break;
     }
