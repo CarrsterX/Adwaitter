@@ -175,8 +175,8 @@ class AdwToggleGroup<T> extends StatelessWidget {
     final trackColor = isFlat
         ? const Color(0x00000000)
         : (theme.colors.isDark
-            ? const Color(0xFF47474B)
-            : const Color(0xFFEBEBEB));
+            ? const Color(0xFF38383B)
+            : const Color(0xFFE6E6E7));
 
     return Container(
       height: isVertical ? null : height,

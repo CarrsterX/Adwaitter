@@ -29,18 +29,17 @@ class AdwPreferencesPage extends StatelessWidget {
     required this.children,
     this.padding,
     this.maxWidth = AdwMetrics.preferencesPageMaxWidth,
-    this.minimumMargin = 16.0,
+    this.minimumMargin = 12.0,
     this.groupSpacing = AdwMetrics.preferencesGroupSpacing,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final hasHeader = icon != null || title != null || description != null;
     final double bottomSafeInset =
         adwBottomSystemInset(context);
     final basePadding = padding ??
-        (hasHeader
+        ((icon != null || title != null)
             ? const EdgeInsets.only(top: 38.0, bottom: 35.0)
             : const EdgeInsets.symmetric(vertical: 24.0));
     final resolvedPadding = bottomSafeInset > 0.0
@@ -56,13 +55,28 @@ class AdwPreferencesPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...buildAdwPageHeader(
-              theme: theme,
-              icon: icon,
-              title: title,
-              description: description,
-              hasContentAfter: children.isNotEmpty,
-            ),
+            if (icon != null || title != null)
+              ...buildAdwPageHeader(
+                theme: theme,
+                icon: icon,
+                title: title,
+                description: description,
+                hasContentAfter: children.isNotEmpty,
+              )
+            else if (description != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 2.0, right: 2.0),
+                child: DefaultTextStyle(
+                  style: theme.typography.body.copyWith(
+                    color: theme.colors.windowForeground.withValues(alpha: 0.55),
+                  ),
+                  textAlign: TextAlign.start,
+                  child: description!,
+                ),
+              ),
+              if (children.isNotEmpty && groupSpacing > 0)
+                SizedBox(height: groupSpacing),
+            ],
             for (int i = 0; i < children.length; i++) ...[
               children[i],
               if (i < children.length - 1 && groupSpacing > 0)

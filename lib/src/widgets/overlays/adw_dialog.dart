@@ -490,20 +490,24 @@ Future<T?> showAdwDialog<T>({
         AdwCurves.normalDuration,
       ),
       pageBuilder: (dialogContext) {
-        Widget content = AdwTheme(
-          data: theme,
-          child: CallbackShortcuts(
-            bindings: {
-              if (dismissOnEscape)
-                const SingleActivator(LogicalKeyboardKey.escape): () =>
-                    Navigator.of(dialogContext).maybePop(),
-            },
-            child: Focus(
-              autofocus: true,
-              child: builder(dialogContext),
-            ),
+        Widget content = CallbackShortcuts(
+          bindings: {
+            if (dismissOnEscape)
+              const SingleActivator(LogicalKeyboardKey.escape): () =>
+                  Navigator.of(dialogContext).maybePop(),
+          },
+          child: Focus(
+            autofocus: true,
+            child: builder(dialogContext),
           ),
         );
+
+        if (AdwTheme.maybeOf(dialogContext) == null) {
+          content = AdwTheme(
+            data: theme,
+            child: content,
+          );
+        }
 
         if (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS) {

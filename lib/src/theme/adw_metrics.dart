@@ -29,11 +29,11 @@ abstract final class AdwMetrics {
   static const double spacingLarge = 18.0;
   static const double spacingExtraLarge = 24.0;
 
-  /// Recommended vertical spacing between consecutive preference groups (46px).
-  static const double preferencesGroupSpacing = 46.0;
+  /// Recommended vertical spacing between consecutive preference groups (24px, `_preferences.scss`).
+  static const double preferencesGroupSpacing = 24.0;
 
-  /// Standard maximum width for preference pages and centered list layouts (450px).
-  static const double preferencesPageMaxWidth = 450.0;
+  /// Standard maximum width for preference pages and centered list layouts (600px).
+  static const double preferencesPageMaxWidth = 600.0;
 
   // --- Component Dimensions ---
   /// Standard height of a Libadwaita header bar (46px).

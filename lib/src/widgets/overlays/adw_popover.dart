@@ -52,6 +52,7 @@ class AdwPopoverHandle {
   PopupWindowController? _popupController;
   AdwPopupWindowEntry? _popupEntry;
   PopupRoute<void>? _popupRoute;
+  OverlayEntry? _barrierEntry;
   VoidCallback? _onDismiss;
   VoidCallback? _onDisposePlacement;
   Object? _owner;
@@ -82,6 +83,10 @@ class AdwPopoverHandle {
       _activePopover = null;
       _activeOwner = null;
     }
+
+    final barrier = _barrierEntry;
+    _barrierEntry = null;
+    barrier?.remove();
 
     if (_popupEntry != null) {
       AdwSubWindowManager.instance.unregisterPopup(_popupEntry!);
@@ -284,6 +289,27 @@ AdwPopoverHandle showAdwPopover({
           handle._popupController = popupController;
           handle._popupEntry = entry;
           AdwSubWindowManager.instance.registerPopup(entry);
+
+          final rootOverlay = Overlay.maybeOf(context, rootOverlay: true);
+          if (rootOverlay != null) {
+            final barrier = OverlayEntry(
+              builder: (_) => Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) => handle.dismiss(),
+                onPointerSignal: (_) {},
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: handle.dismiss,
+                  onVerticalDragStart: (_) {},
+                  onHorizontalDragStart: (_) {},
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            );
+            handle._barrierEntry = barrier;
+            rootOverlay.insert(barrier);
+          }
+
           return handle;
         } catch (_) {
           // Fall through to in-window OverlayEntry fallback.
@@ -319,18 +345,22 @@ AdwPopoverHandle showAdwPopover({
           bindings: <ShortcutActivator, VoidCallback>{
             const SingleActivator(LogicalKeyboardKey.escape): handle.dismiss,
           },
-          child: GestureDetector(
+          child: Listener(
             behavior: HitTestBehavior.opaque,
-            onTap: handle.dismiss,
-            onVerticalDragStart: (_) {},
-            onHorizontalDragStart: (_) {},
-            child: _AdwOverlayPopoverPositioner(
-              anchorRect: anchorRect,
-              parentAnchor: parentAnchor,
-              childAnchor: childAnchor,
-              offset: offset,
-              placement: placement,
-              child: popoverChild,
+            onPointerSignal: (_) {},
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: handle.dismiss,
+              onVerticalDragStart: (_) {},
+              onHorizontalDragStart: (_) {},
+              child: _AdwOverlayPopoverPositioner(
+                anchorRect: anchorRect,
+                parentAnchor: parentAnchor,
+                childAnchor: childAnchor,
+                offset: offset,
+                placement: placement,
+                child: popoverChild,
+              ),
             ),
           ),
         ),
@@ -624,6 +654,7 @@ class AdwPopoverSurface extends StatelessWidget {
   final double arrowWidth;
   final double arrowHeight;
   final double? arrowOffset;
+  final bool isOsd;
 
   const AdwPopoverSurface({
     super.key,
@@ -633,15 +664,21 @@ class AdwPopoverSurface extends StatelessWidget {
     this.arrowWidth = 18.0,
     this.arrowHeight = 9.0,
     this.arrowOffset,
+    this.isOsd = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final effectiveBg =
+        isOsd ? const Color(0xFF0A0A0B) : theme.colors.popoverBackground;
+    final effectiveFg =
+        isOsd ? const Color(0xE6FFFFFF) : theme.colors.popoverForeground;
+
     final content = _AdwPopoverMenuScope(
       child: DefaultTextStyle(
         style: theme.typography.body.copyWith(
-          color: theme.colors.popoverForeground,
+          color: effectiveFg,
         ),
         child: child,
       ),
@@ -651,7 +688,7 @@ class AdwPopoverSurface extends StatelessWidget {
       return Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: theme.colors.popoverBackground,
+          color: effectiveBg,
           borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
           boxShadow: const <BoxShadow>[
             BoxShadow(
@@ -688,7 +725,8 @@ class AdwPopoverSurface extends StatelessWidget {
 
       return CustomPaint(
         painter: _AdwPopoverSurfacePainter(
-          backgroundColor: theme.colors.popoverBackground,
+          backgroundColor: effectiveBg,
+          borderColor: isOsd ? const Color(0x1AFFFFFF) : null,
           radius: AdwMetrics.cardRadius,
           arrowSide: effectiveArrowSide,
           arrowWidth: arrowWidth,
@@ -721,6 +759,7 @@ class AdwPopoverSurface extends StatelessWidget {
 
 class _AdwPopoverSurfacePainter extends CustomPainter {
   final Color backgroundColor;
+  final Color? borderColor;
   final double radius;
   final AdwPopoverArrowSide arrowSide;
   final double arrowWidth;
@@ -730,6 +769,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
 
   _AdwPopoverSurfacePainter({
     required this.backgroundColor,
+    this.borderColor,
     required this.radius,
     required this.arrowSide,
     required this.arrowWidth,
@@ -814,6 +854,16 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
         ..color = backgroundColor
         ..style = PaintingStyle.fill,
     );
+
+    if (borderColor != null) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = borderColor!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
   }
 
   @override

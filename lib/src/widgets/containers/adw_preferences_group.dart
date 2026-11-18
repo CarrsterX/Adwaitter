@@ -15,6 +15,7 @@ class AdwPreferencesGroup extends StatelessWidget {
   final EdgeInsetsGeometry margin;
   final bool separated;
   final double separatedSpacing;
+  final bool boxed;
 
   const AdwPreferencesGroup({
     super.key,
@@ -25,6 +26,7 @@ class AdwPreferencesGroup extends StatelessWidget {
     this.margin = EdgeInsets.zero,
     this.separated = false,
     this.separatedSpacing = 12.0,
+    this.boxed = true,
   });
 
   @override
@@ -80,11 +82,19 @@ class AdwPreferencesGroup extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 2, right: 2, bottom: 12),
               child: DefaultTextStyle(
-                style: theme.typography.body,
+                style: theme.typography.body.copyWith(
+                  color: theme.colors.windowForeground.withValues(alpha: 0.55),
+                ),
                 child: description!,
               ),
             ),
-          if (children.isNotEmpty && !separated)
+          if (children.isNotEmpty && !boxed)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          if (children.isNotEmpty && boxed && !separated)
             Container(
               decoration: BoxDecoration(
                 color: theme.colors.cardBackground,
@@ -118,7 +128,7 @@ class AdwPreferencesGroup extends StatelessWidget {
                 children: itemsWithDividers,
               ),
             ),
-          if (children.isNotEmpty && separated)
+          if (children.isNotEmpty && boxed && separated)
             for (int i = 0; i < children.length; i++)
               Padding(
                 padding: EdgeInsets.only(

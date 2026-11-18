@@ -230,6 +230,7 @@ class AdwWindowScope extends InheritedWidget {
   final AdwWindowController? controller;
   final bool isMaximized;
   final bool isActive;
+  final bool isDevel;
   final bool applyTopSafeArea;
   final double bottomSafeInset;
 
@@ -238,6 +239,7 @@ class AdwWindowScope extends InheritedWidget {
     this.controller,
     required this.isMaximized,
     this.isActive = true,
+    this.isDevel = false,
     this.applyTopSafeArea = true,
     this.bottomSafeInset = 0.0,
     required super.child,
@@ -259,6 +261,7 @@ class AdwWindowScope extends InheritedWidget {
     return controller != oldWidget.controller ||
         isMaximized != oldWidget.isMaximized ||
         isActive != oldWidget.isActive ||
+        isDevel != oldWidget.isDevel ||
         applyTopSafeArea != oldWidget.applyTopSafeArea ||
         bottomSafeInset != oldWidget.bottomSafeInset;
   }
@@ -273,8 +276,12 @@ class AdwWindowScope extends InheritedWidget {
 /// - 1px adaptive hairline border.
 /// - Transparent edge/corner hit test zones enabling native Mutter/Wayland window resizing.
 class AdwWindow extends StatefulWidget {
+  /// Global reactive toggle for the `.devel` window style class (`window.devel`).
+  static final ValueNotifier<bool> develMode = ValueNotifier<bool>(false);
+
   final AdwWindowController? controller;
   final bool? isMaximized;
+  final bool isDevel;
   final Widget? headerBar;
   final Widget child;
   final bool showShadow;
@@ -286,6 +293,7 @@ class AdwWindow extends StatefulWidget {
     super.key,
     this.controller,
     this.isMaximized,
+    this.isDevel = false,
     this.headerBar,
     required this.child,
     this.showShadow = true,
@@ -469,6 +477,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       controller: _effectiveController,
       isMaximized: effectiveIsMaximized,
       isActive: effectiveIsActive,
+      isDevel: widget.isDevel,
       applyTopSafeArea: !_isAndroidDesktopWindow,
       bottomSafeInset: effectiveBottom,
       child: DecoratedBox(

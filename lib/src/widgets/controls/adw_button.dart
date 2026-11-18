@@ -142,14 +142,23 @@ class _AdwButtonState extends State<AdwButton> {
         break;
 
       case AdwButtonStyle.destructive:
-        backgroundColor = theme.colors.destructiveColor;
-        foregroundColor = theme.colors.destructiveForeground;
+        // Matches upstream `_buttons.scss` `%destructive_button`:
+        // `color: var(--destructive-color)` with translucent 15%/20%/35% fill.
+        foregroundColor = theme.colors.isDark
+            ? const Color(0xFFFF7B63)
+            : const Color(0xFFC01C28);
         if (_isPressed) {
-          backgroundColor =
-              Color.lerp(backgroundColor, const Color(0xFF000000), 0.15)!;
+          backgroundColor = foregroundColor.withValues(
+            alpha: widget.isChecked ? 0.45 : 0.35,
+          );
+        } else if (widget.isChecked) {
+          backgroundColor = foregroundColor.withValues(
+            alpha: _isHovered ? 0.40 : 0.35,
+          );
         } else if (_isHovered) {
-          backgroundColor =
-              Color.lerp(backgroundColor, const Color(0xFFFFFFFF), 0.12)!;
+          backgroundColor = foregroundColor.withValues(alpha: 0.20);
+        } else {
+          backgroundColor = foregroundColor.withValues(alpha: 0.15);
         }
         break;
 

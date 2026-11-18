@@ -227,6 +227,25 @@ class AdwHeaderBar extends StatelessWidget {
           ),
           child: Stack(
             children: [
+              // 0. Optional `window.devel` diagonal stripes (never drawn inside dialog sheets)
+              if (dialogScope == null && bottomSheetScope == null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: AdwWindow.develMode,
+                      builder: (context, globalDevel, _) {
+                        final showDevel =
+                            globalDevel || (windowScope?.isDevel ?? false);
+                        if (!showDevel) return const SizedBox.shrink();
+                        return CustomPaint(
+                          painter: _AdwDevelStripesPainter(
+                            color: theme.colors.headerBarForeground,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               // 1. Background layer for native window dragging and double-click maximization
               if (bottomSheetScope == null)
                 Positioned.fill(
@@ -562,5 +581,50 @@ class _AdwCloseGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AdwCloseGlyphPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Renders the upstream `assets/devel-stripes.svg` (`64x64` repeating tile with
+/// `5%` foreground opacity fading out vertically at `y = 50.207`).
+class _AdwDevelStripesPainter extends CustomPainter {
+  final Color color;
+
+  const _AdwDevelStripesPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
+    final shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        color.withValues(alpha: 0.05),
+        color.withValues(alpha: 0.0),
+      ],
+    ).createShader(Rect.fromLTWH(0, 0, size.width, 50.207));
+
+    final paint = Paint()
+      ..shader = shader
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    for (double x = -64.0; x < size.width + 64.0; x += 64.0) {
+      path
+        ..moveTo(x, 0)
+        ..lineTo(x + 32.0, 0)
+        ..lineTo(x, 64.0)
+        ..lineTo(x - 32.0, 64.0)
+        ..close();
+    }
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdwDevelStripesPainter oldDelegate) =>
       oldDelegate.color != color;
 }
