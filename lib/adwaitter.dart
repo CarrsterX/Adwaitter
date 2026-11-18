@@ -71,3 +71,4 @@ export 'src/widgets/overlays/adw_toast.dart';
 export 'src/widgets/display/adw_emblem.dart';
 
 export 'src/widgets/display/adw_spinner.dart';
+export 'src/widgets/display/adw_avatar.dart';
