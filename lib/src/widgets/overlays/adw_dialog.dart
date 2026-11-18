@@ -129,25 +129,6 @@ class AdwDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colors.windowBackground,
             borderRadius: radius,
-            border: isBottomSheet
-                ? Border(
-                    top: BorderSide(
-                      color: theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                    left: BorderSide(
-                      color: theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                    right: BorderSide(
-                      color: theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                  )
-                : Border.all(
-                    color: theme.colors.windowOutline,
-                    width: 1.0,
-                  ),
             boxShadow: isWindowActive
                 ? const [
                     BoxShadow(
@@ -165,6 +146,36 @@ class AdwDialog extends StatelessWidget {
                       offset: Offset(0, 4),
                     ),
                   ],
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
+            border: isBottomSheet
+                ? Border(
+                    top: BorderSide(
+                      color: theme.colors.isDark
+                          ? const Color(0xFF323235)
+                          : theme.colors.windowOutline,
+                      width: 1.0,
+                    ),
+                    left: BorderSide(
+                      color: theme.colors.isDark
+                          ? const Color(0xFF323235)
+                          : theme.colors.windowOutline,
+                      width: 1.0,
+                    ),
+                    right: BorderSide(
+                      color: theme.colors.isDark
+                          ? const Color(0xFF323235)
+                          : theme.colors.windowOutline,
+                      width: 1.0,
+                    ),
+                  )
+                : Border.all(
+                    color: theme.colors.isDark
+                        ? const Color(0xFF323235)
+                        : theme.colors.windowOutline,
+                    width: 1.0,
+                  ),
           ),
           child: ClipRRect(
             borderRadius: radius,
@@ -472,11 +483,11 @@ Future<T?> showAdwDialog<T>({
       reduceMotion: reduceMotion,
       transitionDuration: AdwCurves.resolve(
         context,
-        initialBottomSheet ? AdwCurves.normalDuration : AdwCurves.shortDuration,
+        AdwCurves.normalDuration,
       ),
       reverseTransitionDuration: AdwCurves.resolve(
         context,
-        AdwCurves.shortDuration,
+        AdwCurves.normalDuration,
       ),
       pageBuilder: (dialogContext) {
         Widget content = AdwTheme(
@@ -517,7 +528,11 @@ Future<T?> showAdwDialog<T>({
             content = AdwWindowResizeOverlay(
               controller: controller,
               enabled: !parentWindowScope.isMaximized,
-              child: content,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (_) => controller.startDragging(),
+                child: content,
+              ),
             );
           }
           final activeListenable = controller?.activeListenable;
