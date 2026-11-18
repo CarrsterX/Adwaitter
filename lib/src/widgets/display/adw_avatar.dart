@@ -52,13 +52,13 @@ class AdwAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmed = text?.trim() ?? '';
     final initials = showInitials ? _extractInitials(trimmed) : '';
-    final baseColor = (initials.isEmpty && customImage == null)
+    final baseColor = (trimmed.isEmpty && customImage == null)
         ? const Color(0xFF8E8E93)
         : _palette[_glibStrHash(trimmed) % _palette.length];
-    final topColor = (initials.isEmpty && customImage == null)
+    final topColor = (trimmed.isEmpty && customImage == null)
         ? const Color(0xFFD4D4D8)
         : Color.lerp(baseColor, const Color(0xFFFFFFFF), 0.22)!;
-    final bottomColor = (initials.isEmpty && customImage == null)
+    final bottomColor = (trimmed.isEmpty && customImage == null)
         ? const Color(0xFF5E5E64)
         : Color.lerp(baseColor, const Color(0xFF000000), 0.22)!;
 
@@ -100,9 +100,13 @@ class AdwAvatar extends StatelessWidget {
                   ),
                 )
               : CustomPaint(
-                  size: Size.square(size * 0.56),
-                  painter: const _AvatarFallbackPainter(
-                    color: Color(0xFFFFFFFF),
+                  size: Size.square(size * 0.48),
+                  painter: _AvatarFallbackPainter(
+                    color: Color.lerp(
+                      const Color(0xFFFFFFFF),
+                      baseColor,
+                      0.18,
+                    )!,
                   ),
                 ),
     );
@@ -116,22 +120,30 @@ class _AvatarFallbackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+    final u = size.width / 16.0;
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = (w * 0.09).clamp(1.5, 8.0)
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = 2.0 * u
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    // Outline head
-    canvas.drawCircle(Offset(w * 0.5, h * 0.31), w * 0.19, paint);
+    // Exact official Libadwaita avatar-default-symbolic SVG (16x16):
+    // Head: circle at (8, 5) radius 4
+    canvas.drawCircle(Offset(8.0 * u, 5.0 * u), 4.0 * u, paint);
 
-    // Outline shoulders arc
+    // Shoulders: M 1 15 A 4 4 0 0 1 5 11 L 11 11 A 4 4 0 0 1 15 15
     final body = Path()
-      ..moveTo(w * 0.16, h * 0.88)
-      ..quadraticBezierTo(w * 0.18, h * 0.60, w * 0.50, h * 0.60)
-      ..quadraticBezierTo(w * 0.82, h * 0.60, w * 0.84, h * 0.88);
+      ..moveTo(1.0 * u, 15.0 * u)
+      ..arcToPoint(
+        Offset(5.0 * u, 11.0 * u),
+        radius: Radius.circular(4.0 * u),
+      )
+      ..lineTo(11.0 * u, 11.0 * u)
+      ..arcToPoint(
+        Offset(15.0 * u, 15.0 * u),
+        radius: Radius.circular(4.0 * u),
+      );
     canvas.drawPath(body, paint);
   }
 

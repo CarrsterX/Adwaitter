@@ -503,7 +503,7 @@ class _ClearButtonState extends State<_ClearButton> {
   }
 }
 
-class _AdwPureEditableText extends StatelessWidget {
+class _AdwPureEditableText extends StatefulWidget {
   final GlobalKey<EditableTextState> editableKey;
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -537,42 +537,71 @@ class _AdwPureEditableText extends StatelessWidget {
   });
 
   @override
+  State<_AdwPureEditableText> createState() => _AdwPureEditableTextState();
+}
+
+class _AdwPureEditableTextState extends State<_AdwPureEditableText>
+    implements TextSelectionGestureDetectorBuilderDelegate {
+  late final TextSelectionGestureDetectorBuilder
+      _selectionGestureDetectorBuilder;
+
+  @override
+  GlobalKey<EditableTextState> get editableTextKey => widget.editableKey;
+
+  @override
+  bool get forcePressEnabled => false;
+
+  @override
+  bool get selectionEnabled => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectionGestureDetectorBuilder =
+        TextSelectionGestureDetectorBuilder(delegate: this);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.centerLeft,
       children: [
-        if (placeholder != null && controller.text.isEmpty)
-          Text(placeholder!, style: placeholderStyle),
-        EditableText(
-          key: editableKey,
-          controller: controller,
-          focusNode: focusNode,
-          style: style,
-          cursorColor: const Color(0x00000000),
-          backgroundCursorColor: const Color(0x00000000),
-          cursorWidth: 1.0,
-          cursorOpacityAnimates: false,
-          showCursor: false,
-          enableInteractiveSelection: true,
-          selectionControls: AdwTextSelectionControls.forPlatform(context),
-          contextMenuBuilder: AdwTextSelectionControls.contextMenuBuilder,
-          onTapOutside: (_) => focusNode.unfocus(),
-          obscureText: obscureText,
-          keyboardType: keyboardType ?? TextInputType.text,
-          inputFormatters: inputFormatters,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          selectionColor: selectionColor.withValues(alpha: 0.3),
+        if (widget.placeholder != null && widget.controller.text.isEmpty)
+          Text(widget.placeholder!, style: widget.placeholderStyle),
+        _selectionGestureDetectorBuilder.buildGestureDetector(
+          behavior: HitTestBehavior.translucent,
+          child: EditableText(
+            key: widget.editableKey,
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            style: widget.style,
+            cursorColor: const Color(0x00000000),
+            backgroundCursorColor: const Color(0x00000000),
+            cursorWidth: 1.0,
+            cursorOpacityAnimates: false,
+            showCursor: false,
+            rendererIgnoresPointer: true,
+            enableInteractiveSelection: true,
+            selectionControls: AdwTextSelectionControls.forPlatform(context),
+            contextMenuBuilder: AdwTextSelectionControls.contextMenuBuilder,
+            onTapOutside: (_) => widget.focusNode.unfocus(),
+            obscureText: widget.obscureText,
+            keyboardType: widget.keyboardType ?? TextInputType.text,
+            inputFormatters: widget.inputFormatters,
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+            selectionColor: widget.selectionColor.withValues(alpha: 0.3),
+          ),
         ),
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
               painter: _CaretPainter(
-                editableKey: editableKey,
-                controller: controller,
-                focusNode: focusNode,
-                cursorColor: cursorColor,
-                cursorOpacity: cursorOpacity,
+                editableKey: widget.editableKey,
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                cursorColor: widget.cursorColor,
+                cursorOpacity: widget.cursorOpacity,
               ),
             ),
           ),
