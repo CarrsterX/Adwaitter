@@ -192,12 +192,12 @@ class AdwDialog extends StatelessWidget {
                               defaultTargetPlatform == TargetPlatform.iOS;
                       // Floating (non bottom-sheet) dialogs never touch the
                       // system navbar, so they must not reserve its inset.
-                      if (!isBottomSheet) {
-                        return AdwBottomInsetConsumer(child: child);
-                      }
-                      final double navBottomInset =
-                          isMobile ? adwBottomSystemInset(context) : 0.0;
-                      if (navBottomInset <= 0.0) return child;
+                      // Keep Padding + AdwBottomInsetConsumer unconditionally
+                      // mounted so transitioning viewInsets (virtual keyboard
+                      // open/close) never remounts child or drops focus.
+                      final double navBottomInset = (isBottomSheet && isMobile)
+                          ? adwBottomSystemInset(context)
+                          : 0.0;
                       return Padding(
                         padding: EdgeInsets.only(bottom: navBottomInset),
                         child: AdwBottomInsetConsumer(child: child),

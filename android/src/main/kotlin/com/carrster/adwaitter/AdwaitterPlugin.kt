@@ -2,7 +2,10 @@ package com.carrster.adwaitter
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -10,38 +13,63 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import io.flutter.plugin.common.PluginRegistry
+import java.io.File
+import java.io.FileOutputStream
 
-class AdwaitterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
+class AdwaitterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
+    private companion object {
+        const val REQ_OPEN_FILES = 41001
+        const val REQ_SAVE_FILE = 41002
+    }
+
     private lateinit var channel: MethodChannel
+    private lateinit var portalChannel: MethodChannel
     private var applicationContext: Context? = null
     private var activity: Activity? = null
+    private var activityBinding: ActivityPluginBinding? = null
+    private var pendingPortalResult: Result? = null
+    private var pendingPortalRequestCode: Int = 0
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, "libadwaitter/style")
         channel.setMethodCallHandler(this)
+        portalChannel = MethodChannel(binding.binaryMessenger, "libadwaitter/portal")
+        portalChannel.setMethodCallHandler { call, result ->
+            onPortalMethodCall(call, result)
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        portalChannel.setMethodCallHandler(null)
         applicationContext = null
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
+        activityBinding = binding
+        binding.addActivityResultListener(this)
         applySoftInputMode(binding.activity)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
+        activityBinding?.removeActivityResultListener(this)
+        activityBinding = null
         activity = null
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         activity = binding.activity
+        activityBinding = binding
+        binding.addActivityResultListener(this)
         applySoftInputMode(binding.activity)
     }
 
     override fun onDetachedFromActivity() {
+        activityBinding?.removeActivityResultListener(this)
+        activityBinding = null
         activity = null
     }
 
@@ -127,6 +155,147 @@ class AdwaitterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
         } else {
             result.notImplemented()
+        }
+    }
+
+    private fun onPortalMethodCall(call: MethodCall, result: Result) {
+        when (call.method) {
+            "openFiles" -> {
+                val act = activity
+                if (act == null) {
+                    result.error("NO_ACTIVITY", "No active Android activity.", null)
+                    return
+                }
+                if (pendingPortalResult != null) {
+                    result.error("BUSY", "Another file dialog is already open.", null)
+                    return
+                }
+                val multiple = call.argument<Boolean>("multiple") ?: false
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    if (multiple) {
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                }
+                pendingPortalResult = result
+                pendingPortalRequestCode = REQ_OPEN_FILES
+                act.startActivityForResult(intent, REQ_OPEN_FILES)
+            }
+            "saveFile" -> {
+                val act = activity
+                if (act == null) {
+                    result.error("NO_ACTIVITY", "No active Android activity.", null)
+                    return
+                }
+                if (pendingPortalResult != null) {
+                    result.error("BUSY", "Another file dialog is already open.", null)
+                    return
+                }
+                val currentName = call.argument<String>("currentName") ?: "file"
+                val mime = if (currentName.endsWith(".png", ignoreCase = true)) {
+                    "image/png"
+                } else {
+                    "application/octet-stream"
+                }
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mime
+                    putExtra(Intent.EXTRA_TITLE, currentName)
+                }
+                pendingPortalResult = result
+                pendingPortalRequestCode = REQ_SAVE_FILE
+                act.startActivityForResult(intent, REQ_SAVE_FILE)
+            }
+            "writeUriBytes" -> {
+                val ctx = activity ?: applicationContext
+                val uriStr = call.argument<String>("uri")
+                val bytes = call.argument<ByteArray>("bytes")
+                if (ctx == null || uriStr == null || bytes == null) {
+                    result.success(false)
+                    return
+                }
+                try {
+                    val uri = Uri.parse(uriStr)
+                    ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("WRITE_ERROR", e.message, null)
+                }
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode != pendingPortalRequestCode || pendingPortalResult == null) {
+            return false
+        }
+        val result = pendingPortalResult!!
+        pendingPortalResult = null
+        pendingPortalRequestCode = 0
+
+        if (requestCode == REQ_OPEN_FILES) {
+            if (resultCode != Activity.RESULT_OK || data == null) {
+                result.success(emptyList<String>())
+                return true
+            }
+            val paths = mutableListOf<String>()
+            val clipData = data.clipData
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    clipData.getItemAt(i).uri?.let { uri ->
+                        copyUriToCache(uri)?.let { paths.add(it) }
+                    }
+                }
+            } else {
+                data.data?.let { uri ->
+                    copyUriToCache(uri)?.let { paths.add(it) }
+                }
+            }
+            result.success(paths)
+            return true
+        }
+
+        if (requestCode == REQ_SAVE_FILE) {
+            if (resultCode != Activity.RESULT_OK || data?.data == null) {
+                result.success(null)
+                return true
+            }
+            result.success(data.data.toString())
+            return true
+        }
+
+        return false
+    }
+
+    private fun copyUriToCache(uri: Uri): String? {
+        val ctx = activity ?: applicationContext ?: return null
+        return try {
+            var displayName = "picked_file"
+            ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) {
+                        val name = cursor.getString(idx)
+                        if (!name.isNullOrBlank()) {
+                            displayName = name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                        }
+                    }
+                }
+            }
+            val target = File(ctx.cacheDir, "adw_portal_${System.currentTimeMillis()}_$displayName")
+            ctx.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(target).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            target.absolutePath
+        } catch (_: Exception) {
+            null
         }
     }
 }

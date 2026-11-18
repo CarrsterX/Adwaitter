@@ -288,6 +288,7 @@ class AdwWindow extends StatefulWidget {
   final bool showBorder;
   final bool resizeToAvoidBottomInset;
   final bool bottomSafeArea;
+  final bool delegateSafeAreaToChild;
 
   const AdwWindow({
     super.key,
@@ -300,6 +301,7 @@ class AdwWindow extends StatefulWidget {
     this.showBorder = true,
     this.resizeToAvoidBottomInset = true,
     this.bottomSafeArea = false,
+    this.delegateSafeAreaToChild = false,
   });
 
   @override
@@ -438,8 +440,10 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     );
 
     double effectiveBottom = 0.0;
-    final bool delegateSafeAreaToSplitView =
-        isMobile && widget.headerBar == null && widget.child is AdwNavigationSplitView;
+    final bool delegateSafeAreaToSplitView = isMobile &&
+        widget.headerBar == null &&
+        (widget.child is AdwNavigationSplitView ||
+            widget.delegateSafeAreaToChild);
 
     if (isMobile) {
       final double bottomInset = widget.resizeToAvoidBottomInset
