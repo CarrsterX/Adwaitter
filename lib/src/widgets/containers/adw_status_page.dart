@@ -16,6 +16,7 @@ class AdwStatusPage extends StatelessWidget {
   final Widget? child;
   final double maxWidth;
   final EdgeInsetsGeometry padding;
+  final bool clampChild;
 
   const AdwStatusPage({
     super.key,
@@ -25,6 +26,7 @@ class AdwStatusPage extends StatelessWidget {
     this.child,
     this.maxWidth = 450.0,
     this.padding = const EdgeInsets.only(top: 38.0, bottom: 38.0),
+    this.clampChild = true,
   });
 
   @override
@@ -36,28 +38,50 @@ class AdwStatusPage extends StatelessWidget {
         ? padding.add(EdgeInsets.only(bottom: bottomSafeInset))
         : padding;
 
+    final headerWidgets = buildAdwPageHeader(
+      theme: theme,
+      icon: icon,
+      title: title,
+      description: description,
+      hasContentAfter: child != null,
+    );
+
     return Center(
       child: SingleChildScrollView(
         padding: resolvedPadding,
-        child: AdwClamp(
-          maximumSize: maxWidth,
-          minimumMargin: 16.0,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ...buildAdwPageHeader(
-                theme: theme,
-                icon: icon,
-                title: title,
-                description: description,
-                hasContentAfter: child != null,
+        child: clampChild
+            ? AdwClamp(
+                maximumSize: maxWidth,
+                minimumMargin: 16.0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    ...headerWidgets,
+                    if (child != null) child!,
+                  ],
+                ),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (headerWidgets.isNotEmpty)
+                    AdwClamp(
+                      maximumSize: maxWidth,
+                      minimumMargin: 0.0,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: headerWidgets,
+                      ),
+                    ),
+                  if (child != null) child!,
+                ],
               ),
-              if (child != null) child!,
-            ],
-          ),
-        ),
       ),
     );
   }

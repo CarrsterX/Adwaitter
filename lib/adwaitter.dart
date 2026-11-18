@@ -40,11 +40,13 @@ export 'src/widgets/containers/adw_status_page.dart';
 export 'src/widgets/layout/adw_application.dart';
 export 'src/widgets/layout/adw_clamp.dart';
 export 'src/widgets/layout/adw_header_bar.dart';
+export 'src/widgets/layout/adw_multi_layout_view.dart';
 export 'src/widgets/layout/adw_sub_window.dart';
 export 'src/widgets/layout/adw_toolbar_view.dart';
 export 'src/widgets/layout/adw_window.dart';
 export 'src/widgets/layout/adw_window_controls.dart';
 export 'src/widgets/layout/adw_window_title.dart';
+export 'src/widgets/layout/adw_wrap_box.dart';
 
 // Widgets: Navigation
 export 'src/widgets/navigation/adw_carousel.dart';

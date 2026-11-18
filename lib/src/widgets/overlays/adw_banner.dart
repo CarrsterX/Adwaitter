@@ -38,12 +38,12 @@ class _AdwBannerState extends State<AdwBanner>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
+      duration: AdwCurves.windowDuration,
       value: widget.revealed ? 1.0 : 0.0,
     );
     _expandAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeInOutCubic,
+      curve: AdwCurves.smooth,
     );
   }
 
@@ -71,7 +71,6 @@ class _AdwBannerState extends State<AdwBanner>
 
     return SizeTransition(
       sizeFactor: _expandAnimation,
-      axisAlignment: 1.0,
       child: Container(
         width: double.infinity,
         color: theme.colors.cardBackground,
@@ -124,9 +123,8 @@ class _AdwBannerState extends State<AdwBanner>
             )..layout();
             final buttonWidth = buttonPainter.width + 44;
 
-            final titleText = widget.title is Text
-                ? (widget.title as Text).data ?? ''
-                : '';
+            final titleText =
+                widget.title is Text ? (widget.title as Text).data ?? '' : '';
             final titlePainter = TextPainter(
               text: TextSpan(text: titleText, style: titleStyle),
               maxLines: 1,
@@ -199,6 +197,7 @@ class _AdwBannerState extends State<AdwBanner>
           },
         ),
       ),
+      alignment: AlignmentDirectional(-1.0, 1.0),
     );
   }
 }

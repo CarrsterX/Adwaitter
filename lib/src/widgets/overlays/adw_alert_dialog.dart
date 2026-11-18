@@ -141,8 +141,9 @@ Future<T?> showAdwAlertDialog<T>({
       opaque: false,
       barrierDismissible: barrierDismissible,
       barrierColor: const Color(0x66000000),
-      transitionDuration: const Duration(milliseconds: 260),
-      reverseTransitionDuration: const Duration(milliseconds: 200),
+      transitionDuration: AdwCurves.resolve(context, AdwCurves.mediumDuration),
+      reverseTransitionDuration:
+          AdwCurves.resolve(context, AdwCurves.normalDuration),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         Widget dialog = AdwAlertDialog(
           heading: heading,
@@ -173,7 +174,7 @@ Future<T?> showAdwAlertDialog<T>({
         );
         final scaleAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutBack,
+          curve: AdwCurves.spring,
           reverseCurve: Curves.easeIn,
         );
         return FadeTransition(

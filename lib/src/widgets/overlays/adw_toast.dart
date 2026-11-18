@@ -70,12 +70,12 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
-      reverseDuration: const Duration(milliseconds: 280),
+      duration: AdwCurves.windowDuration,
+      reverseDuration: AdwCurves.mediumDuration,
     );
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeInOutCubic,
+      curve: AdwCurves.smooth,
       reverseCurve: Curves.linear,
     );
     _slideAnimation = Tween<Offset>(
@@ -83,7 +83,7 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeInOutCubic,
+      curve: AdwCurves.smooth,
     ));
     _scaleAnimation = Tween<double>(
       begin: 0.85,

@@ -10,6 +10,9 @@ abstract final class AdwCurves {
   /// Smooth easing curve for symmetric state transitions (fades, crossfades).
   static const Curve smooth = Curves.easeInOutCubic;
 
+  /// Spring-like overshoot curve used for modal dialog appearances.
+  static const Curve spring = Curves.easeOutBack;
+
   /// GTK4 `$ease-out-quad` curve used for overlay scrollbar transitions (`cubic-bezier(0.25, 0.46, 0.45, 0.94)`).
   static const Curve easeOutQuad = Cubic(0.25, 0.46, 0.45, 0.94);
 

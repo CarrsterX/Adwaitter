@@ -5,6 +5,18 @@ import '../../theme/adw_curves.dart';
 import '../../theme/adw_theme.dart';
 import '../navigation/adw_carousel.dart';
 
+/// Visual style for top/bottom bars in [AdwToolbarView] (`AdwToolbarStyle`).
+enum AdwToolbarStyle {
+  /// Flat bar with no background or border.
+  flat,
+
+  /// Raised bar with headerbar background, top border, and subtle shadow.
+  raised,
+
+  /// Raised bar with headerbar background and a crisp border without shadow.
+  raisedBorder,
+}
+
 /// Structured toolbar and content layout container (`AdwToolbarView`).
 ///
 /// Coordinates top bars (such as [AdwHeaderBar]), central scrollable content,
@@ -14,6 +26,7 @@ class AdwToolbarView extends StatefulWidget {
   final Widget? topBar;
   final Widget content;
   final Widget? bottomBar;
+  final AdwToolbarStyle bottomBarStyle;
   final bool topBarScrollShadow;
   final bool bottomBarScrollShadow;
 
@@ -27,6 +40,7 @@ class AdwToolbarView extends StatefulWidget {
     this.topBar,
     required this.content,
     this.bottomBar,
+    this.bottomBarStyle = AdwToolbarStyle.flat,
     this.topBarScrollShadow = true,
     this.bottomBarScrollShadow = false,
     this.bottomSafeArea = true,
@@ -159,13 +173,44 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
       );
     }
 
+    Widget? resolvedBottomBar = widget.bottomBar;
+    if (resolvedBottomBar != null &&
+        widget.bottomBarStyle != AdwToolbarStyle.flat) {
+      final raisedShade = shadeColor.withValues(alpha: shadeColor.a * 0.5);
+      resolvedBottomBar = Container(
+        decoration: BoxDecoration(
+          color: theme.colors.headerBarBackground,
+          border: widget.bottomBarStyle == AdwToolbarStyle.raisedBorder
+              ? Border(
+                  top: BorderSide(color: shadeColor, width: 1.0),
+                )
+              : null,
+          boxShadow: widget.bottomBarStyle == AdwToolbarStyle.raised
+              ? [
+                  BoxShadow(
+                    color: raisedShade,
+                    blurRadius: 0.0,
+                    offset: const Offset(0, -1),
+                  ),
+                  BoxShadow(
+                    color: raisedShade,
+                    blurRadius: 4.0,
+                    offset: const Offset(0, -2),
+                  ),
+                ]
+              : null,
+        ),
+        child: resolvedBottomBar,
+      );
+    }
+
     // Paint topBar last (VerticalDirection.up) so raised headerbar shadows
     // cast cleanly onto the content area below it.
     return Column(
       verticalDirection: VerticalDirection.up,
       children: [
-        if (widget.bottomBar != null)
-          _BottomInsetPadding(child: widget.bottomBar!),
+        if (resolvedBottomBar != null)
+          _BottomInsetPadding(child: resolvedBottomBar),
         Expanded(
           child: (widget.bottomBar == null && widget.bottomSafeArea)
               ? _BottomInsetPadding(child: body)
