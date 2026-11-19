@@ -502,6 +502,30 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
           child: Stack(
             children: [
               windowContentWithResizers,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: (isMobile && !_isAndroidDesktopWindow
+                        ? MediaQuery.paddingOf(context).top
+                        : 0.0) +
+                    AdwMetrics.headerBarHeight,
+                child: IgnorePointer(
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: AdwWindow.develMode,
+                    builder: (context, globalDevel, _) {
+                      if (!globalDevel && !widget.isDevel) {
+                        return const SizedBox.shrink();
+                      }
+                      return CustomPaint(
+                        painter: _AdwDevelStripesPainter(
+                          color: theme.colors.headerBarForeground,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
               if (widget.showBorder && !isSquareCorners)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -703,4 +727,52 @@ class _NoopWindowController implements AdwWindowController {
   void startDragging() {}
   @override
   void beginResizeDrag(AdwWindowEdge edge) {}
+}
+
+/// Renders the upstream `assets/devel-stripes.svg` (`64x64` repeating tile with
+/// `5%` foreground opacity fading out vertically across the top bar & safe zone).
+class _AdwDevelStripesPainter extends CustomPainter {
+  final Color color;
+
+  const _AdwDevelStripesPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
+    final double fadeHeight = size.height < 50.207 ? 50.207 : size.height;
+    final shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        color.withValues(alpha: 0.05),
+        color.withValues(alpha: 0.0),
+      ],
+    ).createShader(Rect.fromLTWH(0, 0, size.width, fadeHeight));
+
+    final paint = Paint()
+      ..shader = shader
+      ..style = PaintingStyle.fill;
+
+    final double h = size.height;
+    final double dx = h * 0.5;
+    final path = Path();
+    for (double x = -64.0; x < size.width + dx + 64.0; x += 64.0) {
+      path
+        ..moveTo(x, 0)
+        ..lineTo(x + 32.0, 0)
+        ..lineTo(x + 32.0 - dx, h)
+        ..lineTo(x - dx, h)
+        ..close();
+    }
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdwDevelStripesPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

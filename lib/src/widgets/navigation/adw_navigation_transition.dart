@@ -441,33 +441,72 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
     if (shouldPop) {
       _isAnimatingOut = true;
-      final sim = widget.springParams.createSimulation(
-        start: controller.value,
-        end: 0.0,
-        velocity: normalizedVelocity,
-      );
-      controller.animateWith(sim).whenComplete(() {
+      var completed = false;
+      late final VoidCallback onTick;
+      void completePop() {
+        if (completed) return;
+        completed = true;
+        controller.removeListener(onTick);
         if (!mounted || _gestureEpoch != gestureToken) return;
+        if (controller.value != 0.0) {
+          controller.value = 0.0;
+        }
         _finishUserGesture(nav);
         if (widget.route.isCurrent) {
           widget.route._skipReverseOnSpringPop = true;
           nav.pop();
         }
         _isAnimatingOut = false;
-      });
-    } else {
+      }
+
+      onTick = () {
+        if (!mounted || _gestureEpoch != gestureToken) {
+          controller.removeListener(onTick);
+          return;
+        }
+        if (controller.value <= 0.008) {
+          completePop();
+        }
+      };
+
       final sim = widget.springParams.createSimulation(
         start: controller.value,
-        end: 1.0,
+        end: 0.0,
         velocity: normalizedVelocity,
       );
-      controller.animateWith(sim).whenComplete(() {
+      controller.addListener(onTick);
+      controller.animateWith(sim).whenComplete(completePop);
+    } else {
+      var completed = false;
+      late final VoidCallback onTick;
+      void completeCancel() {
+        if (completed) return;
+        completed = true;
+        controller.removeListener(onTick);
         if (!mounted || _gestureEpoch != gestureToken) return;
         if (!_isDragging && controller.value != 1.0) {
           controller.value = 1.0;
         }
         _finishUserGesture(nav);
-      });
+      }
+
+      onTick = () {
+        if (!mounted || _gestureEpoch != gestureToken) {
+          controller.removeListener(onTick);
+          return;
+        }
+        if (!_isDragging && controller.value >= 0.992) {
+          completeCancel();
+        }
+      };
+
+      final sim = widget.springParams.createSimulation(
+        start: controller.value,
+        end: 1.0,
+        velocity: normalizedVelocity,
+      );
+      controller.addListener(onTick);
+      controller.animateWith(sim).whenComplete(completeCancel);
     }
   }
 

@@ -59,7 +59,7 @@ class AdwDialogScope extends InheritedWidget {
 /// - On narrow/mobile windows (`width <= 450` or `height <= 360`),
 ///   automatically transitions to a full-width bottom sheet (`AdwBottomSheet`)
 ///   with top rounded corners.
-class AdwDialog extends StatelessWidget {
+class AdwDialog extends StatefulWidget {
   /// Preferred content width in logical pixels (defaults to `360`).
   final double contentWidth;
 
@@ -89,15 +89,26 @@ class AdwDialog extends StatelessWidget {
   });
 
   @override
+  State<AdwDialog> createState() => _AdwDialogState();
+}
+
+class _AdwDialogState extends State<AdwDialog> {
+  final GlobalKey _childKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
+    final windowSize = MediaQuery.sizeOf(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Use the un-shrunk window size for the narrow/bottomSheet threshold
+        // so opening the mobile virtual keyboard (which reduces
+        // constraints.maxHeight via Padding) never flips presentation mode.
         final isNarrow =
-            constraints.maxWidth <= 450.0 || constraints.maxHeight <= 360.0;
-        final isBottomSheet = switch (presentationMode) {
+            windowSize.width <= 450.0 || windowSize.height <= 360.0;
+        final isBottomSheet = switch (widget.presentationMode) {
           AdwDialogPresentationMode.auto => isNarrow,
           AdwDialogPresentationMode.bottomSheet => true,
           AdwDialogPresentationMode.floating => false,
@@ -111,8 +122,8 @@ class AdwDialog extends StatelessWidget {
 
         final maxFloatingWidth = math.max(240.0, constraints.maxWidth - 32.0);
         final effectiveWidth = isBottomSheet
-            ? math.min(contentWidth, constraints.maxWidth)
-            : math.min(contentWidth, maxFloatingWidth);
+            ? math.min(widget.contentWidth, constraints.maxWidth)
+            : math.min(widget.contentWidth, maxFloatingWidth);
 
         final topPadding = isBottomSheet
             ? 30.0 +
@@ -120,8 +131,8 @@ class AdwDialog extends StatelessWidget {
             : 32.0;
         final maxAvailableHeight =
             math.max(120.0, constraints.maxHeight - topPadding);
-        final effectiveHeight = contentHeight != null
-            ? math.min(contentHeight!, maxAvailableHeight)
+        final effectiveHeight = widget.contentHeight != null
+            ? math.min(widget.contentHeight!, maxAvailableHeight)
             : null;
 
         final sheet = AnimatedContainer(
@@ -184,7 +195,7 @@ class AdwDialog extends StatelessWidget {
                 Positioned.fill(
                   child: AdwDialogScope(
                     close: () => Navigator.of(context).maybePop(),
-                    title: title,
+                    title: widget.title,
                     isBottomSheet: isBottomSheet,
                     child: () {
                       final bool isMobile =
@@ -200,7 +211,12 @@ class AdwDialog extends StatelessWidget {
                           : 0.0;
                       return Padding(
                         padding: EdgeInsets.only(bottom: navBottomInset),
-                        child: AdwBottomInsetConsumer(child: child),
+                        child: AdwBottomInsetConsumer(
+                          child: KeyedSubtree(
+                            key: _childKey,
+                            child: widget.child,
+                          ),
+                        ),
                       );
                     }(),
                   ),
@@ -241,7 +257,9 @@ class AdwDialog extends StatelessWidget {
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: canClose ? () => Navigator.of(context).maybePop() : () {},
+                  onTap: widget.canClose
+                      ? () => Navigator.of(context).maybePop()
+                      : () {},
                   onVerticalDragStart: (_) {},
                   onHorizontalDragStart: (_) {},
                 ),
