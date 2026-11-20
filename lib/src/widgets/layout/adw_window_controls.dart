@@ -76,7 +76,6 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
       onExit: (_) {
         setState(() {
           _isHovered = false;
-          _isPressed = false;
         });
       },
       child: Listener(
@@ -87,10 +86,11 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
         onPointerUp: (event) {
           final wasPressed = _isPressed;
           setState(() => _isPressed = false);
-          final inBounds = event.localPosition.dx >= 0 &&
-              event.localPosition.dx <= widget.buttonSize &&
-              event.localPosition.dy >= 0 &&
-              event.localPosition.dy <= widget.buttonSize;
+          const double slop = 12.0;
+          final inBounds = event.localPosition.dx >= -slop &&
+              event.localPosition.dx <= widget.buttonSize + slop &&
+              event.localPosition.dy >= -slop &&
+              event.localPosition.dy <= widget.buttonSize + slop;
           if (wasPressed && inBounds) {
             widget.onPressed?.call();
           }
@@ -98,28 +98,34 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
         onPointerCancel: (_) {
           setState(() => _isPressed = false);
         },
-        child: SizedBox(
-          width: widget.buttonSize,
-          height: widget.buttonSize,
-          child: Center(
-            child: AnimatedContainer(
-              duration: AdwCurves.shortDuration,
-              curve: AdwCurves.standard,
-              width: widget.circleSize,
-              height: widget.circleSize,
-              decoration: BoxDecoration(
-                color: bg,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CustomPaint(
-                    painter: _GnomeWindowControlSvgPainter(
-                      type: widget.type,
-                      color: currentColor,
-                      isMaximized: widget.isMaximized,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          onVerticalDragStart: (_) {},
+          onHorizontalDragStart: (_) {},
+          child: SizedBox(
+            width: widget.buttonSize,
+            height: widget.buttonSize,
+            child: Center(
+              child: AnimatedContainer(
+                duration: AdwCurves.shortDuration,
+                curve: AdwCurves.standard,
+                width: widget.circleSize,
+                height: widget.circleSize,
+                decoration: BoxDecoration(
+                  color: bg,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CustomPaint(
+                      painter: _GnomeWindowControlSvgPainter(
+                        type: widget.type,
+                        color: currentColor,
+                        isMaximized: widget.isMaximized,
+                      ),
                     ),
                   ),
                 ),

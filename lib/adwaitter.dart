@@ -22,7 +22,9 @@ export 'src/widgets/controls/adw_button.dart';
 export 'src/widgets/controls/adw_button_row.dart';
 export 'src/widgets/controls/adw_check_button.dart';
 export 'src/widgets/controls/adw_combo_row.dart';
+export 'src/widgets/controls/adw_entry.dart';
 export 'src/widgets/controls/adw_entry_row.dart';
+export 'src/widgets/controls/adw_slider.dart';
 export 'src/widgets/controls/adw_split_button.dart';
 export 'src/widgets/controls/adw_spin_row.dart';
 export 'src/widgets/controls/adw_switch.dart';
@@ -31,6 +33,7 @@ export 'src/widgets/controls/adw_toggle_group.dart';
 
 // Widgets: Containers
 export 'src/widgets/containers/adw_action_row.dart';
+export 'src/widgets/containers/adw_card.dart';
 export 'src/widgets/containers/adw_expander_row.dart';
 export 'src/widgets/containers/adw_preferences_group.dart';
 export 'src/widgets/containers/adw_preferences_page.dart';

@@ -145,9 +145,15 @@ class AdwHeaderBar extends StatelessWidget {
             final closeOnStart = layout.startButtons.contains('close') &&
                 !layout.endButtons.contains('close');
             if (closeOnStart && showStartWindowControls) {
-              startControls = _AdwDialogCloseButton(onPressed: dialogScope.close);
+              startControls = AdwWindowControlButton(
+                type: AdwWindowButtonType.close,
+                onPressed: dialogScope.close,
+              );
             } else if (!closeOnStart && showEndWindowControls) {
-              endControls = _AdwDialogCloseButton(onPressed: dialogScope.close);
+              endControls = AdwWindowControlButton(
+                type: AdwWindowButtonType.close,
+                onPressed: dialogScope.close,
+              );
             }
           } else if (!isMobilePlatform) {
             if (windowControls != null) {
@@ -476,92 +482,6 @@ class _BackChevronPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BackChevronPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class _AdwDialogCloseButton extends StatefulWidget {
-  final VoidCallback onPressed;
-
-  const _AdwDialogCloseButton({required this.onPressed});
-
-  @override
-  State<_AdwDialogCloseButton> createState() => _AdwDialogCloseButtonState();
-}
-
-class _AdwDialogCloseButtonState extends State<_AdwDialogCloseButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AdwTheme.of(context);
-    final bg = theme.colors.foreground.withValues(
-      alpha: _isPressed
-          ? 0.30
-          : _isHovered
-              ? 0.15
-              : 0.10,
-    );
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-          child: AnimatedContainer(
-            duration: AdwCurves.shortDuration,
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: bg,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: CustomPaint(
-                size: const Size(10, 10),
-                painter: _AdwCloseGlyphPainter(color: theme.colors.foreground),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AdwCloseGlyphPainter extends CustomPainter {
-  final Color color;
-
-  const _AdwCloseGlyphPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-      Offset(size.width * 0.18, size.height * 0.18),
-      Offset(size.width * 0.82, size.height * 0.82),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.82, size.height * 0.18),
-      Offset(size.width * 0.18, size.height * 0.82),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _AdwCloseGlyphPainter oldDelegate) =>
       oldDelegate.color != color;
 }
 

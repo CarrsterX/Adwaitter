@@ -9,6 +9,7 @@ import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../containers/adw_status_page.dart';
 import '../controls/adw_button.dart';
 import '../layout/adw_header_bar.dart';
 import '../layout/adw_toolbar_view.dart';
@@ -1487,91 +1488,159 @@ class _AdwTabOverviewState extends State<AdwTabOverview>
                                   ),
                                   end: widget.secondaryMenu,
                                 ),
-                                if (_searchActive)
-                                  Container(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      4,
-                                      12,
-                                      8,
-                                    ),
-                                    child: Center(
-                                      child: ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 400,
-                                        ),
+                                ClipRect(
+                                  child: AnimatedAlign(
+                                    duration: AdwCurves.normalDuration,
+                                    curve: AdwCurves.standard,
+                                    alignment: Alignment.topCenter,
+                                    heightFactor: _searchActive ? 1.0 : 0.0,
+                                    child: AnimatedOpacity(
+                                      duration: AdwCurves.normalDuration,
+                                      curve: AdwCurves.standard,
+                                      opacity: _searchActive ? 1.0 : 0.0,
+                                      child: IgnorePointer(
+                                        ignoring: !_searchActive,
                                         child: Container(
-                                          height: 34,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
+                                          padding: const EdgeInsets.fromLTRB(
+                                            12,
+                                            4,
+                                            12,
+                                            8,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: theme.colors.windowForeground
-                                                .withValues(alpha: 0.08),
-                                            borderRadius: BorderRadius.circular(
-                                              AdwMetrics.entryRadius,
+                                          child: Center(
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 400,
+                                              ),
+                                              child: GestureDetector(
+                                                behavior: HitTestBehavior.opaque,
+                                                onTap: () =>
+                                                    _searchFocusNode.requestFocus(),
+                                                child: Container(
+                                                  height: 34,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: theme
+                                                        .colors.windowForeground
+                                                        .withValues(alpha: 0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      AdwMetrics.entryRadius,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.center,
+                                                    children: [
+                                                      CustomPaint(
+                                                        size: const Size(14, 14),
+                                                        painter:
+                                                            _OverviewSearchIconPainter(
+                                                          color: theme.colors
+                                                              .secondaryForeground,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: Stack(
+                                                          alignment:
+                                                              Alignment.centerLeft,
+                                                          children: [
+                                                            if (_searchQuery.isEmpty)
+                                                              Text(
+                                                                'Search tabs',
+                                                                style: theme
+                                                                    .typography.body
+                                                                    .copyWith(
+                                                                  color: theme
+                                                                      .colors
+                                                                      .secondaryForeground,
+                                                                  height: 1.0,
+                                                                ),
+                                                                overflow: TextOverflow
+                                                                    .ellipsis,
+                                                              ),
+                                                            EditableText(
+                                                              controller:
+                                                                  _searchController,
+                                                              focusNode:
+                                                                  _searchFocusNode,
+                                                              selectionControls:
+                                                                  Overlay.maybeOf(
+                                                                              context) !=
+                                                                          null
+                                                                      ? AdwTextSelectionControls
+                                                                          .forPlatform(
+                                                                              context)
+                                                                      : null,
+                                                              contextMenuBuilder:
+                                                                  Overlay.maybeOf(
+                                                                              context) !=
+                                                                          null
+                                                                      ? AdwTextSelectionControls
+                                                                          .contextMenuBuilder
+                                                                      : null,
+                                                              onTapOutside: (_) =>
+                                                                  _searchFocusNode
+                                                                      .unfocus(),
+                                                              style: theme
+                                                                  .typography.body
+                                                                  .copyWith(
+                                                                height: 1.0,
+                                                                leadingDistribution:
+                                                                    TextLeadingDistribution
+                                                                        .even,
+                                                              ),
+                                                              cursorColor: theme
+                                                                  .colors.accentColor,
+                                                              backgroundCursorColor:
+                                                                  theme.colors
+                                                                      .dividerColor,
+                                                              onChanged: (v) =>
+                                                                  setState(
+                                                                () =>
+                                                                    _searchQuery = v,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              CustomPaint(
-                                                size: const Size(14, 14),
-                                                painter:
-                                                    _OverviewSearchIconPainter(
-                                                  color: theme.colors
-                                                      .secondaryForeground,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: EditableText(
-                                                  controller: _searchController,
-                                                  focusNode: _searchFocusNode,
-                                                  selectionControls:
-                                                      Overlay.maybeOf(context) !=
-                                                              null
-                                                          ? AdwTextSelectionControls
-                                                              .forPlatform(
-                                                                  context)
-                                                          : null,
-                                                  contextMenuBuilder:
-                                                      Overlay.maybeOf(context) !=
-                                                              null
-                                                          ? AdwTextSelectionControls
-                                                              .contextMenuBuilder
-                                                          : null,
-                                                  onTapOutside: (_) =>
-                                                      _searchFocusNode.unfocus(),
-                                                  style: theme.typography.body
-                                                      .copyWith(
-                                                    height: 1.0,
-                                                    leadingDistribution:
-                                                        TextLeadingDistribution
-                                                            .even,
-                                                  ),
-                                                  cursorColor:
-                                                      theme.colors.accentColor,
-                                                  backgroundCursorColor:
-                                                      theme.colors.dividerColor,
-                                                  onChanged: (v) => setState(
-                                                    () => _searchQuery = v,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
+                                ),
                               ],
                             ),
                             content: Stack(
                               fit: StackFit.expand,
                               children: [
-                                AdwScrollbar(
+                                if (_searchActive &&
+                                    query.isNotEmpty &&
+                                    pinned.isEmpty &&
+                                    unpinned.isEmpty)
+                                  AdwStatusPage(
+                                    icon: CustomPaint(
+                                      size: const Size(128, 128),
+                                      painter: _OverviewSearchIconPainter(
+                                        color: theme.colors.statusIconColor,
+                                      ),
+                                    ),
+                                    title: const Text('No Results Found'),
+                                    description:
+                                        const Text('Try a different search'),
+                                  )
+                                else
+                                  AdwScrollbar(
                                   axisDirection: AxisDirection.down,
                                   controller: _scrollController,
                                   child: SingleChildScrollView(

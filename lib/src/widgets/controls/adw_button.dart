@@ -9,6 +9,8 @@ enum AdwButtonStyle {
   flat,
   suggested,
   destructive,
+  osd,
+  osdFlat,
 }
 
 /// Official button widget adhering to Libadwaita metrics and visual states.
@@ -109,6 +111,21 @@ class AdwButton extends StatefulWidget {
         height = size,
         borderRadius = null;
 
+  /// On-screen display (`.osd`) translucent dark button variant.
+  const AdwButton.osd({
+    super.key,
+    required this.child,
+    this.onPressed,
+    bool isFlat = false,
+    this.isPill = false,
+    this.isCircular = false,
+    this.isChecked = false,
+    this.padding = EdgeInsets.zero,
+    this.width = 42.0,
+    this.height = 42.0,
+    this.borderRadius,
+  }) : style = isFlat ? AdwButtonStyle.osdFlat : AdwButtonStyle.osd;
+
   @override
   State<AdwButton> createState() => _AdwButtonState();
 }
@@ -195,6 +212,28 @@ class _AdwButtonState extends State<AdwButton> {
           backgroundColor = foregroundColor.withValues(
             alpha: theme.colors.isDark ? 0.12 : 0.08,
           );
+        }
+        break;
+
+      case AdwButtonStyle.osd:
+        foregroundColor = const Color(0xE6FFFFFF);
+        if (_isPressed) {
+          backgroundColor = const Color(0xB33F3F3F);
+        } else if (_isHovered) {
+          backgroundColor = const Color(0xA6262626);
+        } else {
+          backgroundColor = const Color(0xA6000000);
+        }
+        break;
+
+      case AdwButtonStyle.osdFlat:
+        foregroundColor = const Color(0xE6FFFFFF);
+        if (_isPressed) {
+          backgroundColor = const Color(0x29FFFFFF);
+        } else if (_isHovered) {
+          backgroundColor = const Color(0x12FFFFFF);
+        } else {
+          backgroundColor = const Color(0x00000000);
         }
         break;
     }

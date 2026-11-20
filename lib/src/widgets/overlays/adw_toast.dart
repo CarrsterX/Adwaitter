@@ -288,13 +288,10 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                         : const Color(0x00000000),
                                   ),
                                   child: const Center(
-                                    child: Text(
-                                      '✕',
-                                      style: TextStyle(
+                                    child: CustomPaint(
+                                      size: Size(10, 10),
+                                      painter: _ToastCloseIconPainter(
                                         color: Color(0xFFFFFFFF),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.0,
                                       ),
                                     ),
                                   ),
@@ -313,4 +310,34 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
       ],
     );
   }
+}
+
+class _ToastCloseIconPainter extends CustomPainter {
+  final Color color;
+
+  const _ToastCloseIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(
+      const Offset(0.5, 0.5),
+      Offset(size.width - 0.5, size.height - 0.5),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width - 0.5, 0.5),
+      Offset(0.5, size.height - 0.5),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ToastCloseIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

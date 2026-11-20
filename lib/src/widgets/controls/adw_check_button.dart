@@ -96,13 +96,15 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
 class AdwCheckbox extends StatefulWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
-  final double size;
+  final double? size;
+  final bool selectionMode;
 
   const AdwCheckbox({
     super.key,
     required this.value,
     required this.onChanged,
-    this.size = 18.0,
+    this.size,
+    this.selectionMode = false,
   });
 
   @override
@@ -117,13 +119,21 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
     final theme = AdwTheme.of(context);
     final isEnabled = widget.onChanged != null;
     final isChecked = widget.value;
+    final effectiveSize = widget.size ?? (widget.selectionMode ? 28.0 : 18.0);
 
     final Color unselectedBorder = theme.colors.windowForeground.withValues(
-      alpha: _isHovered && isEnabled ? 0.45 : 0.25,
+      alpha: widget.selectionMode
+          ? (_isHovered && isEnabled ? 0.20 : 0.15)
+          : (_isHovered && isEnabled ? 0.45 : 0.25),
     );
     final Color fillColor = isChecked
         ? (isEnabled
-            ? theme.colors.accentColor
+            ? (_isHovered && widget.selectionMode
+                ? Color.alphaBlend(
+                    theme.colors.accentForeground.withValues(alpha: 0.10),
+                    theme.colors.accentColor,
+                  )
+                : theme.colors.accentColor)
             : theme.colors.accentColor.withValues(alpha: 0.45))
         : (_isHovered && isEnabled
             ? theme.colors.windowForeground.withValues(alpha: 0.06)
@@ -139,25 +149,43 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
         child: AnimatedContainer(
           duration: AdwCurves.shortDuration,
           curve: AdwCurves.standard,
-          width: widget.size,
-          height: widget.size,
+          width: effectiveSize,
+          height: effectiveSize,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5.0),
+            shape: widget.selectionMode ? BoxShape.circle : BoxShape.rectangle,
+            borderRadius:
+                widget.selectionMode ? null : BorderRadius.circular(5.0),
             color: fillColor,
             border: isChecked
                 ? null
                 : Border.all(
                     color: unselectedBorder,
-                    width: 1.5,
+                    width: widget.selectionMode ? 2.0 : 1.5,
                   ),
           ),
-          child: isChecked
-              ? CustomPaint(
-                  painter: _CheckmarkPainter(
-                    color: theme.colors.accentForeground,
+          child: widget.selectionMode
+              ? AnimatedScale(
+                  scale: isChecked ? 1.0 : 0.6,
+                  duration: AdwCurves.shortDuration,
+                  curve: AdwCurves.standard,
+                  child: AnimatedOpacity(
+                    opacity: isChecked ? 1.0 : 0.0,
+                    duration: AdwCurves.shortDuration,
+                    curve: AdwCurves.standard,
+                    child: CustomPaint(
+                      painter: _CheckmarkPainter(
+                        color: theme.colors.accentForeground,
+                      ),
+                    ),
                   ),
                 )
-              : null,
+              : (isChecked
+                  ? CustomPaint(
+                      painter: _CheckmarkPainter(
+                        color: theme.colors.accentForeground,
+                      ),
+                    )
+                  : null),
         ),
       ),
     );

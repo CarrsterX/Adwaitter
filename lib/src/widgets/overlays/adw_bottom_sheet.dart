@@ -125,7 +125,7 @@ class AdwBottomSheet extends StatefulWidget {
 }
 
 class _AdwBottomSheetState extends State<AdwBottomSheet>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const double _topPaddingMinHeight = 720.0;
   static const double _topPaddingMinValue = 30.0;
   static const double _topPaddingTargetHeight = 1440.0;
@@ -135,6 +135,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
   late final AnimationController _controller;
   late bool _isOpen;
   bool _isDragging = false;
+  bool _isSystemPredictiveBack = false;
   bool _isBottomBarHovered = false;
   bool _isBottomBarPressed = false;
   double _lastTravelDistance = 400.0;
@@ -143,6 +144,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _isOpen = widget.open ?? widget.initialOpen;
     _controller = AnimationController(
       lowerBound: -0.2,
@@ -162,8 +164,41 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  // --- System Predictive Back (Android 14+ / platform back gestures) ---
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    if (!_isOpen || !widget.canClose || _isDragging) {
+      return false;
+    }
+    _controller.stop();
+    _isSystemPredictiveBack = true;
+    return true;
+  }
+
+  @override
+  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (!_isSystemPredictiveBack) return;
+    _controller.value = (1.0 - backEvent.progress).clamp(0.0, 1.0);
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    if (!_isSystemPredictiveBack) return;
+    _isSystemPredictiveBack = false;
+    _setOpen(false, velocity: -2.0);
+  }
+
+  @override
+  void handleCancelBackGesture() {
+    if (!_isSystemPredictiveBack) return;
+    _isSystemPredictiveBack = false;
+    _setOpen(true, velocity: 1.5);
   }
 
   void _setOpen(bool nextOpen, {double velocity = 0.0, bool notify = true}) {
@@ -174,7 +209,11 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
         !_controller.isAnimating) {
       return;
     }
-    _isOpen = nextOpen;
+    if (mounted) {
+      setState(() => _isOpen = nextOpen);
+    } else {
+      _isOpen = nextOpen;
+    }
     if (notify) {
       widget.onOpenChanged?.call(nextOpen);
     }
@@ -275,7 +314,14 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
     final effectiveBottomBarHeight =
         hasBottomBar ? (widget.bottomBarHeight + navBottomInset) : 0.0;
 
-    return CallbackShortcuts(
+    return PopScope(
+      canPop: !(_isOpen && widget.canClose),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isOpen && widget.canClose) {
+          _setOpen(false);
+        }
+      },
+      child: CallbackShortcuts(
       bindings: {
         if (_isOpen && widget.canClose)
           const SingleActivator(LogicalKeyboardKey.escape): () =>
@@ -587,6 +633,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
             ],
           );
         },
+      ),
       ),
     );
   }

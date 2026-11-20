@@ -92,8 +92,75 @@ class AdwDialog extends StatefulWidget {
   State<AdwDialog> createState() => _AdwDialogState();
 }
 
-class _AdwDialogState extends State<AdwDialog> {
+class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
   final GlobalKey _childKey = GlobalKey();
+  bool _isBottomSheet = false;
+  bool _isSystemPredictiveBack = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  _AdwDialogRoute<dynamic>? get _dialogRoute {
+    final route = ModalRoute.of(context);
+    return route is _AdwDialogRoute ? route : null;
+  }
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    if (!_isBottomSheet || !widget.canClose) return false;
+    final route = _dialogRoute;
+    final controller = route?.dialogController;
+    if (route == null || !route.isCurrent || controller == null) {
+      return false;
+    }
+    controller.stop();
+    _isSystemPredictiveBack = true;
+    return true;
+  }
+
+  @override
+  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (!_isSystemPredictiveBack) return;
+    final controller = _dialogRoute?.dialogController;
+    if (controller == null) return;
+    controller.value = (1.0 - backEvent.progress).clamp(0.0, 1.0);
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    if (!_isSystemPredictiveBack) return;
+    _isSystemPredictiveBack = false;
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void handleCancelBackGesture() {
+    if (!_isSystemPredictiveBack) return;
+    _isSystemPredictiveBack = false;
+    final controller = _dialogRoute?.dialogController;
+    if (controller == null) return;
+    final sim = AdwSpringParams.bottomSheet.createSimulation(
+      start: controller.value,
+      end: 1.0,
+      velocity: 1.5,
+    );
+    controller.animateWith(sim).whenComplete(() {
+      if (mounted && controller.value != 1.0) {
+        controller.value = 1.0;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +180,7 @@ class _AdwDialogState extends State<AdwDialog> {
           AdwDialogPresentationMode.bottomSheet => true,
           AdwDialogPresentationMode.floating => false,
         };
+        _isBottomSheet = isBottomSheet;
 
         final radius = isBottomSheet
             ? const BorderRadius.vertical(
@@ -386,6 +454,8 @@ class _AdwDialogRoute<T> extends PopupRoute<T> {
 
   @override
   Duration get reverseTransitionDuration => _reverseTransitionDuration;
+
+  AnimationController? get dialogController => controller;
 
   @override
   AnimationController createAnimationController() {
