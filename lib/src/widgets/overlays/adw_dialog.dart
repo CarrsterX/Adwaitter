@@ -252,36 +252,30 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                     ),
                   ],
           ),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: radius,
-            border: isBottomSheet
-                ? Border(
-                    top: BorderSide(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF323235)
-                          : theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                    left: BorderSide(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF323235)
-                          : theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                    right: BorderSide(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF323235)
-                          : theme.colors.windowOutline,
-                      width: 1.0,
-                    ),
-                  )
-                : Border.all(
-                    color: theme.colors.isDark
-                        ? const Color(0xFF323235)
-                        : theme.colors.windowOutline,
-                    width: 1.0,
-                  ),
-          ),
+          foregroundDecoration: theme.colors.isDark
+              ? BoxDecoration(
+                  borderRadius: radius,
+                  border: isBottomSheet
+                      ? const Border(
+                          top: BorderSide(
+                            color: Color(0xFF323235),
+                            width: 1.0,
+                          ),
+                          left: BorderSide(
+                            color: Color(0xFF323235),
+                            width: 1.0,
+                          ),
+                          right: BorderSide(
+                            color: Color(0xFF323235),
+                            width: 1.0,
+                          ),
+                        )
+                      : Border.all(
+                          color: const Color(0xFF323235),
+                          width: 1.0,
+                        ),
+                )
+              : null,
           child: ClipRRect(
             borderRadius: radius,
             child: Stack(
@@ -315,13 +309,6 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                     }(),
                   ),
                 ),
-                if (!isWindowActive)
-                  IgnorePointer(
-                    child: AnimatedContainer(
-                      duration: AdwCurves.shortDuration,
-                      color: const Color(0x18000000),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -559,9 +546,10 @@ class _AdwDialogRoute<T> extends PopupRoute<T> {
             child: AnimatedBuilder(
               animation: animation,
               builder: (context, _) {
-                final alpha = (0.4 * animation.value.clamp(0.0, 1.0));
+                final dimAlpha = AdwTheme.of(context).colors.dimmingAlpha;
+                final alpha = (dimAlpha * animation.value.clamp(0.0, 1.0));
                 return ColoredBox(
-                  color: Color.fromRGBO(0, 0, 0, alpha),
+                  color: Color.fromRGBO(0, 0, 6, alpha),
                 );
               },
             ),

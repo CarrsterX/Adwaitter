@@ -40,12 +40,12 @@ class AdwAlertDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colors.dialogBackground,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: theme.colors.isDark
-                  ? const Color(0x14FFFFFF)
-                  : theme.colors.borderColor,
-              width: 1,
-            ),
+            border: theme.colors.isDark
+                ? Border.all(
+                    color: const Color(0x14FFFFFF),
+                    width: 1,
+                  )
+                : null,
             boxShadow: const [
               BoxShadow(
                 color: Color(0x4D000000),
@@ -140,7 +140,7 @@ Future<T?> showAdwAlertDialog<T>({
     PageRouteBuilder<T>(
       opaque: false,
       barrierDismissible: barrierDismissible,
-      barrierColor: const Color(0x66000000),
+      barrierColor: themeData?.colors.dimmingColor ?? const Color(0x29000006),
       transitionDuration: AdwCurves.resolve(context, AdwCurves.mediumDuration),
       reverseTransitionDuration:
           AdwCurves.resolve(context, AdwCurves.normalDuration),

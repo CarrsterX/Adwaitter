@@ -206,13 +206,10 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
           valueListenable: _windowBorderRadius,
           builder: (context, radius, navChild) {
-            if (radius == BorderRadius.zero) {
-              return navChild ?? const SizedBox.shrink();
-            }
-            return ClipRRect(
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: navChild,
+            return _AdwWindowShadowFrame(
+              radius: radius,
+              isDark: defaultTheme.colors.isDark,
+              child: navChild ?? const SizedBox.shrink(),
             );
           },
           child: child ?? const SizedBox.shrink(),
@@ -340,13 +337,10 @@ class _AdwSubWindowHost extends StatelessWidget {
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
           valueListenable: handle.borderRadiusNotifier,
           builder: (context, radius, navChild) {
-            if (radius == BorderRadius.zero) {
-              return navChild ?? const SizedBox.shrink();
-            }
-            return ClipRRect(
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: navChild,
+            return _AdwWindowShadowFrame(
+              radius: radius,
+              isDark: theme.colors.isDark,
+              child: navChild ?? const SizedBox.shrink(),
             );
           },
           child: child ?? const SizedBox.shrink(),
@@ -443,5 +437,95 @@ class AdwWindowShapeScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant AdwWindowShapeScope oldWidget) {
     return borderRadiusNotifier != oldWidget.borderRadiusNotifier;
+  }
+}
+
+/// Renders the transparent Linux CSD shadow margin and Libadwaita drop shadow
+/// outside the rounded [ClipRRect] so modal scrims stay clipped to the visible
+/// window while the outer drop shadow renders unclipped on Linux desktop.
+class _AdwWindowShadowFrame extends StatelessWidget {
+  static const double linuxShadowMargin = 24.0;
+
+  final BorderRadius radius;
+  final bool isDark;
+  final Widget child;
+
+  const _AdwWindowShadowFrame({
+    required this.radius,
+    required this.isDark,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (radius == BorderRadius.zero) {
+      return child;
+    }
+
+    final clipped = ClipRRect(
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.linux) {
+      return clipped;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(linuxShadowMargin),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    boxShadow: isDark
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x52000000),
+                              blurRadius: 24.0,
+                              spreadRadius: 0.0,
+                              offset: Offset(0, 6),
+                            ),
+                            BoxShadow(
+                              color: Color(0x30000000),
+                              blurRadius: 8.0,
+                              spreadRadius: 0.0,
+                              offset: Offset(0, 2),
+                            ),
+                          ]
+                        : const [
+                            BoxShadow(
+                              color: Color(0x2E000006),
+                              blurRadius: 24.0,
+                              spreadRadius: 0.0,
+                              offset: Offset(0, 6),
+                            ),
+                            BoxShadow(
+                              color: Color(0x1A000006),
+                              blurRadius: 6.0,
+                              spreadRadius: 0.0,
+                              offset: Offset(0, 2),
+                            ),
+                            BoxShadow(
+                              color: Color(0x14000006),
+                              blurRadius: 1.0,
+                              spreadRadius: 0.5,
+                              offset: Offset.zero,
+                            ),
+                          ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          clipped,
+        ],
+      ),
+    );
   }
 }

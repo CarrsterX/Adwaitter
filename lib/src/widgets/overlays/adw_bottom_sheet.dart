@@ -461,8 +461,9 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                 animation: _controller,
                 builder: (context, _) {
                   final progress = _controller.value;
-                  final dimmingAlpha =
-                      widget.modal ? 0.4 * progress.clamp(0.0, 1.0) : 0.0;
+                  final dimmingAlpha = widget.modal
+                      ? theme.colors.dimmingAlpha * progress.clamp(0.0, 1.0)
+                      : 0.0;
                   final blockContent =
                       widget.modal && (_isOpen || progress > 0.01);
 
@@ -473,7 +474,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.canClose ? () => _setOpen(false) : null,
                         child: ColoredBox(
-                          color: Color.fromRGBO(0, 0, 0, dimmingAlpha),
+                          color: Color.fromRGBO(0, 0, 6, dimmingAlpha),
                         ),
                       ),
                     ),
@@ -518,12 +519,46 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                       ? const Color(0xFF323235)
                       : theme.colors.windowOutline;
 
+                  final double topGradientHeight = showSheet ? 22.0 : 14.0;
+                  final Color topGradientStart = theme.colors.isDark
+                      ? (showSheet
+                          ? const Color(0x30000000)
+                          : const Color(0x22000000))
+                      : (showSheet
+                          ? const Color(0x14000006)
+                          : const Color(0x0E000006));
+
                   return Positioned(
                     left: sheetX,
                     bottom: 0,
                     width: sheetWidth,
                     height: visibleHeight,
-                    child: RawGestureDetector(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        if (flushLeft && flushRight)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: -topGradientHeight,
+                            height: topGradientHeight,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      topGradientStart,
+                                      topGradientStart.withValues(alpha: 0.0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned.fill(
+                          child: RawGestureDetector(
                       behavior: HitTestBehavior.opaque,
                       gestures: canDrag
                           ? <Type, GestureRecognizerFactory>{
@@ -554,7 +589,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                         decoration: BoxDecoration(
                           color: theme.colors.windowBackground,
                           borderRadius: sheetRadius,
-                          boxShadow: showSheet
+                          boxShadow: (flushLeft && flushRight)
                               ? [
                                   BoxShadow(
                                     color: topShadeColor,
@@ -562,27 +597,56 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                                     spreadRadius: 0.0,
                                     offset: const Offset(0, -1),
                                   ),
-                                  const BoxShadow(
-                                    color: Color(0x45000000),
-                                    blurRadius: 16.0,
-                                    spreadRadius: 2.0,
-                                    offset: Offset(0, -2),
-                                  ),
                                 ]
-                              : [
-                                  BoxShadow(
-                                    color: topShadeColor,
-                                    blurRadius: 0.0,
-                                    spreadRadius: 0.0,
-                                    offset: const Offset(0, -1),
-                                  ),
-                                  const BoxShadow(
-                                    color: Color(0x33000000),
-                                    blurRadius: 8.0,
-                                    spreadRadius: 1.0,
-                                    offset: Offset(0, -1),
-                                  ),
-                                ],
+                              : (showSheet
+                                  ? [
+                                      BoxShadow(
+                                        color: topShadeColor,
+                                        blurRadius: 0.0,
+                                        spreadRadius: 0.0,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                      BoxShadow(
+                                        color: theme.colors.isDark
+                                            ? const Color(0x33000000)
+                                            : const Color(0x14000006),
+                                        blurRadius: 24.0,
+                                        spreadRadius: -4.0,
+                                        offset: const Offset(0, -6),
+                                      ),
+                                      BoxShadow(
+                                        color: theme.colors.isDark
+                                            ? const Color(0x26000000)
+                                            : const Color(0x0D000006),
+                                        blurRadius: 8.0,
+                                        spreadRadius: -2.0,
+                                        offset: const Offset(0, -2),
+                                      ),
+                                    ]
+                                  : [
+                                      BoxShadow(
+                                        color: topShadeColor,
+                                        blurRadius: 0.0,
+                                        spreadRadius: 0.0,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                      BoxShadow(
+                                        color: theme.colors.isDark
+                                            ? const Color(0x26000000)
+                                            : const Color(0x12000006),
+                                        blurRadius: 16.0,
+                                        spreadRadius: -4.0,
+                                        offset: const Offset(0, -4),
+                                      ),
+                                      BoxShadow(
+                                        color: theme.colors.isDark
+                                            ? const Color(0x1A000000)
+                                            : const Color(0x0A000006),
+                                        blurRadius: 6.0,
+                                        spreadRadius: -2.0,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                    ]),
                         ),
                         child: ClipRRect(
                           borderRadius: sheetRadius,
@@ -615,39 +679,43 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                                         ),
                                 ),
                               ),
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      borderRadius: sheetRadius,
-                                      border: Border(
-                                        top: BorderSide(
-                                          color: topBorderColor,
-                                          width: 1.0,
+                              if (theme.colors.isDark)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        borderRadius: sheetRadius,
+                                        border: Border(
+                                          top: BorderSide(
+                                            color: topBorderColor,
+                                            width: 1.0,
+                                          ),
+                                          left: flushLeft
+                                              ? BorderSide.none
+                                              : BorderSide(
+                                                  color: theme
+                                                      .colors.windowOutline,
+                                                  width: 1.0,
+                                                ),
+                                          right: flushRight
+                                              ? BorderSide.none
+                                              : BorderSide(
+                                                  color: theme
+                                                      .colors.windowOutline,
+                                                  width: 1.0,
+                                                ),
                                         ),
-                                        left: flushLeft
-                                            ? BorderSide.none
-                                            : BorderSide(
-                                                color:
-                                                    theme.colors.windowOutline,
-                                                width: 1.0,
-                                              ),
-                                        right: flushRight
-                                            ? BorderSide.none
-                                            : BorderSide(
-                                                color:
-                                                    theme.colors.windowOutline,
-                                                width: 1.0,
-                                              ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
                       ),
+                    ),
+                        ),
+                      ],
                     ),
                   );
                 },

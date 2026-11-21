@@ -36,6 +36,7 @@ abstract class AdwWindowController {
   void maximize();
   void toggleFullscreen() {}
   void setFullscreen(bool fullscreen) {}
+  void setShadowMargin(int margin) {}
   void startDragging();
   void beginResizeDrag(AdwWindowEdge edge);
 }
@@ -242,6 +243,19 @@ class AdwNativeWindowController implements AdwWindowController {
     ).catchError((_) {});
   }
 
+  int? _lastShadowMargin;
+
+  @override
+  void setShadowMargin(int margin) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return;
+    if (_lastShadowMargin == margin) return;
+    _lastShadowMargin = margin;
+    _channel.invokeMethod(
+      'setShadowMargin',
+      <String, Object>{'viewId': viewId, 'margin': margin},
+    ).catchError((_) {});
+  }
+
   @override
   void startDragging() {
     if (kIsWeb) return;
@@ -420,8 +434,11 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
         defaultTargetPlatform == TargetPlatform.iOS;
     final effectiveIsMaximized =
         widget.isMaximized ?? (isMobile ? true : _effectiveController.isMaximized);
-    final isSquareCorners =
-        isMobile || effectiveIsMaximized || _effectiveController.isTiled;
+    final effectiveIsFullscreen = _effectiveController.isFullscreen;
+    final isSquareCorners = isMobile ||
+        effectiveIsMaximized ||
+        effectiveIsFullscreen ||
+        _effectiveController.isTiled;
 
     final borderRadius = isSquareCorners
         ? BorderRadius.zero
@@ -436,9 +453,20 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
       });
     }
 
+    final int expectedShadowMargin = (!kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.linux &&
+            !isSquareCorners &&
+            widget.showShadow)
+        ? 24
+        : 0;
+    _effectiveController.setShadowMargin(expectedShadowMargin);
+
     final effectiveIsActive = _isActive;
 
-    final List<BoxShadow> shadows = (!isSquareCorners && widget.showShadow)
+    // When hosted inside AdwApplication (shapeScope != null), the outer
+    // _AdwWindowShadowFrame paints the unclipped CSD shadow outside ClipRRect.
+    final List<BoxShadow> shadows =
+        (shapeScope == null && !isSquareCorners && widget.showShadow)
         ? (effectiveIsActive
             ? [
                 const BoxShadow(
@@ -521,7 +549,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
         decoration: BoxDecoration(
           color: theme.colors.windowBackground,
           borderRadius: borderRadius,
-          border: widget.showBorder && !isSquareCorners
+          border: widget.showBorder && !isSquareCorners && theme.colors.isDark
               ? Border.all(
                   color: theme.colors.windowOutline,
                   width: 1,
@@ -559,7 +587,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              if (widget.showBorder && !isSquareCorners)
+              if (widget.showBorder && !isSquareCorners && theme.colors.isDark)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
@@ -762,6 +790,8 @@ class _NoopWindowController implements AdwWindowController {
   void toggleFullscreen() {}
   @override
   void setFullscreen(bool fullscreen) {}
+  @override
+  void setShadowMargin(int margin) {}
   @override
   void startDragging() {}
   @override

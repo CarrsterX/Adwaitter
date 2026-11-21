@@ -147,7 +147,10 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
     super.dispose();
   }
 
-  void _pushSubpage(String title, Widget body) {
+  void _pushSubpage(
+    String title,
+    Widget Function(AdwThemeData theme) bodyBuilder,
+  ) {
     _navController.push(
       AdwNavigationPage(
         title: title,
@@ -156,7 +159,9 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
             isFlat: true,
             title: Text(title),
           ),
-          content: body,
+          content: Builder(
+            builder: (pageContext) => bodyBuilder(AdwTheme.of(pageContext)),
+          ),
         ),
       ),
     );
@@ -181,7 +186,6 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AdwTheme.of(context);
     final screenHeight = MediaQuery.sizeOf(context).height;
     final isNarrow = MediaQuery.sizeOf(context).width <= 600;
 
@@ -211,7 +215,10 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                   ),
                 ),
               ),
-              content: _buildMainPage(theme),
+              content: Builder(
+                builder: (pageContext) =>
+                    _buildMainPage(AdwTheme.of(pageContext)),
+              ),
             ),
           ),
         ),
@@ -304,7 +311,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                       color: theme.colors.windowForeground,
                     ),
                     onPressed: () =>
-                        _pushSubpage("What's New", _buildWhatsNewPage(theme)),
+                        _pushSubpage("What's New", _buildWhatsNewPage),
                   ),
                 if (_hasDetails)
                   AdwActionRow(
@@ -312,8 +319,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                     trailing: _ChevronRightIcon(
                       color: theme.colors.windowForeground,
                     ),
-                    onPressed: () =>
-                        _pushSubpage('Details', _buildDetailsPage(theme)),
+                    onPressed: () => _pushSubpage('Details', _buildDetailsPage),
                   ),
               ],
             ),
@@ -357,8 +363,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                     trailing: _ChevronRightIcon(
                       color: theme.colors.windowForeground,
                     ),
-                    onPressed: () =>
-                        _pushSubpage('Credits', _buildCreditsPage(theme)),
+                    onPressed: () => _pushSubpage('Credits', _buildCreditsPage),
                   ),
                 if (_hasLegal)
                   AdwActionRow(
@@ -366,8 +371,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                     trailing: _ChevronRightIcon(
                       color: theme.colors.windowForeground,
                     ),
-                    onPressed: () =>
-                        _pushSubpage('Legal', _buildLegalPage(theme)),
+                    onPressed: () => _pushSubpage('Legal', _buildLegalPage),
                   ),
                 if (_hasAcknowledgements)
                   AdwActionRow(
@@ -377,7 +381,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                     ),
                     onPressed: () => _pushSubpage(
                       'Acknowledgements',
-                      _buildAcknowledgementsPage(theme),
+                      _buildAcknowledgementsPage,
                     ),
                   ),
               ],

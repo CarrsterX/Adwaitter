@@ -189,6 +189,9 @@ class _ScreenWindowController implements AdwWindowController {
   void setFullscreen(bool fullscreen) {}
 
   @override
+  void setShadowMargin(int margin) {}
+
+  @override
   void startDragging() {}
 
   @override

@@ -73,12 +73,12 @@ class AdwColorScheme {
   /// Outer hairline border around floating CSD windows (`window.csd`).
   Color get windowOutline => isDark
       ? const Color(0x80000000)
-      : const Color(0x26000000);
+      : const Color(0x00000000);
 
   /// Subtle 1px inner edge highlight on floating CSD windows (`~8%` white in dark mode).
   Color get windowInnerBorder => isDark
       ? const Color(0x14FFFFFF)
-      : const Color(0x80FFFFFF);
+      : const Color(0x00000000);
 
   /// Dimmed icon color used by `AdwStatusPage` and `AdwPreferencesPage` headers.
   Color get statusIconColor => isDark
@@ -115,19 +115,60 @@ class AdwColorScheme {
 
   /// Standalone foreground color for `.error` / `.destructive-action` (`--error-color`).
   Color get standaloneErrorColor =>
-      isDark ? const Color(0xFFFF7B63) : const Color(0xFFC01C28);
+      isDark ? const Color(0xFFFF7B63) : const Color(0xFFC30000);
+
+  /// Idle background for `.destructive-action` buttons (`AdwButton.destructive`).
+  Color get destructiveButtonBackground => isDark
+      ? standaloneErrorColor.withValues(alpha: 0.15)
+      : const Color(0xFFF2D5D6);
+
+  /// Hover background for `.destructive-action` buttons (`AdwButton.destructive`).
+  Color get destructiveButtonHoverBackground => isDark
+      ? standaloneErrorColor.withValues(alpha: 0.20)
+      : const Color(0xFFEFC8C9);
+
+  /// Pressed/active background for `.destructive-action` buttons (`AdwButton.destructive`).
+  Color get destructiveButtonActiveBackground => isDark
+      ? standaloneErrorColor.withValues(alpha: 0.35)
+      : const Color(0xFFE6A9AC);
 
   /// On-screen display (`.osd`) foreground color (`rgba(255, 255, 255, 0.90)`).
   Color get osdForeground => const Color(0xE6FFFFFF);
 
-  /// On-screen display (`.osd`) base surface color (`rgba(0, 0, 0, 0.65)`).
-  Color get osdBackground => const Color(0xA6000000);
+  /// On-screen display (`.osd`) base surface color (`rgba(0, 0, 0, 0.70)` -> `#4B4B4C` over `#FAFAFB`).
+  Color get osdBackground => const Color(0xB3000000);
 
   /// On-screen display (`.osd`) hover surface color.
   Color get osdHoverBackground => const Color(0xA6262626);
 
   /// On-screen display (`.osd`) active/pressed surface color.
   Color get osdActiveBackground => const Color(0xB33F3F3F);
+
+  /// Modal dimming scrim opacity (`0.40` dark, `0.16` light -> `#D6D6D8` over white).
+  double get dimmingAlpha => isDark ? 0.40 : 0.16;
+
+  /// Modal dimming scrim color (`--dimming-color`).
+  Color get dimmingColor => Color.fromRGBO(0, 0, 6, dimmingAlpha);
+
+  /// Background color for `AdwBanner` (`#D4D4D6` in light mode, `#333337` in dark mode).
+  Color get bannerBackground =>
+      isDark ? const Color(0xFF333337) : const Color(0xFFD4D4D6);
+
+  /// Backdrop (unfocused window) background color for `AdwBanner` (`#E7E7E9` in light mode).
+  Color get bannerBackdropBackground =>
+      isDark ? const Color(0xFF2B2B2F) : const Color(0xFFE7E7E9);
+
+  /// Standard button idle background inside `AdwBanner` (`#C3C3C6` in light mode).
+  Color get bannerButtonBackground =>
+      isDark ? const Color(0x26FFFFFF) : const Color(0xFFC3C3C6);
+
+  /// Standard button hover background inside `AdwBanner`.
+  Color get bannerButtonHoverBackground =>
+      isDark ? const Color(0x33FFFFFF) : const Color(0xFFB7B7BA);
+
+  /// Standard button active/pressed background inside `AdwBanner`.
+  Color get bannerButtonActiveBackground =>
+      isDark ? const Color(0x4DFFFFFF) : const Color(0xFFA6A6AA);
 
   const AdwColorScheme({
     required this.isDark,
@@ -178,7 +219,7 @@ class AdwColorScheme {
       cardForeground: const Color(0xCC000006),
       headerBarBackground: const Color(0xFFFFFFFF),
       headerBarForeground: const Color(0xCC000006),
-      dialogBackground: const Color(0xFFFFFFFF),
+      dialogBackground: const Color(0xFFFAFAFB),
       dialogForeground: const Color(0xCC000006),
       popoverBackground: const Color(0xFFFFFFFF),
       popoverForeground: const Color(0xCC000006),
@@ -193,8 +234,8 @@ class AdwColorScheme {
       hoverColor: const Color(0x0F000000), // ~6%
       activeColor: const Color(0x1F000000), // ~12%
       sidebarBackground: const Color(0xFFEBEBED),
-      // RGB(0 0 6 / 7%) over #EBEBED -> #DADADC
-      sidebarBorder: const Color(0x12000006),
+      // Exact upstream Libadwaita light sidebar border (#DADADC)
+      sidebarBorder: const Color(0xFFDADADC),
     );
   }
 

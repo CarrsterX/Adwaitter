@@ -63,7 +63,7 @@ class _AdwProgressBarState extends State<AdwProgressBar>
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final effectiveHeight = widget.height ?? (widget.isOsd ? 3.0 : 6.0);
+    final effectiveHeight = widget.height ?? (widget.isOsd ? 2.0 : 6.0);
     final effectiveRadius =
         widget.isOsd ? BorderRadius.zero : BorderRadius.circular(99.0);
     final effectiveTrack = widget.trackColor ??
