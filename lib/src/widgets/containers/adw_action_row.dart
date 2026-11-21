@@ -181,10 +181,7 @@ class _AdwActionRowState extends State<AdwActionRow> {
       },
       onExit: (_) {
         if (_isClickable) {
-          setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          });
+          setState(() => _isHovered = false);
         }
       },
       child: GestureDetector(

@@ -8,6 +8,19 @@ Cross-platform **GNOME Adwaita UI** widget library and design system for Flutter
 - **[Fluttpak](https://github.com/CarrsterX/Fluttpak)**: Flatpak packaging & XDG Desktop Portals integration for Flutter.
 - **[Snaptter](https://github.com/CarrsterX/Snaptter)**: Snap packaging & strict confinement integration for Flutter.
 
+## Quick Start (UI Counter Generator)
+
+Replace Flutter's default Material counter app (`lib/main.dart`) with a pure Adwaita counter starter in one command:
+
+```bash
+dart run adwaitter:setup
+```
+
+Options:
+- `--title <name>`: Custom window and header bar title (defaults to `pubspec.yaml` `name`).
+- `--dry-run`: Preview changes without writing files.
+- `--no-backup`: Skip creating `lib/main.dart.bak`.
+
 ## Android Setup
 
 `Adwaitter` enables Android defaults automatically out of the box—including system/gesture navigation bar safe zones, hidden desktop window controls, modal/nested-navigation `frameworkHandlesBack` sync, automatic gesture-vs-button navigation detection, Android 14+ **Predictive Back** (`android:enableOnBackInvokedCallback="true"` via manifest merger), and Android 12+ Material You dynamic accent color (`AdwaitterPlugin`). No manual changes to `AndroidManifest.xml` or `MainActivity` are required.

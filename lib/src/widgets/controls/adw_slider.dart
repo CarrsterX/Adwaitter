@@ -8,6 +8,9 @@ import '../../theme/adw_theme.dart';
 /// style class via [isOsd].
 class AdwSlider extends StatefulWidget {
   final double value;
+  final double min;
+  final double max;
+  final List<double>? marks;
   final Axis orientation;
   final ValueChanged<double>? onChanged;
   final bool isOsd;
@@ -15,6 +18,9 @@ class AdwSlider extends StatefulWidget {
   const AdwSlider({
     super.key,
     required this.value,
+    this.min = 0.0,
+    this.max = 1.0,
+    this.marks,
     this.orientation = Axis.horizontal,
     required this.onChanged,
     this.isOsd = false,
@@ -27,6 +33,17 @@ class AdwSlider extends StatefulWidget {
 class _AdwSliderState extends State<AdwSlider> {
   bool _hovered = false;
   bool _active = false;
+
+  double get _range => (widget.max - widget.min).abs();
+
+  double _toNormalized(double val) {
+    if (_range <= 0) return 0.0;
+    return ((val - widget.min) / _range).clamp(0.0, 1.0);
+  }
+
+  double _fromNormalized(double norm) {
+    return widget.min + norm.clamp(0.0, 1.0) * (widget.max - widget.min);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +69,7 @@ class _AdwSliderState extends State<AdwSlider> {
       thumbColor = const Color(0xFFFFFFFF);
     }
 
-    final clampedValue = widget.value.clamp(0.0, 1.0);
+    final clampedValue = _toNormalized(widget.value);
 
     return MouseRegion(
       cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -65,7 +82,7 @@ class _AdwSliderState extends State<AdwSlider> {
             void updateVertical(Offset localPosition) {
               if (!isEnabled || height <= 0) return;
               final next = (1.0 - (localPosition.dy / height)).clamp(0.0, 1.0);
-              widget.onChanged!(next);
+              widget.onChanged!(_fromNormalized(next));
             }
 
             return GestureDetector(
@@ -128,7 +145,9 @@ class _AdwSliderState extends State<AdwSlider> {
           final width = constraints.maxWidth;
           void updateHorizontal(Offset localPosition) {
             if (!isEnabled || width <= 0) return;
-            widget.onChanged!((localPosition.dx / width).clamp(0.0, 1.0));
+            widget.onChanged!(
+              _fromNormalized((localPosition.dx / width).clamp(0.0, 1.0)),
+            );
           }
 
           return GestureDetector(
@@ -176,6 +195,20 @@ class _AdwSliderState extends State<AdwSlider> {
                       ),
                     ),
                   ),
+                  if (widget.marks != null)
+                    for (final mark in widget.marks!)
+                      Positioned(
+                        left: (width - 2.0) * _toNormalized(mark),
+                        bottom: 0,
+                        child: Container(
+                          width: 2.0,
+                          height: 5.0,
+                          decoration: BoxDecoration(
+                            color: troughColor,
+                            borderRadius: BorderRadius.circular(1.0),
+                          ),
+                        ),
+                      ),
                   Positioned(
                     left: (width - 18.0) * clampedValue,
                     child: _SliderThumb(color: thumbColor),

@@ -488,11 +488,9 @@ class _ClearButtonState extends State<_ClearButton> {
                 : theme.colors.secondaryForeground.withValues(alpha: 0.15),
           ),
           child: Center(
-            child: Text(
-              '✕',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+            child: CustomPaint(
+              size: const Size(8, 8),
+              painter: _EntryClearIconPainter(
                 color: theme.colors.foreground,
               ),
             ),
@@ -501,6 +499,36 @@ class _ClearButtonState extends State<_ClearButton> {
       ),
     );
   }
+}
+
+class _EntryClearIconPainter extends CustomPainter {
+  final Color color;
+
+  const _EntryClearIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(
+      const Offset(0.5, 0.5),
+      Offset(size.width - 0.5, size.height - 0.5),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width - 0.5, 0.5),
+      Offset(0.5, size.height - 0.5),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _EntryClearIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _AdwPureEditableText extends StatefulWidget {

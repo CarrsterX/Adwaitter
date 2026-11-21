@@ -251,6 +251,7 @@ class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) => setState(() => _isPressed = false),
         onTapCancel: () => setState(() => _isPressed = false),

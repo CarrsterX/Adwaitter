@@ -26,6 +26,7 @@ enum AdwWindowEdge {
 /// Decoupled interface for native Client-Side Decorations (CSD) / frameless window control.
 abstract class AdwWindowController {
   bool get isMaximized;
+  bool get isFullscreen => false;
   bool get isTiled => false;
   bool get isActive;
   ValueListenable<bool>? get activeListenable;
@@ -33,6 +34,8 @@ abstract class AdwWindowController {
   void close();
   void minimize();
   void maximize();
+  void toggleFullscreen() {}
+  void setFullscreen(bool fullscreen) {}
   void startDragging();
   void beginResizeDrag(AdwWindowEdge edge);
 }
@@ -47,10 +50,14 @@ class AdwNativeWindowController implements AdwWindowController {
   final int viewId;
   final VoidCallback? onCloseOverride;
   final ValueNotifier<bool> _maximizedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _fullscreenNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _tiledNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _activeNotifier = ValueNotifier<bool>(true);
-  late final Listenable _stateListenable =
-      Listenable.merge([_maximizedNotifier, _tiledNotifier]);
+  late final Listenable _stateListenable = Listenable.merge([
+    _maximizedNotifier,
+    _fullscreenNotifier,
+    _tiledNotifier,
+  ]);
 
   AdwNativeWindowController({
     this.viewId = 0,
@@ -66,6 +73,7 @@ class AdwNativeWindowController implements AdwWindowController {
       _controllersByViewId.remove(viewId);
     }
     _maximizedNotifier.dispose();
+    _fullscreenNotifier.dispose();
     _tiledNotifier.dispose();
     _activeNotifier.dispose();
   }
@@ -143,8 +151,10 @@ class AdwNativeWindowController implements AdwWindowController {
           final target = _controllersByViewId[targetId];
           if (target != null) {
             final isMax = map['isMaximized'] as bool?;
+            final isFull = map['isFullscreen'] as bool?;
             final isTiled = map['isTiled'] as bool?;
             if (isMax != null) target._maximizedNotifier.value = isMax;
+            if (isFull != null) target._fullscreenNotifier.value = isFull;
             if (isTiled != null) target._tiledNotifier.value = isTiled;
           }
         }
@@ -160,6 +170,11 @@ class AdwNativeWindowController implements AdwWindowController {
       if (isMax != null) {
         _maximizedNotifier.value = isMax;
       }
+      final bool? isFull =
+          await _channel.invokeMethod<bool>('isFullscreen', args);
+      if (isFull != null) {
+        _fullscreenNotifier.value = isFull;
+      }
       final bool? tiled = await _channel.invokeMethod<bool>('isTiled', args);
       if (tiled != null) {
         _tiledNotifier.value = tiled;
@@ -173,6 +188,9 @@ class AdwNativeWindowController implements AdwWindowController {
 
   @override
   bool get isMaximized => _maximizedNotifier.value;
+
+  @override
+  bool get isFullscreen => _fullscreenNotifier.value;
 
   @override
   bool get isTiled => _tiledNotifier.value;
@@ -207,6 +225,21 @@ class AdwNativeWindowController implements AdwWindowController {
     if (kIsWeb) return;
     _maximizedNotifier.value = !_maximizedNotifier.value;
     _channel.invokeMethod('maximize', <String, Object>{'viewId': viewId}).catchError((_) {});
+  }
+
+  @override
+  void toggleFullscreen() {
+    setFullscreen(!_fullscreenNotifier.value);
+  }
+
+  @override
+  void setFullscreen(bool fullscreen) {
+    if (kIsWeb) return;
+    _fullscreenNotifier.value = fullscreen;
+    _channel.invokeMethod(
+      'setFullscreen',
+      <String, Object>{'viewId': viewId, 'fullscreen': fullscreen},
+    ).catchError((_) {});
   }
 
   @override
@@ -710,6 +743,8 @@ class _NoopWindowController implements AdwWindowController {
   @override
   bool get isMaximized => false;
   @override
+  bool get isFullscreen => false;
+  @override
   bool get isTiled => false;
   @override
   bool get isActive => true;
@@ -723,6 +758,10 @@ class _NoopWindowController implements AdwWindowController {
   void minimize() {}
   @override
   void maximize() {}
+  @override
+  void toggleFullscreen() {}
+  @override
+  void setFullscreen(bool fullscreen) {}
   @override
   void startDragging() {}
   @override

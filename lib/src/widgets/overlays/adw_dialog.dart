@@ -114,12 +114,38 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
     return route is _AdwDialogRoute ? route : null;
   }
 
+  bool _hasPoppableDescendantNavigator() {
+    if (!mounted) return false;
+    final parentNav = _dialogRoute?.navigator;
+    bool found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element is StatefulElement && element.state is NavigatorState) {
+        final navState = element.state as NavigatorState;
+        if (navState != parentNav && navState.canPop()) {
+          found = true;
+          return;
+        }
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
+  }
+
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (!_isBottomSheet || !widget.canClose) return false;
     final route = _dialogRoute;
     final controller = route?.dialogController;
     if (route == null || !route.isCurrent || controller == null) {
+      return false;
+    }
+    if (route.popDisposition == RoutePopDisposition.doNotPop) {
+      return false;
+    }
+    if (_hasPoppableDescendantNavigator()) {
       return false;
     }
     controller.stop();
@@ -190,7 +216,7 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
 
         final maxFloatingWidth = math.max(240.0, constraints.maxWidth - 32.0);
         final effectiveWidth = isBottomSheet
-            ? math.min(widget.contentWidth, constraints.maxWidth)
+            ? constraints.maxWidth
             : math.min(widget.contentWidth, maxFloatingWidth);
 
         final topPadding = isBottomSheet

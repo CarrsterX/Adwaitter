@@ -673,7 +673,7 @@ class AdwPopoverSurface extends StatelessWidget {
     final effectiveBg =
         isOsd ? const Color(0xFF0A0A0B) : theme.colors.popoverBackground;
     final effectiveFg =
-        isOsd ? const Color(0xE6FFFFFF) : theme.colors.popoverForeground;
+        isOsd ? theme.colors.osdForeground : theme.colors.popoverForeground;
 
     final content = _AdwPopoverMenuScope(
       child: DefaultTextStyle(

@@ -1,0 +1,222 @@
+import 'package:flutter/widgets.dart';
+
+import '../../theme/adw_curves.dart';
+import '../../theme/adw_metrics.dart';
+import '../../theme/adw_theme.dart';
+import '../overlays/adw_popover.dart';
+
+/// Standalone Libadwaita dropdown selector (`GtkDropDown`).
+///
+/// Displays the currently selected item with a trailing chevron and opens an
+/// anchored [AdwPopoverSurface] menu on tap.
+class AdwDropdown<T> extends StatefulWidget {
+  final T value;
+  final List<T> items;
+  final String Function(T item) itemLabelBuilder;
+  final ValueChanged<T>? onChanged;
+  final bool isFlat;
+  final double? width;
+  final double maxMenuHeight;
+
+  const AdwDropdown({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.itemLabelBuilder,
+    required this.onChanged,
+    this.isFlat = false,
+    this.width,
+    this.maxMenuHeight = 280.0,
+  });
+
+  @override
+  State<AdwDropdown<T>> createState() => _AdwDropdownState<T>();
+}
+
+class _AdwDropdownState<T> extends State<AdwDropdown<T>> {
+  final GlobalKey _buttonKey = GlobalKey();
+  bool _isHovered = false;
+  bool _isOpen = false;
+
+  bool get _isEnabled => widget.onChanged != null && widget.items.isNotEmpty;
+
+  void _openMenu() {
+    if (!_isEnabled) return;
+    final box = _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final anchorRect = box.localToGlobal(Offset.zero) & box.size;
+
+    setState(() => _isOpen = true);
+    showAdwPopover(
+      context: context,
+      anchorRect: anchorRect,
+      owner: _buttonKey,
+      parentAnchor: AdwPopoverAnchor.bottom,
+      childAnchor: AdwPopoverAnchor.top,
+      offset: const Offset(0, 6),
+      constraints: BoxConstraints(
+        minWidth: box.size.width,
+        maxWidth: box.size.width < 220.0 ? 220.0 : box.size.width,
+        maxHeight: widget.maxMenuHeight,
+      ),
+      onDismiss: () {
+        if (mounted) setState(() => _isOpen = false);
+      },
+      builder: (popoverContext, handle) {
+        final theme = AdwTheme.of(popoverContext);
+        return AdwPopoverSurface(
+          arrowSide: AdwPopoverArrowSide.top,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final item in widget.items)
+                  AdwPopoverMenuItem(
+                    label: widget.itemLabelBuilder(item),
+                    trailing: item == widget.value
+                        ? CustomPaint(
+                            size: const Size(14, 14),
+                            painter: _DropdownCheckPainter(
+                              color: theme.colors.windowForeground,
+                            ),
+                          )
+                        : null,
+                    onTap: () {
+                      handle.dismiss();
+                      widget.onChanged?.call(item);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.of(context);
+    final fg = theme.colors.windowForeground;
+
+    Color bg;
+    if (widget.isFlat) {
+      if (_isOpen) {
+        bg = fg.withValues(alpha: 0.16);
+      } else if (_isHovered && _isEnabled) {
+        bg = theme.colors.hoverColor;
+      } else {
+        bg = const Color(0x00000000);
+      }
+    } else {
+      if (_isOpen) {
+        bg = fg.withValues(alpha: 0.25);
+      } else if (_isHovered && _isEnabled) {
+        bg = fg.withValues(alpha: 0.15);
+      } else {
+        bg = fg.withValues(alpha: theme.colors.isDark ? 0.12 : 0.08);
+      }
+    }
+
+    final effectiveFg = _isEnabled ? fg : fg.withValues(alpha: 0.4);
+
+    return MouseRegion(
+      cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (_isEnabled) setState(() => _isHovered = true);
+      },
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _isEnabled ? _openMenu : null,
+        child: AnimatedContainer(
+          key: _buttonKey,
+          duration: AdwCurves.shortDuration,
+          curve: AdwCurves.standard,
+          width: widget.width,
+          constraints: const BoxConstraints(
+            minHeight: AdwMetrics.buttonMinHeight,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+          ),
+          child: Row(
+            mainAxisSize:
+                widget.width != null ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  widget.itemLabelBuilder(widget.value),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.heading.copyWith(color: effectiveFg),
+                ),
+              ),
+              const SizedBox(width: 8.0),
+              CustomPaint(
+                size: const Size(12, 12),
+                painter: _DropdownChevronPainter(color: effectiveFg),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DropdownChevronPainter extends CustomPainter {
+  final Color color;
+
+  const _DropdownChevronPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path()
+      ..moveTo(size.width * 0.22, size.height * 0.36)
+      ..lineTo(size.width * 0.50, size.height * 0.66)
+      ..lineTo(size.width * 0.78, size.height * 0.36);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DropdownChevronPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _DropdownCheckPainter extends CustomPainter {
+  final Color color;
+
+  const _DropdownCheckPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path()
+      ..moveTo(size.width * 0.20, size.height * 0.52)
+      ..lineTo(size.width * 0.42, size.height * 0.74)
+      ..lineTo(size.width * 0.80, size.height * 0.28);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DropdownCheckPainter oldDelegate) =>
+      oldDelegate.color != color;
+}

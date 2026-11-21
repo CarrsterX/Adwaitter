@@ -108,15 +108,11 @@ class _AdwEntryState extends State<AdwEntry> {
   }
 
   Color? _resolveSemanticColor(AdwThemeData theme) {
-    final isDark = theme.colors.isDark;
     return switch (widget.style) {
       AdwEntryStyle.standard => null,
-      AdwEntryStyle.success =>
-        isDark ? const Color(0xFF78EABE) : const Color(0xFF1B8553),
-      AdwEntryStyle.warning =>
-        isDark ? const Color(0xFFF8E45C) : const Color(0xFF9C6E03),
-      AdwEntryStyle.error =>
-        isDark ? const Color(0xFFFF7B63) : const Color(0xFFC01C28),
+      AdwEntryStyle.success => theme.colors.standaloneSuccessColor,
+      AdwEntryStyle.warning => theme.colors.standaloneWarningColor,
+      AdwEntryStyle.error => theme.colors.standaloneErrorColor,
     };
   }
 

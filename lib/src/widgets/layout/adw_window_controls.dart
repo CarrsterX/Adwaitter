@@ -10,6 +10,7 @@ import 'adw_window.dart';
 enum AdwWindowButtonType {
   minimize,
   maximize,
+  fullscreen,
   close,
 }
 
@@ -32,6 +33,7 @@ class AdwWindowControlButton extends StatefulWidget {
   final AdwWindowButtonType type;
   final VoidCallback? onPressed;
   final bool isMaximized;
+  final bool isFullscreen;
   final double buttonSize;
   final double circleSize;
 
@@ -40,6 +42,7 @@ class AdwWindowControlButton extends StatefulWidget {
     required this.type,
     this.onPressed,
     this.isMaximized = false,
+    this.isFullscreen = false,
     this.buttonSize = 34.0,
     this.circleSize = 24.0,
   });
@@ -125,6 +128,7 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
                         type: widget.type,
                         color: currentColor,
                         isMaximized: widget.isMaximized,
+                        isFullscreen: widget.isFullscreen,
                       ),
                     ),
                   ),
@@ -147,11 +151,13 @@ class _GnomeWindowControlSvgPainter extends CustomPainter {
   final AdwWindowButtonType type;
   final Color color;
   final bool isMaximized;
+  final bool isFullscreen;
 
   _GnomeWindowControlSvgPainter({
     required this.type,
     required this.color,
     this.isMaximized = false,
+    this.isFullscreen = false,
   });
 
   @override
@@ -218,6 +224,48 @@ class _GnomeWindowControlSvgPainter extends CustomPainter {
         // Exact vector path from upstream `window-minimize-symbolic.svg` (8x2 bottom bar)
         canvas.drawRect(const Rect.fromLTWH(4, 10, 8, 2), paint);
         break;
+
+      case AdwWindowButtonType.fullscreen:
+        final strokePaint = Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        if (isFullscreen) {
+          // `view-restore-symbolic`: inward corner arrows
+          final p = Path()
+            // Top-right inward arrow
+            ..moveTo(12.5, 3.5)
+            ..lineTo(9.0, 7.0)
+            ..moveTo(9.0, 4.5)
+            ..lineTo(9.0, 7.0)
+            ..lineTo(11.5, 7.0)
+            // Bottom-left inward arrow
+            ..moveTo(3.5, 12.5)
+            ..lineTo(7.0, 9.0)
+            ..moveTo(7.0, 11.5)
+            ..lineTo(7.0, 9.0)
+            ..lineTo(4.5, 9.0);
+          canvas.drawPath(p, strokePaint);
+        } else {
+          // `view-fullscreen-symbolic`: outward corner arrows
+          final p = Path()
+            // Top-right outward arrow
+            ..moveTo(9.0, 7.0)
+            ..lineTo(12.5, 3.5)
+            ..moveTo(9.5, 3.5)
+            ..lineTo(12.5, 3.5)
+            ..lineTo(12.5, 6.5)
+            // Bottom-left outward arrow
+            ..moveTo(7.0, 9.0)
+            ..lineTo(3.5, 12.5)
+            ..moveTo(6.5, 12.5)
+            ..lineTo(3.5, 12.5)
+            ..lineTo(3.5, 9.5);
+          canvas.drawPath(p, strokePaint);
+        }
+        break;
     }
 
     canvas.restore();
@@ -227,7 +275,8 @@ class _GnomeWindowControlSvgPainter extends CustomPainter {
   bool shouldRepaint(covariant _GnomeWindowControlSvgPainter oldDelegate) {
     return oldDelegate.type != type ||
         oldDelegate.color != color ||
-        oldDelegate.isMaximized != isMaximized;
+        oldDelegate.isMaximized != isMaximized ||
+        oldDelegate.isFullscreen != isFullscreen;
   }
 }
 

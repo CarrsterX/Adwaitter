@@ -171,9 +171,31 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
 
   // --- System Predictive Back (Android 14+ / platform back gestures) ---
 
+  bool _hasPoppableDescendantNavigator() {
+    if (!mounted) return false;
+    bool found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element is StatefulElement && element.state is NavigatorState) {
+        final navState = element.state as NavigatorState;
+        if (navState.canPop()) {
+          found = true;
+          return;
+        }
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
+  }
+
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (!_isOpen || !widget.canClose || _isDragging) {
+      return false;
+    }
+    if (_hasPoppableDescendantNavigator()) {
       return false;
     }
     _controller.stop();

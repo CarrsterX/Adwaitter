@@ -159,6 +159,9 @@ class _ScreenWindowController implements AdwWindowController {
   bool get isMaximized => true;
 
   @override
+  bool get isFullscreen => false;
+
+  @override
   bool get isTiled => false;
 
   @override
@@ -178,6 +181,12 @@ class _ScreenWindowController implements AdwWindowController {
 
   @override
   void maximize() {}
+
+  @override
+  void toggleFullscreen() {}
+
+  @override
+  void setFullscreen(bool fullscreen) {}
 
   @override
   void startDragging() {}

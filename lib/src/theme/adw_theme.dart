@@ -105,6 +105,30 @@ class AdwColorScheme {
       ? const Color(0xFF3A3539)
       : const Color(0xFFFDF7F7);
 
+  /// Standalone foreground color for `.success` labels and entries (`--success-color`).
+  Color get standaloneSuccessColor =>
+      isDark ? const Color(0xFF78EABE) : const Color(0xFF1B8553);
+
+  /// Standalone foreground color for `.warning` labels and entries (`--warning-color`).
+  Color get standaloneWarningColor =>
+      isDark ? const Color(0xFFF8E45C) : const Color(0xFF9C6E03);
+
+  /// Standalone foreground color for `.error` / `.destructive-action` (`--error-color`).
+  Color get standaloneErrorColor =>
+      isDark ? const Color(0xFFFF7B63) : const Color(0xFFC01C28);
+
+  /// On-screen display (`.osd`) foreground color (`rgba(255, 255, 255, 0.90)`).
+  Color get osdForeground => const Color(0xE6FFFFFF);
+
+  /// On-screen display (`.osd`) base surface color (`rgba(0, 0, 0, 0.65)`).
+  Color get osdBackground => const Color(0xA6000000);
+
+  /// On-screen display (`.osd`) hover surface color.
+  Color get osdHoverBackground => const Color(0xA6262626);
+
+  /// On-screen display (`.osd`) active/pressed surface color.
+  Color get osdActiveBackground => const Color(0xB33F3F3F);
+
   const AdwColorScheme({
     required this.isDark,
     required this.windowBackground,

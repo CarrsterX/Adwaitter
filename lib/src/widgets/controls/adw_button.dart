@@ -161,9 +161,7 @@ class _AdwButtonState extends State<AdwButton> {
       case AdwButtonStyle.destructive:
         // Matches upstream `_buttons.scss` `%destructive_button`:
         // `color: var(--destructive-color)` with translucent 15%/20%/35% fill.
-        foregroundColor = theme.colors.isDark
-            ? const Color(0xFFFF7B63)
-            : const Color(0xFFC01C28);
+        foregroundColor = theme.colors.standaloneErrorColor;
         if (_isPressed) {
           backgroundColor = foregroundColor.withValues(
             alpha: widget.isChecked ? 0.45 : 0.35,
@@ -216,18 +214,18 @@ class _AdwButtonState extends State<AdwButton> {
         break;
 
       case AdwButtonStyle.osd:
-        foregroundColor = const Color(0xE6FFFFFF);
+        foregroundColor = theme.colors.osdForeground;
         if (_isPressed) {
-          backgroundColor = const Color(0xB33F3F3F);
+          backgroundColor = theme.colors.osdActiveBackground;
         } else if (_isHovered) {
-          backgroundColor = const Color(0xA6262626);
+          backgroundColor = theme.colors.osdHoverBackground;
         } else {
-          backgroundColor = const Color(0xA6000000);
+          backgroundColor = theme.colors.osdBackground;
         }
         break;
 
       case AdwButtonStyle.osdFlat:
-        foregroundColor = const Color(0xE6FFFFFF);
+        foregroundColor = theme.colors.osdForeground;
         if (_isPressed) {
           backgroundColor = const Color(0x29FFFFFF);
         } else if (_isHovered) {
@@ -280,13 +278,11 @@ class _AdwButtonState extends State<AdwButton> {
       },
       onExit: (_) {
         if (_isEnabled) {
-          setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          });
+          setState(() => _isHovered = false);
         }
       },
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) {
           if (_isEnabled) setState(() => _isPressed = true);
         },
