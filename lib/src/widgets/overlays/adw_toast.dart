@@ -289,7 +289,7 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                   ),
                                   child: const Center(
                                     child: CustomPaint(
-                                      size: Size(10, 10),
+                                      size: Size(8, 8),
                                       painter: _ToastCloseIconPainter(
                                         color: Color(0xFFFFFFFF),
                                       ),
@@ -321,18 +321,19 @@ class _ToastCloseIconPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.6
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
+    const inset = 0.75;
     canvas.drawLine(
-      const Offset(0.5, 0.5),
-      Offset(size.width - 0.5, size.height - 0.5),
+      const Offset(inset, inset),
+      Offset(size.width - inset, size.height - inset),
       paint,
     );
     canvas.drawLine(
-      Offset(size.width - 0.5, 0.5),
-      Offset(0.5, size.height - 0.5),
+      Offset(size.width - inset, inset),
+      Offset(inset, size.height - inset),
       paint,
     );
   }
