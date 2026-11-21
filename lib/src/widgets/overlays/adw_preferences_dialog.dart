@@ -322,7 +322,6 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
         .split(RegExp(r'\s+'))
         .where((s) => s.isNotEmpty)
         .toList();
-    if (terms.isEmpty) return const <_SearchMatch>[];
 
     final matches = <_SearchMatch>[];
     for (var pageIdx = 0; pageIdx < _dialog.pages.length; pageIdx++) {
@@ -349,6 +348,18 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
     required List<String> terms,
     required List<_SearchMatch> out,
   }) {
+    if (widget is Builder) {
+      _extractFromWidget(
+        widget: widget.builder(context),
+        pageIndex: pageIndex,
+        pageTitle: pageTitle,
+        groupTitle: groupTitle,
+        terms: terms,
+        out: out,
+      );
+      return;
+    }
+
     if (widget is AdwPreferencesGroup) {
       final resolvedGroupTitle = _extractText(widget.title);
       for (final child in widget.children) {
@@ -383,6 +394,8 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
       rowSubtitle = _extractText(widget.subtitle);
     } else if (widget is AdwEntryRow) {
       rowTitle = _extractText(widget.title);
+    } else if (widget is AdwPasswordEntryRow) {
+      rowTitle = _extractText(widget.title);
     } else if (widget is AdwButtonRow) {
       rowTitle = _extractText(widget.title);
       onActivated = widget.onPressed;
@@ -399,6 +412,29 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
           out: out,
         );
       }
+    } else if (widget is MultiChildRenderObjectWidget) {
+      for (final child in widget.children) {
+        _extractFromWidget(
+          widget: child,
+          pageIndex: pageIndex,
+          pageTitle: pageTitle,
+          groupTitle: groupTitle,
+          terms: terms,
+          out: out,
+        );
+      }
+      return;
+    } else if (widget is SingleChildRenderObjectWidget &&
+        widget.child != null) {
+      _extractFromWidget(
+        widget: widget.child!,
+        pageIndex: pageIndex,
+        pageTitle: pageTitle,
+        groupTitle: groupTitle,
+        terms: terms,
+        out: out,
+      );
+      return;
     }
 
     if (rowTitle != null && rowTitle.isNotEmpty) {
@@ -576,12 +612,12 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
             }
 
             Widget body;
-            if (_isSearching && _query.trim().isNotEmpty) {
+            if (_isSearching) {
               final matches = _collectSearchMatches(_query);
               if (matches.isEmpty) {
                 body = AdwStatusPage(
                   icon: CustomPaint(
-                    size: const Size(96, 96),
+                    size: const Size(128, 128),
                     painter: _PrefSearchIconPainter(
                       color: theme.colors.foreground.withValues(alpha: 0.45),
                       strokeWidth: 6.5,
@@ -661,11 +697,7 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
               content: AnimatedSwitcher(
                 duration: AdwCurves.shortDuration,
                 child: KeyedSubtree(
-                  key: ValueKey(
-                    _isSearching && _query.trim().isNotEmpty
-                        ? 'search'
-                        : 'pages',
-                  ),
+                  key: ValueKey(_isSearching ? 'search' : 'pages'),
                   child: body,
                 ),
               ),
