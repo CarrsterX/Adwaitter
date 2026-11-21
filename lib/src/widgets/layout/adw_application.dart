@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart'
@@ -441,8 +443,9 @@ class AdwWindowShapeScope extends InheritedWidget {
 }
 
 /// Renders the transparent Linux CSD shadow margin and Libadwaita drop shadow
-/// outside the rounded [ClipRRect] so modal scrims stay clipped to the visible
-/// window while the outer drop shadow renders unclipped on Linux desktop.
+/// outside the rounded [ClipRRect] using a shared tiny 9-slice GPU texture
+/// (matching GTK4/GSK `GskOutsetShadowNode`) instead of full-window blur
+/// offscreen buffers, saving tens of megabytes of VRAM across windows.
 class _AdwWindowShadowFrame extends StatelessWidget {
   static const double linuxShadowMargin = 24.0;
 
@@ -472,60 +475,134 @@ class _AdwWindowShadowFrame extends StatelessWidget {
       return clipped;
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(linuxShadowMargin),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: radius,
-                    boxShadow: isDark
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x52000000),
-                              blurRadius: 24.0,
-                              spreadRadius: 0.0,
-                              offset: Offset(0, 6),
-                            ),
-                            BoxShadow(
-                              color: Color(0x30000000),
-                              blurRadius: 8.0,
-                              spreadRadius: 0.0,
-                              offset: Offset(0, 2),
-                            ),
-                          ]
-                        : const [
-                            BoxShadow(
-                              color: Color(0x2E000006),
-                              blurRadius: 24.0,
-                              spreadRadius: 0.0,
-                              offset: Offset(0, 6),
-                            ),
-                            BoxShadow(
-                              color: Color(0x1A000006),
-                              blurRadius: 6.0,
-                              spreadRadius: 0.0,
-                              offset: Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: Color(0x14000006),
-                              blurRadius: 1.0,
-                              spreadRadius: 0.5,
-                              offset: Offset.zero,
-                            ),
-                          ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          clipped,
-        ],
+    return CustomPaint(
+      painter: _AdwWindowShadowPainter(
+        radius: radius,
+        isDark: isDark,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(linuxShadowMargin),
+        child: clipped,
       ),
     );
   }
+}
+
+/// Shared 144x144 9-slice shadow texture cache (~82 KB VRAM per theme, reused
+/// across main and child windows with zero full-window blur allocations).
+class _AdwNineSliceShadowCache {
+  static const int textureSize = 144;
+  static const double margin = _AdwWindowShadowFrame.linuxShadowMargin;
+  static const Rect centerSlice = Rect.fromLTRB(68, 68, 76, 76);
+
+  static final Map<String, ui.Image> _cache = <String, ui.Image>{};
+
+  static const List<BoxShadow> _darkShadows = [
+    BoxShadow(
+      color: Color(0x52000000),
+      blurRadius: 24.0,
+      spreadRadius: 0.0,
+      offset: Offset(0, 6),
+    ),
+    BoxShadow(
+      color: Color(0x30000000),
+      blurRadius: 8.0,
+      spreadRadius: 0.0,
+      offset: Offset(0, 2),
+    ),
+  ];
+
+  static const List<BoxShadow> _lightShadows = [
+    BoxShadow(
+      color: Color(0x2E000006),
+      blurRadius: 24.0,
+      spreadRadius: 0.0,
+      offset: Offset(0, 6),
+    ),
+    BoxShadow(
+      color: Color(0x1A000006),
+      blurRadius: 6.0,
+      spreadRadius: 0.0,
+      offset: Offset(0, 2),
+    ),
+    BoxShadow(
+      color: Color(0x14000006),
+      blurRadius: 1.0,
+      spreadRadius: 0.5,
+      offset: Offset.zero,
+    ),
+  ];
+
+  static ui.Image getOrCreate({
+    required BorderRadius radius,
+    required bool isDark,
+  }) {
+    final key = '${isDark ? 'd' : 'l'}:${radius.topLeft.x.toStringAsFixed(1)}';
+    final cached = _cache[key];
+    if (cached != null) return cached;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, textureSize.toDouble(), textureSize.toDouble()),
+    );
+    final innerRect = Rect.fromLTWH(
+      margin,
+      margin,
+      textureSize - margin * 2,
+      textureSize - margin * 2,
+    );
+
+    final shadows = isDark ? _darkShadows : _lightShadows;
+    for (final shadow in shadows) {
+      final shadowRect = innerRect
+          .shift(shadow.offset)
+          .inflate(shadow.spreadRadius);
+      final rrect = radius.toRRect(shadowRect);
+      final paint = Paint()..color = shadow.color;
+      if (shadow.blurRadius > 0) {
+        paint.maskFilter = MaskFilter.blur(
+          BlurStyle.normal,
+          shadow.blurSigma,
+        );
+      }
+      canvas.drawRRect(rrect, paint);
+    }
+
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(textureSize, textureSize);
+    picture.dispose();
+    _cache[key] = image;
+    return image;
+  }
+}
+
+class _AdwWindowShadowPainter extends CustomPainter {
+  final BorderRadius radius;
+  final bool isDark;
+
+  const _AdwWindowShadowPainter({
+    required this.radius,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final image = _AdwNineSliceShadowCache.getOrCreate(
+      radius: radius,
+      isDark: isDark,
+    );
+    final paint = Paint()..filterQuality = FilterQuality.low;
+    canvas.drawImageNine(
+      image,
+      _AdwNineSliceShadowCache.centerSlice,
+      Offset.zero & size,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_AdwWindowShadowPainter oldDelegate) =>
+      oldDelegate.radius != radius || oldDelegate.isDark != isDark;
 }
