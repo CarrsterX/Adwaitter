@@ -102,7 +102,7 @@ void main() {
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     await tester.pumpWidget(buildHarness());
     await tester.pumpAndSettle();
-    expect(resolved, isA<EmptyTextSelectionControls>());
+    expect(resolved, isA<AdwTextSelectionControls>());
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -279,7 +279,7 @@ void main() {
     );
   });
 
-  testWidgets('AdwTextSelectionControls renders vertical bar handle that widens on touch',
+  testWidgets('AdwTextSelectionControls renders Libadwaita 20x20 teardrop handle that scales on touch',
       (WidgetTester tester) async {
     final controls = AdwTextSelectionControls(accentColor: AdwColors.accentBlue);
     await tester.pumpWidget(
@@ -297,16 +297,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final containerFinder = find.byType(AnimatedContainer);
-    expect(tester.getSize(containerFinder).width, 3.0);
+    final scaleFinder = find.byType(AnimatedScale);
+    expect(tester.getSize(scaleFinder), const Size(20.0, 20.0));
+    expect(tester.widget<AnimatedScale>(scaleFinder).scale, 1.0);
 
-    final gesture = await tester.startGesture(tester.getCenter(containerFinder));
+    final gesture = await tester.startGesture(tester.getCenter(scaleFinder));
     await tester.pumpAndSettle();
-    expect(tester.getSize(containerFinder).width, 7.0);
+    expect(tester.widget<AnimatedScale>(scaleFinder).scale, 1.12);
 
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(tester.getSize(containerFinder).width, 3.0);
+    expect(tester.widget<AnimatedScale>(scaleFinder).scale, 1.0);
   });
 
   testWidgets('Open AdwDialog blocks scrolling on underlying view',

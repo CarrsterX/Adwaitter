@@ -6,6 +6,7 @@ import 'dart:ui' show Display, FlutterView;
 
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, ValueListenable, kIsWeb;
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:flutter/src/foundation/_features.dart' as flutter_features;
 import 'package:flutter/src/widgets/_window.dart';
 import 'package:flutter/src/widgets/_window_linux.dart';
@@ -435,16 +436,33 @@ class AdwSubWindowManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _deferredNotifyScheduled = false;
+
+  void _notifyListenersSafely() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      if (_deferredNotifyScheduled) return;
+      _deferredNotifyScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _deferredNotifyScheduled = false;
+        notifyListeners();
+      });
+      return;
+    }
+    notifyListeners();
+  }
+
   /// Registers a floating native [PopupWindow] entry to be rendered in [AdwApplication].
   void registerPopup(AdwPopupWindowEntry entry) {
     _popups.add(entry);
-    notifyListeners();
+    _notifyListenersSafely();
   }
 
   /// Unregisters a floating native [PopupWindow] entry.
   void unregisterPopup(AdwPopupWindowEntry entry) {
     if (_popups.remove(entry)) {
-      notifyListeners();
+      _notifyListenersSafely();
     }
   }
 

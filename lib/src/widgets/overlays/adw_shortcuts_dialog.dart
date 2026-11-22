@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -586,9 +587,10 @@ class _AdwShortcutsDialogState extends State<AdwShortcutsDialog> {
                                 ),
                               ),
                             ),
-                          EditableText(
+                          AdwEditableText(
                             controller: _searchController,
                             focusNode: _searchFocusNode,
+                            onTapOutside: (_) => _searchFocusNode.unfocus(),
                             style: theme.typography.body.copyWith(
                               height: 1,
                               leadingDistribution: TextLeadingDistribution.even,

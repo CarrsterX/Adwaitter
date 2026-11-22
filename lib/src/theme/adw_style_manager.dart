@@ -1,10 +1,11 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform, Process;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'adw_colors.dart';
+import 'adw_typography.dart';
 
 /// System color scheme preference mirroring Libadwaita's `AdwColorScheme`.
 enum AdwSystemColorScheme {
@@ -57,6 +58,7 @@ class AdwStyleManager extends ChangeNotifier {
 
   static const MethodChannel _channel = MethodChannel('libadwaitter/style');
   static bool _initialized = false;
+  static bool _emojiFontLoaded = false;
 
   AdwSystemAppearance _systemAppearance = const AdwSystemAppearance();
   AdwSystemColorScheme? _colorSchemeOverride;
@@ -157,6 +159,7 @@ class AdwStyleManager extends ChangeNotifier {
         }
       });
       instance._fetchInitialAppearance();
+      instance._loadSystemEmojiFont();
     } else if (!kIsWeb && Platform.isAndroid) {
       instance._fetchAndroidDynamicAccent();
     }
@@ -188,6 +191,39 @@ class AdwStyleManager extends ChangeNotifier {
       }
     } catch (_) {
       // Gracefully fall back to standard Adwaita accent colors if unavailable
+    }
+  }
+
+  Future<void> _loadSystemEmojiFont() async {
+    if (_emojiFontLoaded) return;
+    _emojiFontLoaded = true;
+    try {
+      String? fontPath;
+      try {
+        fontPath = await _channel.invokeMethod<String>('getSystemEmojiFontPath');
+      } catch (_) {
+        // Fall back to direct fc-match query if runner does not implement method
+      }
+      if (fontPath == null || fontPath.isEmpty) {
+        final res = await Process.run(
+          'fc-match',
+          <String>['--format=%{file}', 'emoji:color=true'],
+        );
+        if (res.exitCode == 0) {
+          final out = (res.stdout as String).trim();
+          if (out.isNotEmpty) fontPath = out;
+        }
+      }
+      if (fontPath == null || fontPath.isEmpty) return;
+      final file = File(fontPath);
+      if (!file.existsSync()) return;
+      final bytes = await file.readAsBytes();
+      final loader = FontLoader(AdwTypography.systemEmojiFamily)
+        ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
+      await loader.load();
+      notifyListeners();
+    } catch (_) {
+      _emojiFontLoaded = false;
     }
   }
 

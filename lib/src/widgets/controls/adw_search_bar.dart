@@ -162,19 +162,9 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  EditableText(
+                                  AdwEditableText(
                                     controller: _controller,
                                     focusNode: _focusNode,
-                                    selectionControls:
-                                        Overlay.maybeOf(context) != null
-                                            ? AdwTextSelectionControls
-                                                .forPlatform(context)
-                                            : null,
-                                    contextMenuBuilder:
-                                        Overlay.maybeOf(context) != null
-                                            ? AdwTextSelectionControls
-                                                .contextMenuBuilder
-                                            : null,
                                     onTapOutside: (_) => _focusNode.unfocus(),
                                     style: theme.typography.body.copyWith(
                                       height: 1.0,
@@ -184,6 +174,8 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
                                     cursorColor: theme.colors.accentColor,
                                     backgroundCursorColor:
                                         theme.colors.dividerColor,
+                                    selectionColor: theme.colors.accentColor
+                                        .withValues(alpha: 0.3),
                                     onChanged: widget.onChanged,
                                   ),
                                 ],

@@ -356,19 +356,10 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
                                 color: theme.colors.secondaryForeground,
                               ),
                             ),
-                          EditableText(
+                          AdwEditableText(
                             controller: _searchController,
                             focusNode: _searchFocusNode,
                             cursorWidth: 1.0,
-                            cursorOpacityAnimates: true,
-                            showCursor: true,
-                            enableInteractiveSelection: true,
-                            selectionControls: Overlay.maybeOf(context) != null
-                                ? AdwTextSelectionControls.forPlatform(context)
-                                : null,
-                            contextMenuBuilder: Overlay.maybeOf(context) != null
-                                ? AdwTextSelectionControls.contextMenuBuilder
-                                : null,
                             onTapOutside: (_) => _searchFocusNode.unfocus(),
                             style: theme.typography.body.copyWith(
                               fontSize: 14,

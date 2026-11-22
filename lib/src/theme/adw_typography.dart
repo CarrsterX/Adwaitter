@@ -13,9 +13,15 @@ import 'package:flutter/painting.dart';
 class AdwTypography {
   static const String sansFamily = 'AdwaitaSans';
   static const String monoFamily = 'AdwaitaMono';
+  static const String systemEmojiFamily = 'AdwSystemEmoji';
   static const String packageName = 'adwaitter';
 
   static const List<String> fallbackSans = <String>[
+    systemEmojiFamily,
+    'emoji',
+    'Noto Color Emoji',
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
     'Adwaita Sans',
     'Cantarell',
     'Inter',
@@ -24,6 +30,11 @@ class AdwTypography {
   ];
 
   static const List<String> fallbackMono = <String>[
+    systemEmojiFamily,
+    'emoji',
+    'Noto Color Emoji',
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
     'Adwaita Mono',
     'Source Code Pro',
     'monospace',
@@ -115,8 +126,10 @@ class AdwTypography {
       double? letterSpacing,
     }) {
       return TextStyle(
-        fontFamily: sansFamily,
-        package: packageName,
+        // Use explicit package-qualified fontFamily instead of `package:` so
+        // Flutter does not prefix `fontFamilyFallback` system/emoji fonts with
+        // `packages/adwaitter/`.
+        fontFamily: 'packages/$packageName/$sansFamily',
         fontFamilyFallback: fallbackSans,
         fontSize: fontSize,
         fontWeight: fontWeight,
@@ -136,8 +149,7 @@ class AdwTypography {
       required Color color,
     }) {
       return TextStyle(
-        fontFamily: monoFamily,
-        package: packageName,
+        fontFamily: 'packages/$packageName/$monoFamily',
         fontFamilyFallback: fallbackMono,
         fontSize: fontSize,
         fontWeight: fontWeight,

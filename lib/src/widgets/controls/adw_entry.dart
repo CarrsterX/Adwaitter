@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -124,10 +125,12 @@ class _AdwEntryState extends State<AdwEntry> {
     final focusColor = semanticColor ?? theme.colors.accentColor;
     final bgColor = currentColor.withValues(alpha: 0.10);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _focusNode.requestFocus(),
-      child: AnimatedContainer(
+    return AdwInputBounds(
+      child: TextFieldTapRegion(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _focusNode.requestFocus(),
+        child: AnimatedContainer(
         duration: AdwCurves.shortDuration,
         curve: AdwCurves.standard,
         height: widget.height,
@@ -167,14 +170,17 @@ class _AdwEntryState extends State<AdwEntry> {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                  EditableText(
+                  AdwEditableText(
                     controller: _controller,
                     focusNode: _focusNode,
                     style: theme.typography.body.copyWith(color: currentColor),
                     cursorColor: currentColor,
                     backgroundCursorColor: theme.colors.windowBackground,
+                    selectionColor:
+                        theme.colors.accentColor.withValues(alpha: 0.3),
                     obscureText: widget.obscureText,
                     readOnly: widget.readOnly,
+                    onTapOutside: (_) => _focusNode.unfocus(),
                     onChanged: widget.onChanged,
                     onSubmitted: widget.onSubmitted,
                   ),
@@ -193,6 +199,8 @@ class _AdwEntryState extends State<AdwEntry> {
             ],
           ],
         ),
+      ),
+      ),
       ),
     );
   }

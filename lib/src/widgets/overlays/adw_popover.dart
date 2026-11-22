@@ -671,7 +671,7 @@ class AdwPopoverSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final effectiveBg =
-        isOsd ? const Color(0xFF0A0A0B) : theme.colors.popoverBackground;
+        isOsd ? theme.colors.osdBackground : theme.colors.popoverBackground;
     final effectiveFg =
         isOsd ? theme.colors.osdForeground : theme.colors.popoverForeground;
 

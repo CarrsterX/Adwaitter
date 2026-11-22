@@ -17,6 +17,7 @@ import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
+import android.view.DragEvent
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -39,6 +40,7 @@ class AdwaitterPlugin :
         const val REQ_OPEN_FILES = 41001
         const val REQ_SAVE_FILE = 41002
         const val REQ_POST_NOTIFICATIONS = 41003
+        const val REQ_PROCESS_TEXT = 41004
         const val EXTRA_NOTIF_ID = "libadwaitter_notif_id"
         const val EXTRA_NOTIF_ACTION = "libadwaitter_notif_action"
         const val EXTRA_NOTIF_PAYLOAD = "libadwaitter_notif_payload"
@@ -51,12 +53,15 @@ class AdwaitterPlugin :
     private lateinit var channel: MethodChannel
     private lateinit var portalChannel: MethodChannel
     private lateinit var mediaChannel: MethodChannel
+    private lateinit var dndChannel: MethodChannel
+    private lateinit var textActionsChannel: MethodChannel
     private var applicationContext: Context? = null
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var pendingPortalResult: Result? = null
     private var pendingPortalRequestCode: Int = 0
     private var pendingNotificationPermissionResult: Result? = null
+    private var pendingProcessTextResult: Result? = null
     private var mediaSession: MediaSession? = null
     private var mediaReceiver: BroadcastReceiver? = null
     private var mediaTitle: String = ""
@@ -86,6 +91,11 @@ class AdwaitterPlugin :
         mediaChannel.setMethodCallHandler { call, result ->
             onMediaMethodCall(call, result)
         }
+        dndChannel = MethodChannel(binding.binaryMessenger, "libadwaitter/dnd")
+        textActionsChannel = MethodChannel(binding.binaryMessenger, "libadwaitter/text_actions")
+        textActionsChannel.setMethodCallHandler { call, result ->
+            onTextActionsMethodCall(call, result)
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -93,6 +103,8 @@ class AdwaitterPlugin :
         channel.setMethodCallHandler(null)
         portalChannel.setMethodCallHandler(null)
         mediaChannel.setMethodCallHandler(null)
+        dndChannel.setMethodCallHandler(null)
+        textActionsChannel.setMethodCallHandler(null)
         applicationContext = null
     }
 
@@ -103,10 +115,12 @@ class AdwaitterPlugin :
         binding.addOnNewIntentListener(this)
         binding.addRequestPermissionsResultListener(this)
         applySoftInputMode(binding.activity)
+        attachDragListener(binding.activity)
         handleNotificationIntent(binding.activity.intent)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
+        activity?.window?.decorView?.setOnDragListener(null)
         activityBinding?.removeActivityResultListener(this)
         activityBinding?.removeOnNewIntentListener(this)
         activityBinding?.removeRequestPermissionsResultListener(this)
@@ -121,15 +135,93 @@ class AdwaitterPlugin :
         binding.addOnNewIntentListener(this)
         binding.addRequestPermissionsResultListener(this)
         applySoftInputMode(binding.activity)
+        attachDragListener(binding.activity)
         handleNotificationIntent(binding.activity.intent)
     }
 
     override fun onDetachedFromActivity() {
+        activity?.window?.decorView?.setOnDragListener(null)
         activityBinding?.removeActivityResultListener(this)
         activityBinding?.removeOnNewIntentListener(this)
         activityBinding?.removeRequestPermissionsResultListener(this)
         activityBinding = null
         activity = null
+    }
+
+    private fun attachDragListener(act: Activity) {
+        val density = act.resources.displayMetrics.density.coerceAtLeast(1f)
+        act.window.decorView.setOnDragListener { _, event ->
+            when (event.action) {
+                DragEvent.ACTION_DRAG_STARTED -> true
+                DragEvent.ACTION_DRAG_ENTERED -> {
+                    dndChannel.invokeMethod(
+                        "onDropEvent",
+                        mapOf(
+                            "type" to "enter",
+                            "x" to (event.x / density).toDouble(),
+                            "y" to (event.y / density).toDouble(),
+                        ),
+                    )
+                    true
+                }
+                DragEvent.ACTION_DRAG_LOCATION -> {
+                    dndChannel.invokeMethod(
+                        "onDropEvent",
+                        mapOf(
+                            "type" to "update",
+                            "x" to (event.x / density).toDouble(),
+                            "y" to (event.y / density).toDouble(),
+                        ),
+                    )
+                    true
+                }
+                DragEvent.ACTION_DRAG_EXITED, DragEvent.ACTION_DRAG_ENDED -> {
+                    dndChannel.invokeMethod("onDropEvent", mapOf("type" to "leave"))
+                    true
+                }
+                DragEvent.ACTION_DROP -> {
+                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        act.requestDragAndDropPermissions(event)
+                    } else {
+                        null
+                    }
+                    try {
+                        val files = mutableListOf<String>()
+                        val texts = mutableListOf<String>()
+                        val clip = event.clipData
+                        if (clip != null) {
+                            for (i in 0 until clip.itemCount) {
+                                val item = clip.getItemAt(i)
+                                item.uri?.let { uri ->
+                                    copyUriToCache(uri)?.let { files.add(it) }
+                                }
+                                item.text?.toString()?.takeIf { it.isNotBlank() }?.let {
+                                    texts.add(it)
+                                }
+                            }
+                        }
+                        val payload = mutableMapOf<String, Any>(
+                            "type" to "drop",
+                            "x" to (event.x / density).toDouble(),
+                            "y" to (event.y / density).toDouble(),
+                        )
+                        if (files.isNotEmpty()) {
+                            payload["files"] = files
+                        }
+                        if (texts.isNotEmpty()) {
+                            payload["text"] = texts.joinToString("\n")
+                        }
+                        dndChannel.invokeMethod("onDropEvent", payload)
+                    } finally {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            perms?.release()
+                        }
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     /**
@@ -263,6 +355,9 @@ class AdwaitterPlugin :
                         )
                     )
                 }
+            }
+            "share" -> {
+                shareContentOnAndroid(call, result)
             }
             "requestNotificationPermission" -> {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -401,6 +496,17 @@ class AdwaitterPlugin :
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == REQ_PROCESS_TEXT && pendingProcessTextResult != null) {
+            val res = pendingProcessTextResult!!
+            pendingProcessTextResult = null
+            if (resultCode == Activity.RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val processed = data.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+                res.success(processed)
+            } else {
+                res.success(null)
+            }
+            return true
+        }
         if (requestCode != pendingPortalRequestCode || pendingPortalResult == null) {
             return false
         }
@@ -466,6 +572,72 @@ class AdwaitterPlugin :
             target.absolutePath
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun shareContentOnAndroid(call: MethodCall, result: Result) {
+        val ctx = activity ?: applicationContext
+        if (ctx == null) {
+            result.success(
+                mapOf(
+                    "status" to "error",
+                    "errorMessage" to "No active Android context.",
+                )
+            )
+            return
+        }
+        val text = call.argument<String>("text")
+        val subject = call.argument<String>("subject")
+        val title = call.argument<String>("title") ?: "Share"
+        val filePaths = call.argument<List<String>>("filePaths") ?: emptyList()
+
+        try {
+            val authority = "${ctx.packageName}.adwaitter.fileprovider"
+            val uris = ArrayList<Uri>()
+            for (path in filePaths) {
+                val file = File(path)
+                if (file.exists() && file.canRead()) {
+                    uris.add(AdwaitterFileProvider.registerFile(authority, file))
+                }
+            }
+
+            val shareIntent = when {
+                uris.size > 1 -> Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = "*/*"
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                uris.size == 1 -> Intent(Intent.ACTION_SEND).apply {
+                    type = ctx.contentResolver.getType(uris[0]) ?: "*/*"
+                    putExtra(Intent.EXTRA_STREAM, uris[0])
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                else -> Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                }
+            }
+
+            if (!text.isNullOrEmpty()) {
+                shareIntent.putExtra(Intent.EXTRA_TEXT, text)
+            }
+            if (!subject.isNullOrEmpty()) {
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
+
+            val chooser = Intent.createChooser(shareIntent, title).apply {
+                if (activity == null) {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            }
+            ctx.startActivity(chooser)
+            result.success(mapOf("status" to "granted"))
+        } catch (e: Exception) {
+            result.success(
+                mapOf(
+                    "status" to "error",
+                    "errorMessage" to (e.message ?: "Failed to open share sheet."),
+                )
+            )
         }
     }
 
@@ -955,5 +1127,83 @@ class AdwaitterPlugin :
         mediaSession = null
         val nm = ctx?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.cancel(MEDIA_NOTIFICATION_ID)
+    }
+
+    private fun onTextActionsMethodCall(call: MethodCall, result: Result) {
+        val ctx = activity ?: applicationContext
+        if (ctx == null) {
+            result.success(null)
+            return
+        }
+        when (call.method) {
+            "getLocalizedLabels" -> {
+                result.success(
+                    mapOf(
+                        "cut" to ctx.getString(android.R.string.cut),
+                        "copy" to ctx.getString(android.R.string.copy),
+                        "paste" to ctx.getString(android.R.string.paste),
+                        "selectAll" to ctx.getString(android.R.string.selectAll),
+                    )
+                )
+            }
+            "getTextActions" -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    result.success(emptyList<Map<String, String>>())
+                    return
+                }
+                val intent = Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain")
+                val pm = ctx.packageManager
+                val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.queryIntentActivities(
+                        intent,
+                        PackageManager.ResolveInfoFlags.of(0L),
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.queryIntentActivities(intent, 0)
+                }
+                val actions = resolved.mapNotNull { info ->
+                    val actInfo = info.activityInfo ?: return@mapNotNull null
+                    val label = info.loadLabel(pm)?.toString()?.trim()
+                    if (label.isNullOrEmpty()) return@mapNotNull null
+                    mapOf(
+                        "id" to "${actInfo.packageName}/${actInfo.name}",
+                        "label" to label,
+                        "packageName" to actInfo.packageName,
+                        "className" to actInfo.name,
+                    )
+                }
+                result.success(actions)
+            }
+            "performTextAction" -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    result.success(null)
+                    return
+                }
+                val pkg = call.argument<String>("packageName")
+                val cls = call.argument<String>("className")
+                val text = call.argument<String>("text") ?: ""
+                val readOnly = call.argument<Boolean>("readOnly") ?: false
+                val act = activity
+                if (pkg.isNullOrEmpty() || cls.isNullOrEmpty() || act == null) {
+                    result.success(null)
+                    return
+                }
+                try {
+                    val intent = Intent(Intent.ACTION_PROCESS_TEXT).apply {
+                        type = "text/plain"
+                        setClassName(pkg, cls)
+                        putExtra(Intent.EXTRA_PROCESS_TEXT, text)
+                        putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, readOnly)
+                    }
+                    pendingProcessTextResult = result
+                    act.startActivityForResult(intent, REQ_PROCESS_TEXT)
+                } catch (_: Exception) {
+                    pendingProcessTextResult = null
+                    result.success(null)
+                }
+            }
+            else -> result.notImplemented()
+        }
     }
 }

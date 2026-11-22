@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -558,9 +559,11 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
                                       ),
                                     ),
                                   ),
-                                EditableText(
+                                AdwEditableText(
                                   controller: _searchController,
                                   focusNode: _searchFocusNode,
+                                  onTapOutside: (_) =>
+                                      _searchFocusNode.unfocus(),
                                   style: theme.typography.body.copyWith(
                                     height: 1,
                                     leadingDistribution:

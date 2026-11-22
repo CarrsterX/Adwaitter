@@ -13,6 +13,16 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="mailto" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
     </queries>
-    <application android:enableOnBackInvokedCallback="true" />
+    <application android:enableOnBackInvokedCallback="true">
+        <provider
+            android:name="com.carrster.adwaitter.AdwaitterFileProvider"
+            android:authorities="${applicationId}.adwaitter.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
 </manifest>
