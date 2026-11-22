@@ -160,6 +160,51 @@ class AdwaitterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
 
     private fun onPortalMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
+            "openUri" -> {
+                val uriStr = call.argument<String>("uri")
+                if (uriStr.isNullOrBlank()) {
+                    result.success(
+                        mapOf(
+                            "status" to "error",
+                            "errorMessage" to "Missing URI.",
+                        )
+                    )
+                    return
+                }
+                val ctx = activity ?: applicationContext
+                if (ctx == null) {
+                    result.success(
+                        mapOf(
+                            "status" to "error",
+                            "errorMessage" to "No active Android context.",
+                        )
+                    )
+                    return
+                }
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
+                        if (activity == null) {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    }
+                    ctx.startActivity(intent)
+                    result.success(mapOf("status" to "granted"))
+                } catch (e: android.content.ActivityNotFoundException) {
+                    result.success(
+                        mapOf(
+                            "status" to "error",
+                            "errorMessage" to "No application found to open URI: $uriStr",
+                        )
+                    )
+                } catch (e: Exception) {
+                    result.success(
+                        mapOf(
+                            "status" to "error",
+                            "errorMessage" to (e.message ?: "Failed to open URI."),
+                        )
+                    )
+                }
+            }
             "openFiles" -> {
                 val act = activity
                 if (act == null) {
