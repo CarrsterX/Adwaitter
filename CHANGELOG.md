@@ -1,3 +1,9 @@
+## 1.0.0-alpha.2
+
+* Added 1:1 Libadwaita touch and desktop text selection (`AdwTextSelectionControls`, `AdwEditableText`, `AdwInputBounds`): teardrop `cursor-handle`s, horizontal 5-item OSD `popover.touch-selection` bar with non-interactive scroll indicator, vertical `GtkPopoverMenu` on mouse right-click, and crisp `2.0×` vector text magnifier.
+* Added Android native bridges in `AdwaitterPlugin.kt` for `ACTION_PROCESS_TEXT` actions with auto-trimmed monochrome/app icons, `Share`, `MediaSession` media notification controls, and interactive system notifications.
+* Added native Linux emoji font loading and `AdwSearchBar` / `AdwEntryRow` / `AdwEntry` selection polish.
+
 ## 1.0.0-alpha
 
 * Initial pre-alpha release of **Adwaitter**, a pure Flutter GNOME Libadwaita 1.10+ UI widget library and design system (zero Material dependency).
