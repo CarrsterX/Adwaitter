@@ -38,11 +38,13 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
 
-      final surface = tester.widget<AdwPopoverSurface>(
-        find.byType(AdwPopoverSurface),
-      );
+      final surfaceFinder = find.byType(AdwPopoverSurface);
+      final surface = tester.widget<AdwPopoverSurface>(surfaceFinder);
       expect(surface.isOsd, isTrue);
       expect(surface.arrowSide, isNot(AdwPopoverArrowSide.none));
+      // Touch selection popover must stay compact vertically (never expand to
+      // full screen height due to horizontal SingleChildScrollView).
+      expect(tester.getSize(surfaceFinder).height, lessThan(80.0));
       expect(find.bySemanticsLabel('Copy'), findsOneWidget);
       expect(find.bySemanticsLabel('Cut'), findsOneWidget);
       expect(find.bySemanticsLabel('Share'), findsOneWidget);
@@ -169,11 +171,11 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 600));
 
-        expect(find.byType(RawMagnifier), findsOneWidget);
+        expect(find.byKey(AdwTextSelectionControls.magnifierKey), findsOneWidget);
 
         await gesture.up();
         await tester.pumpAndSettle();
-        expect(find.byType(RawMagnifier), findsNothing);
+        expect(find.byKey(AdwTextSelectionControls.magnifierKey), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

@@ -64,12 +64,19 @@ class AdwTextSelectionControls extends TextSelectionControls
   static const double _kHandleTouchSize = 44.0;
   static const double _kHandleVisualSize = 20.0;
 
+  /// Key attached to the active Libadwaita text magnifier widget.
+  static const Key magnifierKey = ValueKey<String>('adw_text_magnifier');
+
   /// Builds a [TextMagnifierConfiguration] that aligns the magnifier with the
   /// enclosing [AdwInputBounds] top border when present, or with the text
   /// line (`caretRect.top`) for plain selectable text.
+  ///
+  /// When [resolveEditableText] is provided, renders a crisp `2.0×` vector
+  /// [TextPainter] lens instead of blurry `BackdropFilter` pixel upscaling.
   static TextMagnifierConfiguration magnifierConfigurationFor(
-    Rect? Function() resolveInputBounds,
-  ) {
+    Rect? Function() resolveInputBounds, {
+    EditableTextState? Function()? resolveEditableText,
+  }) {
     return TextMagnifierConfiguration(
       shouldDisplayHandlesInMagnifier: false,
       magnifierBuilder: (
@@ -80,6 +87,7 @@ class AdwTextSelectionControls extends TextSelectionControls
         return _AdwTextMagnifier(
           magnifierInfo: magnifierInfo,
           resolveInputBounds: resolveInputBounds,
+          resolveEditableText: resolveEditableText,
         );
       },
     );
@@ -855,9 +863,11 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
         isOsd: true,
         arrowSide: arrowSide,
         padding: const EdgeInsets.all(10.0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+        child: SizedBox(
+          height: 34.0,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (iconItems.isNotEmpty)
@@ -925,6 +935,7 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
                 ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -1175,35 +1186,138 @@ class _AdwTouchSymbolicIconPainter extends CustomPainter {
 }
 
 /// Libadwaita `popover.magnifier` lens for touch text selection.
-/// Displays a live 1.75× GPU-magnified viewport with full native brightness
-/// (`RawMagnifier` painted *before* the punched-out OSD frame + arrow so
-/// `BackdropFilter` never dims the magnified text).
-class _AdwTextMagnifier extends StatelessWidget {
+/// Displays a crisp `2.0×` vector-rendered text lens (matching GTK4's
+/// `GtkMagnifier` at `100×60` @ `2.0×`, `padding: 8px`, `border-radius: 12px`,
+/// `18×9` arrow = `116×85 px` total) when attached to an [EditableText],
+/// falling back to [RawMagnifier] for non-editable selectable content.
+///
+/// Aligns the bottom arrow tip with the top border of the enclosing
+/// [AdwInputBounds] whenever there is enough room above (`anchorTop >= 85px`),
+/// and automatically flips below (`arrowOnTop: true`, top arrow tip aligned
+/// with `inputBounds.bottom`) when the input sits near the top of the window.
+class _AdwTextMagnifier extends StatefulWidget {
   final ValueNotifier<MagnifierInfo> magnifierInfo;
   final Rect? Function()? resolveInputBounds;
+  final EditableTextState? Function()? resolveEditableText;
 
   const _AdwTextMagnifier({
     required this.magnifierInfo,
     this.resolveInputBounds,
+    this.resolveEditableText,
   });
 
-  static const double _kLensWidth = 112.0;
-  static const double _kLensHeight = 42.0;
-  static const double _kPadding = 5.0;
-  static const double _kArrowWidth = 16.0;
-  static const double _kArrowHeight = 8.0;
-  static const double _kOuterRadius = 11.0;
-  static const double _kLensRadius = 6.0;
-  static const double _kScale = 1.65;
+  // Exact GTK4 `gtk_text_ensure_magnifier` (`100×60` @ `2.0×`) + Libadwaita
+  // `popover.magnifier` (`padding: 8px`, `border-radius: 12px`, `18×9` arrow).
+  static const double _kLensWidth = 100.0;
+  static const double _kLensHeight = 60.0;
+  static const double _kPadding = 8.0;
+  static const double _kArrowWidth = 18.0;
+  static const double _kArrowHeight = 9.0;
+  static const double _kOuterRadius = 12.0;
+  static const double _kLensRadius = 0.0;
+  static const double _kScale = 2.0;
+  static const double _kTotalWidth = _kLensWidth + _kPadding * 2;
+  static const double _kTotalHeight =
+      _kLensHeight + _kPadding * 2 + _kArrowHeight;
+
+  @override
+  State<_AdwTextMagnifier> createState() => _AdwTextMagnifierState();
+}
+
+class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
+  static bool _nativeLinuxMagnifierUnsupported = false;
+  bool _nativeMagnifierActive = false;
+
+  bool get _canUseNativeLinuxMagnifier =>
+      !_nativeLinuxMagnifierUnsupported &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.linux &&
+      widget.resolveEditableText != null;
+
+  @override
+  void dispose() {
+    if (_nativeMagnifierActive) {
+      _nativeMagnifierActive = false;
+      AdwTextSelectionControls._textActionsChannel
+          .invokeMethod<void>('hideMagnifier')
+          .catchError((_) {});
+    }
+    super.dispose();
+  }
+
+  void _syncNativeLinuxMagnifier(
+    BuildContext context,
+    MagnifierInfo info,
+    double targetX,
+    double anchorTop,
+    EditableTextState editableState,
+    Color lensBg,
+  ) {
+    final w = editableState.widget;
+    final val = editableState.textEditingValue;
+    final displayText =
+        w.obscureText ? w.obscuringCharacter * val.text.length : val.text;
+    final sel = val.selection;
+    final hasSel = sel.isValid && !sel.isCollapsed;
+    final extent = sel.isValid
+        ? sel.extentOffset.clamp(0, displayText.length)
+        : displayText.length;
+    final selStart = sel.isValid ? sel.start.clamp(0, displayText.length) : 0;
+    final selEnd = sel.isValid ? sel.end.clamp(0, displayText.length) : 0;
+    final textColor = (w.style.color ?? const Color(0xFFFFFFFF)).toARGB32();
+    final selColor =
+        (w.selectionColor ?? const Color(0x4D3584E4)).toARGB32();
+    final cursorColor = w.cursorColor.toARGB32();
+
+    AdwTextSelectionControls._textActionsChannel
+        .invokeMethod<bool>('updateMagnifier', <String, Object>{
+      'x': targetX,
+      'y': anchorTop,
+      'text': displayText,
+      'fontFamily': w.style.fontFamily ?? 'Sans',
+      'fontSize': w.style.fontSize ?? 14.0,
+      'caretIndex': extent,
+      'selectionStart': selStart,
+      'selectionEnd': selEnd,
+      'hasSelection': hasSel,
+      'textColor': textColor,
+      'bgColor': lensBg.toARGB32(),
+      'selectionColor': selColor,
+      'cursorColor': cursorColor,
+    }).then((ok) {
+      if (!mounted) return;
+      if (ok == true) {
+        if (!_nativeMagnifierActive) {
+          setState(() => _nativeMagnifierActive = true);
+        }
+      } else {
+        _nativeLinuxMagnifierUnsupported = true;
+        if (_nativeMagnifierActive) {
+          setState(() => _nativeMagnifierActive = false);
+        }
+      }
+    }).catchError((_) {
+      _nativeLinuxMagnifierUnsupported = true;
+      if (mounted && _nativeMagnifierActive) {
+        setState(() => _nativeMagnifierActive = false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
-    const totalWidth = _kLensWidth + _kPadding * 2;
-    const totalHeight = _kLensHeight + _kPadding * 2 + _kArrowHeight;
+    const totalWidth = _AdwTextMagnifier._kTotalWidth;
+    const totalHeight = _AdwTextMagnifier._kTotalHeight;
+    const lensWidth = _AdwTextMagnifier._kLensWidth;
+    const lensHeight = _AdwTextMagnifier._kLensHeight;
+    const padding = _AdwTextMagnifier._kPadding;
+    const outerRadius = _AdwTextMagnifier._kOuterRadius;
+    const arrowWidth = _AdwTextMagnifier._kArrowWidth;
+    const scale = _AdwTextMagnifier._kScale;
 
     return ValueListenableBuilder<MagnifierInfo>(
-      valueListenable: magnifierInfo,
+      valueListenable: widget.magnifierInfo,
       builder: (context, info, _) {
         if (info == MagnifierInfo.empty) {
           return const SizedBox.shrink();
@@ -1221,9 +1335,6 @@ class _AdwTextMagnifier extends StatelessWidget {
         final targetY = !info.caretRect.isEmpty
             ? info.caretRect.center.dy
             : info.globalGesturePosition.dy;
-        final caretTop = !info.caretRect.isEmpty
-            ? info.caretRect.top
-            : info.globalGesturePosition.dy - 10.0;
 
         final left = (targetX - totalWidth / 2)
             .clamp(
@@ -1232,13 +1343,38 @@ class _AdwTextMagnifier extends StatelessWidget {
             )
             .toDouble();
 
-        // Align with the outer input top border when inside an input widget,
-        // or with the text line (`caretTop`) for plain selectable text.
-        final Rect? inputBounds = resolveInputBounds?.call();
+        final Rect? inputBounds = widget.resolveInputBounds?.call();
         final double anchorTop = inputBounds != null
             ? inputBounds.top
-            : caretTop;
-        final double top = (anchorTop - totalHeight - 6.0)
+            : (!info.caretRect.isEmpty
+                ? info.caretRect.top - 4.0
+                : info.globalGesturePosition.dy - 14.0);
+
+        final EditableTextState? editableState =
+            widget.resolveEditableText?.call();
+        final theme = AdwTheme.maybeOf(context);
+        final Color lensBg =
+            theme?.colors.windowBackground ?? const Color(0xFF222226);
+
+        if (_canUseNativeLinuxMagnifier &&
+            editableState != null &&
+            editableState.mounted) {
+          _syncNativeLinuxMagnifier(
+            context,
+            info,
+            targetX,
+            anchorTop,
+            editableState,
+            lensBg,
+          );
+          if (_nativeMagnifierActive) {
+            return const SizedBox.shrink(
+              key: AdwTextSelectionControls.magnifierKey,
+            );
+          }
+        }
+
+        final double top = (anchorTop - totalHeight)
             .clamp(
               0.0,
               math.max(0.0, screenSize.height - totalHeight - 4.0),
@@ -1247,19 +1383,37 @@ class _AdwTextMagnifier extends StatelessWidget {
 
         final arrowOffset = (targetX - left)
             .clamp(
-              _kOuterRadius + _kArrowWidth / 2 + 2.0,
-              totalWidth - _kOuterRadius - _kArrowWidth / 2 - 2.0,
+              outerRadius + arrowWidth / 2 + 2.0,
+              totalWidth - outerRadius - arrowWidth / 2 - 2.0,
             )
             .toDouble();
 
-        const lensTopInWidget = _kPadding;
+        const double lensTopInWidget = padding;
         final lensCenterGlobal = Offset(
-          left + _kPadding + _kLensWidth / 2,
-          top + lensTopInWidget + _kLensHeight / 2,
+          left + padding + lensWidth / 2,
+          top + lensTopInWidget + lensHeight / 2,
         );
         final focalOffset = Offset(targetX, targetY) - lensCenterGlobal;
 
+        final Widget lensContent = editableState != null && editableState.mounted
+            ? CustomPaint(
+                size: const Size(lensWidth, lensHeight),
+                painter: _AdwVectorTextMagnifierPainter(
+                  editableState: editableState,
+                  textDirection: Directionality.of(context),
+                  backgroundColor: lensBg,
+                  scale: scale,
+                ),
+              )
+            : RawMagnifier(
+                size: const Size(lensWidth, lensHeight),
+                magnificationScale: scale,
+                focalPointOffset: focalOffset,
+                decoration: const MagnifierDecoration(),
+              );
+
         return Positioned(
+          key: AdwTextSelectionControls.magnifierKey,
           left: left,
           top: top,
           child: IgnorePointer(
@@ -1269,31 +1423,19 @@ class _AdwTextMagnifier extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // 1. Paint RawMagnifier FIRST with zero background behind it
-                  //    so BackdropFilter magnifies crisp, full-brightness text.
                   Positioned(
-                    left: _kPadding,
+                    left: padding,
                     top: lensTopInWidget,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(_kLensRadius),
-                      child: RawMagnifier(
-                        size: const Size(_kLensWidth, _kLensHeight),
-                        magnificationScale: _kScale,
-                        focalPointOffset: focalOffset,
-                        decoration: const MagnifierDecoration(),
-                      ),
-                    ),
+                    child: ClipRect(child: lensContent),
                   ),
-                  // 2. Paint the dark OSD outer frame + bottom arrow AFTER
-                  //    RawMagnifier with an even-odd hole for the lens.
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _AdwMagnifierFramePainter(
-                        lensRect: Rect.fromLTWH(
-                          _kPadding,
+                        lensRect: const Rect.fromLTWH(
+                          padding,
                           lensTopInWidget,
-                          _kLensWidth,
-                          _kLensHeight,
+                          lensWidth,
+                          lensHeight,
                         ),
                         arrowOnTop: false,
                         arrowCenterX: arrowOffset,
@@ -1308,6 +1450,118 @@ class _AdwTextMagnifier extends StatelessWidget {
       },
     );
   }
+}
+
+class _AdwVectorTextMagnifierPainter extends CustomPainter {
+  final EditableTextState editableState;
+  final TextDirection textDirection;
+  final Color backgroundColor;
+  final double scale;
+
+  const _AdwVectorTextMagnifierPainter({
+    required this.editableState,
+    required this.textDirection,
+    required this.backgroundColor,
+    required this.scale,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Fill lens with crisp input background color.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = backgroundColor,
+    );
+
+    final widget = editableState.widget;
+    final value = editableState.textEditingValue;
+    final rawText = value.text;
+    final displayText = widget.obscureText
+        ? widget.obscuringCharacter * rawText.length
+        : rawText;
+
+    final baseStyle = widget.style;
+    final scaledStyle = baseStyle.copyWith(
+      fontSize: (baseStyle.fontSize ?? 14.0) * scale,
+    );
+
+    final painter = TextPainter(
+      text: TextSpan(text: displayText, style: scaledStyle),
+      textDirection: textDirection,
+      maxLines: 1,
+    )..layout();
+
+    final sel = value.selection;
+    final extent = sel.isValid
+        ? sel.extentOffset.clamp(0, displayText.length)
+        : displayText.length;
+
+    final caretOffset = painter.getOffsetForCaret(
+      TextPosition(offset: extent),
+      Rect.zero,
+    );
+
+    final dx = size.width / 2 - caretOffset.dx;
+    final dy = (size.height - painter.height) / 2;
+
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    canvas.translate(dx, dy);
+
+    // 2. Paint selection highlight boxes at 2.0x vector resolution (matching
+    //    GTK4's full vertical selection band inside the 60px lens).
+    if (sel.isValid && !sel.isCollapsed) {
+      final selColor = widget.selectionColor;
+      if (selColor != null) {
+        final boxes = painter.getBoxesForSelection(
+          TextSelection(
+            baseOffset: sel.baseOffset.clamp(0, displayText.length),
+            extentOffset: extent,
+          ),
+        );
+        final selPaint = Paint()..color = selColor;
+        const double verticalPad = 6.0;
+        for (final box in boxes) {
+          final rect = box.toRect();
+          canvas.drawRect(
+            Rect.fromLTRB(
+              rect.left,
+              rect.top - verticalPad,
+              rect.right,
+              rect.bottom + verticalPad,
+            ),
+            selPaint,
+          );
+        }
+      }
+    }
+
+    // 3. Paint crisp 2.0x vector text.
+    painter.paint(canvas, Offset.zero);
+
+    // 4. Paint crisp 2.0x caret bar ONLY when selection is collapsed
+    //    (matching GTK4, which hides the caret line while a range is selected).
+    if (!sel.isValid || sel.isCollapsed) {
+      final caretHeight = painter.preferredLineHeight;
+      final caretWidth = math.max(1.5, widget.cursorWidth * scale);
+      canvas.drawRect(
+        Rect.fromLTWH(
+          caretOffset.dx - caretWidth / 2,
+          caretOffset.dy,
+          caretWidth,
+          caretHeight,
+        ),
+        Paint()..color = widget.cursorColor,
+      );
+    }
+
+    canvas.restore();
+    painter.dispose();
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdwVectorTextMagnifierPainter oldDelegate) =>
+      true;
 }
 
 class _AdwMagnifierFramePainter extends CustomPainter {
@@ -1361,20 +1615,13 @@ class _AdwMagnifierFramePainter extends CustomPainter {
     canvas.drawPath(
       framePath,
       Paint()
-        ..color = const Color(0xB3000000) // Libadwaita OSD RGB(0 0 0 / 70%)
+        ..color = const Color(0xCC000000) // Libadwaita OSD RGB(0 0 0 / 80%)
         ..style = PaintingStyle.fill,
     );
 
-    // Subtle 1px rim around outer popover + lens edge.
+    // Subtle 1px rim around outer popover only (`box-shadow: 0 0 1px RGB(255 255 255 / 10%)`).
     canvas.drawPath(
       outerPath,
-      Paint()
-        ..color = const Color(0x1AFFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-    canvas.drawPath(
-      holePath,
       Paint()
         ..color = const Color(0x1AFFFFFF)
         ..style = PaintingStyle.stroke
@@ -1448,8 +1695,8 @@ class _AdwTouchOsdButtonState extends State<_AdwTouchOsdButton> {
         },
         onTap: widget.onPressed,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 32),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: bg,
@@ -1590,6 +1837,7 @@ class _AdwEditableTextState extends State<AdwEditableText>
         _AdwSelectionGestureDetectorBuilder(delegate: this);
     _magnifierConfiguration = AdwTextSelectionControls.magnifierConfigurationFor(
       () => mounted ? AdwInputBounds.resolveBounds(context) : null,
+      resolveEditableText: () => editableTextKey.currentState,
     );
   }
 

@@ -121,8 +121,9 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _focusNode.requestFocus(),
-                      child: AnimatedContainer(
-                        duration: AdwCurves.shortDuration,
+                      child: AdwInputBounds(
+                        child: AnimatedContainer(
+                          duration: AdwCurves.shortDuration,
                         curve: AdwCurves.standard,
                         height: 34.0,
                         padding: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -218,7 +219,8 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

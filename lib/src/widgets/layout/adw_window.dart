@@ -121,11 +121,15 @@ class AdwNativeWindowController implements AdwWindowController {
     }
   }
 
-  static Future<void> attachPopupWindow({required int windowHandle}) async {
+  static Future<void> attachPopupWindow({
+    required int windowHandle,
+    bool acceptFocus = true,
+  }) async {
     if (kIsWeb) return;
     try {
       await _channel.invokeMethod('attachPopupWindow', <String, Object>{
         'windowHandle': windowHandle,
+        'acceptFocus': acceptFocus,
       });
     } catch (_) {}
   }
