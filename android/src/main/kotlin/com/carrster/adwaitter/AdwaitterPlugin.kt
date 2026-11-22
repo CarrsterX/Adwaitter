@@ -1166,12 +1166,124 @@ class AdwaitterPlugin :
                     val actInfo = info.activityInfo ?: return@mapNotNull null
                     val label = info.loadLabel(pm)?.toString()?.trim()
                     if (label.isNullOrEmpty()) return@mapNotNull null
-                    mapOf(
+                    val iconBytes: ByteArray? = try {
+                        val baseDrawable = info.loadIcon(pm)
+                            ?: pm.getApplicationIcon(actInfo.packageName)
+                        var useMono = false
+                        var drawable = baseDrawable
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            baseDrawable is android.graphics.drawable.AdaptiveIconDrawable
+                        ) {
+                            val mono = baseDrawable.monochrome?.mutate()
+                            if (mono != null) {
+                                mono.colorFilter = android.graphics.PorterDuffColorFilter(
+                                    android.graphics.Color.WHITE,
+                                    android.graphics.PorterDuff.Mode.SRC_IN,
+                                )
+                                drawable = mono
+                                useMono = true
+                            }
+                        }
+                        fun renderDrawable(
+                            d: android.graphics.drawable.Drawable,
+                        ): ByteArray? {
+                            val rawSize = 64
+                            val outSize = 48
+                            val rawBmp = android.graphics.Bitmap.createBitmap(
+                                rawSize,
+                                rawSize,
+                                android.graphics.Bitmap.Config.ARGB_8888,
+                            )
+                            val rawCanvas = android.graphics.Canvas(rawBmp)
+                            d.setBounds(0, 0, rawSize, rawSize)
+                            d.draw(rawCanvas)
+
+                            val pixels = IntArray(rawSize * rawSize)
+                            rawBmp.getPixels(pixels, 0, rawSize, 0, 0, rawSize, rawSize)
+                            var minX = rawSize
+                            var minY = rawSize
+                            var maxX = -1
+                            var maxY = -1
+                            var opaqueCount = 0
+                            for (y in 0 until rawSize) {
+                                val row = y * rawSize
+                                for (x in 0 until rawSize) {
+                                    if (((pixels[row + x] ushr 24) and 0xFF) > 24) {
+                                        opaqueCount++
+                                        if (x < minX) minX = x
+                                        if (x > maxX) maxX = x
+                                        if (y < minY) minY = y
+                                        if (y > maxY) maxY = y
+                                    }
+                                }
+                            }
+                            if (opaqueCount < 16 || maxX < minX || maxY < minY) {
+                                rawBmp.recycle()
+                                return null
+                            }
+
+                            // Auto-trim transparent margins to a centered square
+                            // so small monochrome/adaptive logos fill the 48x48
+                            // output uniformly; full-bleed icons stay unchanged.
+                            val contentW = maxX - minX + 1
+                            val contentH = maxY - minY + 1
+                            val side = maxOf(contentW, contentH)
+                            val cx = (minX + maxX + 1) / 2.0f
+                            val cy = (minY + maxY + 1) / 2.0f
+                            val half = side / 2.0f
+                            val srcRect = android.graphics.Rect(
+                                (cx - half).toInt().coerceAtLeast(0),
+                                (cy - half).toInt().coerceAtLeast(0),
+                                (cx + half).toInt().coerceAtMost(rawSize),
+                                (cy + half).toInt().coerceAtMost(rawSize),
+                            )
+
+                            val outBmp = android.graphics.Bitmap.createBitmap(
+                                outSize,
+                                outSize,
+                                android.graphics.Bitmap.Config.ARGB_8888,
+                            )
+                            val outCanvas = android.graphics.Canvas(outBmp)
+                            val paint = android.graphics.Paint(
+                                android.graphics.Paint.ANTI_ALIAS_FLAG or
+                                    android.graphics.Paint.FILTER_BITMAP_FLAG,
+                            )
+                            val dstRect = android.graphics.Rect(0, 0, outSize, outSize)
+                            outCanvas.drawBitmap(rawBmp, srcRect, dstRect, paint)
+                            rawBmp.recycle()
+
+                            val out = java.io.ByteArrayOutputStream()
+                            outBmp.compress(
+                                android.graphics.Bitmap.CompressFormat.PNG,
+                                100,
+                                out,
+                            )
+                            outBmp.recycle()
+                            return out.toByteArray()
+                        }
+                        if (drawable != null) {
+                            renderDrawable(drawable)
+                                ?: if (useMono && baseDrawable != null) {
+                                    renderDrawable(baseDrawable)
+                                } else {
+                                    null
+                                }
+                        } else {
+                            null
+                        }
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val entry = mutableMapOf<String, Any>(
                         "id" to "${actInfo.packageName}/${actInfo.name}",
                         "label" to label,
                         "packageName" to actInfo.packageName,
                         "className" to actInfo.name,
                     )
+                    if (iconBytes != null && iconBytes.isNotEmpty()) {
+                        entry["iconBytes"] = iconBytes
+                    }
+                    entry
                 }
                 result.success(actions)
             }

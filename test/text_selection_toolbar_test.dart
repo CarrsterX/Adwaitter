@@ -42,8 +42,8 @@ void main() {
       final surface = tester.widget<AdwPopoverSurface>(surfaceFinder);
       expect(surface.isOsd, isTrue);
       expect(surface.arrowSide, isNot(AdwPopoverArrowSide.none));
-      // Touch selection popover must stay compact vertically (never expand to
-      // full screen height due to horizontal SingleChildScrollView).
+      // Touch selection popover is a compact 1:1 Libadwaita horizontal bar
+      // (capped at 5 visible icons with horizontal scrolling).
       expect(tester.getSize(surfaceFinder).height, lessThan(80.0));
       expect(find.bySemanticsLabel('Copy'), findsOneWidget);
       expect(find.bySemanticsLabel('Cut'), findsOneWidget);
@@ -53,6 +53,12 @@ void main() {
           tester.state<EditableTextState>(find.byType(EditableText));
       expect(editableState.widget.showSelectionHandles, isTrue);
       expect(editableState.selectionOverlay?.handlesAreVisible, isTrue);
+
+      // Tapping Cut must actually cut the selected text.
+      final beforeCut = controller.text;
+      await tester.tap(find.bySemanticsLabel('Cut'));
+      await tester.pumpAndSettle();
+      expect(controller.text.length, lessThan(beforeCut.length));
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -181,6 +187,49 @@ void main() {
       }
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
+    }
+  });
+
+  testWidgets('AdwSearchBar touch toolbar Cut action works on Android',
+      (WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      final controller = TextEditingController(text: 'Hello SearchBar');
+      await tester.pumpWidget(
+        AdwApplication(
+          home: AdwWindow(
+            child: Column(
+              children: [
+                AdwSearchBar(
+                  revealed: true,
+                  controller: controller,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editableRect = tester.getRect(find.byType(EditableText));
+      final start = editableRect.centerLeft + const Offset(10, 0);
+      final gesture = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.touch,
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveTo(start + const Offset(48, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Cut'), findsOneWidget);
+      final beforeCut = controller.text;
+      await tester.tap(find.bySemanticsLabel('Cut'));
+      await tester.pumpAndSettle();
+      expect(controller.text.length, lessThan(beforeCut.length));
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
     }
   });
 }

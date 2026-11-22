@@ -1,9 +1,12 @@
 import 'dart:math' as math;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/rendering.dart' show RenderMetaData;
-import 'package:flutter/services.dart' show MethodChannel, TextInputFormatter;
+import 'package:flutter/services.dart'
+    show Clipboard, MethodChannel, TextInputFormatter;
 import 'package:flutter/widgets.dart';
 
 import '../theme/adw_colors.dart';
@@ -66,6 +69,18 @@ class AdwTextSelectionControls extends TextSelectionControls
 
   /// Key attached to the active Libadwaita text magnifier widget.
   static const Key magnifierKey = ValueKey<String>('adw_text_magnifier');
+
+  static DateTime? _lastToolbarPointerDown;
+
+  static void _markToolbarPointerDown() {
+    _lastToolbarPointerDown = DateTime.now();
+  }
+
+  static bool get _isRecentToolbarPointerDown {
+    final ts = _lastToolbarPointerDown;
+    if (ts == null) return false;
+    return DateTime.now().difference(ts) < const Duration(milliseconds: 150);
+  }
 
   /// Builds a [TextMagnifierConfiguration] that aligns the magnifier with the
   /// enclosing [AdwInputBounds] top border when present, or with the text
@@ -164,8 +179,9 @@ class AdwTextSelectionControls extends TextSelectionControls
   /// `popover.touch-selection` with pointing arrow).
   static Widget contextMenuBuilder(
     BuildContext context,
-    EditableTextState editableTextState,
-  ) {
+    EditableTextState editableTextState, {
+    bool? isTouch,
+  }) {
     final items = List<ContextMenuButtonItem>.of(
       editableTextState.contextMenuButtonItems,
     );
@@ -176,7 +192,10 @@ class AdwTextSelectionControls extends TextSelectionControls
         hasSelection ? value.selection.textInside(value.text) : '';
     final isSecondaryTap =
         editableTextState.renderEditable.lastSecondaryTapDownPosition != null;
-    final isTouchMode = !isSecondaryTap;
+    final isTouchMode = isTouch ??
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            !isSecondaryTap);
 
     if (!kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
@@ -219,6 +238,13 @@ class AdwTextSelectionControls extends TextSelectionControls
       readOnly: editableTextState.widget.readOnly,
       isEditable: true,
       isTouchMode: isTouchMode,
+      onPasteRequested: editableTextState.widget.readOnly
+          ? null
+          : () {
+              if (editableTextState.mounted) {
+                editableTextState.pasteText(SelectionChangedCause.toolbar);
+              }
+            },
       onReplaceSelectedText: (replacement) {
         if (!editableTextState.mounted || editableTextState.widget.readOnly) {
           return;
@@ -463,6 +489,7 @@ class _AdwTextSelectionToolbar extends StatefulWidget {
   final bool readOnly;
   final bool isEditable;
   final bool isTouchMode;
+  final VoidCallback? onPasteRequested;
   final ValueChanged<String>? onReplaceSelectedText;
 
   const _AdwTextSelectionToolbar({
@@ -472,6 +499,7 @@ class _AdwTextSelectionToolbar extends StatefulWidget {
     this.readOnly = false,
     this.isEditable = false,
     this.isTouchMode = false,
+    this.onPasteRequested,
     this.onReplaceSelectedText,
   });
 
@@ -483,6 +511,7 @@ class _AdwTextSelectionToolbar extends StatefulWidget {
 class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
   Map<String, String> _labels = const <String, String>{};
   List<ContextMenuButtonItem> _nativeExtraItems = const [];
+  Map<String, Uint8List> _nativeActionIcons = const <String, Uint8List>{};
   bool _openingNativePopover = false;
   bool _metadataLoaded = false;
 
@@ -609,7 +638,25 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
     final labels = await AdwTextSelectionControls._ensureLocalizedLabels(
       context,
     );
-    List<ContextMenuButtonItem> extra = const [];
+    final extra = <ContextMenuButtonItem>[];
+    final extraIcons = <String, Uint8List>{};
+    if (widget.onPasteRequested != null &&
+        !widget.readOnly &&
+        !widget.buttonItems
+            .any((b) => b.type == ContextMenuButtonType.paste)) {
+      try {
+        final hasClipboard = await Clipboard.hasStrings();
+        if (hasClipboard) {
+          extra.add(
+            ContextMenuButtonItem(
+              type: ContextMenuButtonType.paste,
+              label: labels['paste'] ?? 'Paste',
+              onPressed: widget.onPasteRequested,
+            ),
+          );
+        }
+      } catch (_) {}
+    }
     if (!kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
         widget.selectedText.isNotEmpty) {
@@ -620,20 +667,24 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
           final existingLabels = widget.buttonItems
               .map((b) => (b.label ?? '').toLowerCase())
               .toSet();
-          final built = <ContextMenuButtonItem>[];
           for (final entry in raw) {
             if (entry is! Map) continue;
             final label = entry['label']?.toString() ?? '';
             final pkg = entry['packageName']?.toString() ?? '';
             final cls = entry['className']?.toString() ?? '';
-            if (label.isEmpty ||
-                pkg.isEmpty ||
-                cls.isEmpty ||
-                existingLabels.contains(label.toLowerCase())) {
+            if (label.isEmpty || pkg.isEmpty || cls.isEmpty) {
               continue;
             }
-            existingLabels.add(label.toLowerCase());
-            built.add(
+            final lowerLabel = label.toLowerCase();
+            final rawIcon = entry['iconBytes'];
+            if (rawIcon is Uint8List && rawIcon.isNotEmpty) {
+              extraIcons[lowerLabel] = rawIcon;
+            }
+            if (existingLabels.contains(lowerLabel)) {
+              continue;
+            }
+            existingLabels.add(lowerLabel);
+            extra.add(
               ContextMenuButtonItem(
                 type: ContextMenuButtonType.custom,
                 label: label,
@@ -656,17 +707,17 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
               ),
             );
           }
-          extra = built;
         }
       } catch (_) {
         // Ignore if runner does not implement getTextActions.
       }
     }
     if (!mounted) return;
-    if (labels != _labels || extra.isNotEmpty) {
+    if (labels != _labels || extra.isNotEmpty || extraIcons.isNotEmpty) {
       setState(() {
         _labels = labels;
         _nativeExtraItems = extra;
+        _nativeActionIcons = extraIcons;
       });
     }
   }
@@ -819,123 +870,129 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
     );
   }
 
-  static _AdwTouchIconKind? _iconKindFor(ContextMenuButtonItem item) {
+  static _AdwTouchIconKind _iconKindFor(ContextMenuButtonItem item) {
     if (item.type == ContextMenuButtonType.custom &&
         item.label == 'Insert Emoji') {
       return _AdwTouchIconKind.insertEmoji;
     }
-    return switch (item.type) {
-      ContextMenuButtonType.cut => _AdwTouchIconKind.cut,
-      ContextMenuButtonType.copy => _AdwTouchIconKind.copy,
-      ContextMenuButtonType.paste => _AdwTouchIconKind.paste,
-      ContextMenuButtonType.selectAll => _AdwTouchIconKind.selectAll,
-      ContextMenuButtonType.share => _AdwTouchIconKind.share,
-      _ => null,
-    };
+    switch (item.type) {
+      case ContextMenuButtonType.cut:
+        return _AdwTouchIconKind.cut;
+      case ContextMenuButtonType.copy:
+        return _AdwTouchIconKind.copy;
+      case ContextMenuButtonType.paste:
+        return _AdwTouchIconKind.paste;
+      case ContextMenuButtonType.selectAll:
+        return _AdwTouchIconKind.selectAll;
+      case ContextMenuButtonType.share:
+        return _AdwTouchIconKind.share;
+      case ContextMenuButtonType.searchWeb:
+      case ContextMenuButtonType.lookUp:
+        return _AdwTouchIconKind.search;
+      case ContextMenuButtonType.delete:
+      case ContextMenuButtonType.liveTextInput:
+      case ContextMenuButtonType.custom:
+        final lower = (item.label ?? '').toLowerCase();
+        if (lower.contains('traduc') || lower.contains('translat')) {
+          return _AdwTouchIconKind.translate;
+        }
+        if (lower.contains('leer') ||
+            lower.contains('voz') ||
+            lower.contains('read') ||
+            lower.contains('speak')) {
+          return _AdwTouchIconKind.readAloud;
+        }
+        if (lower.contains('buscar') || lower.contains('search')) {
+          return _AdwTouchIconKind.search;
+        }
+        return _AdwTouchIconKind.externalAction;
+    }
   }
 
   /// Authentic Libadwaita `popover.touch-selection` OSD surface:
   /// dark OSD popover with pointing arrow and a `.linked` bar of symbolic icon
-  /// buttons (`Cut`, `Copy`, `Paste`, `Select All`, `Insert Emoji`, `Share`),
-  /// plus optional compact text buttons for Android `ACTION_PROCESS_TEXT`.
+  /// buttons (`Cut`, `Copy`, `Paste`, `Select All`, `Insert Emoji`, `Share`,
+  /// and Android `ACTION_PROCESS_TEXT` actions with their native icons),
+  /// capped at 5 visible items (`194px`) with smooth horizontal scrolling.
   static Widget _buildTouchSelectionPopoverSurface(
     BuildContext context, {
     required List<ContextMenuButtonItem> items,
     required Map<String, String> labels,
+    Map<String, Uint8List> nativeIcons = const <String, Uint8List>{},
     required AdwPopoverArrowSide arrowSide,
     VoidCallback? onDismissPopup,
   }) {
     if (items.isEmpty) return const SizedBox.shrink();
 
-    final iconItems = <(ContextMenuButtonItem, _AdwTouchIconKind)>[];
-    final textItems = <ContextMenuButtonItem>[];
-    for (final item in items) {
-      final kind = _iconKindFor(item);
-      if (kind != null) {
-        iconItems.add((item, kind));
-      } else {
-        textItems.add(item);
-      }
-    }
+    // 5 buttons * 38px + 4 dividers * 1px = 194px visible before scrolling.
+    const double maxVisibleBarWidth = 5 * 38.0 + 4 * 1.0;
+
+    final iconItems = <(ContextMenuButtonItem, _AdwTouchIconKind)>[
+      for (final item in items) (item, _iconKindFor(item)),
+    ];
 
     return TextFieldTapRegion(
       child: AdwPopoverSurface(
         isOsd: true,
         arrowSide: arrowSide,
         padding: const EdgeInsets.all(10.0),
-        child: SizedBox(
-          height: 34.0,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (iconItems.isNotEmpty)
-                ClipRRect(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: maxVisibleBarWidth),
+          child: SizedBox(
+            height: 34.0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6.0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0x18FFFFFF),
                   borderRadius: BorderRadius.circular(6.0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0x18FFFFFF),
-                      borderRadius: BorderRadius.circular(6.0),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int i = 0; i < iconItems.length; i++) ...[
-                          if (i > 0)
-                            Container(
-                              width: 1,
-                              height: 34,
-                              color: const Color(0x1EFFFFFF),
+                ),
+                child: RawScrollbar(
+                  interactive: false,
+                  thickness: 2.0,
+                  radius: const Radius.circular(1.0),
+                  thumbColor: const Color(0x66FFFFFF),
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (int i = 0; i < iconItems.length; i++) ...[
+                            if (i > 0)
+                              Container(
+                                width: 1,
+                                height: 34,
+                                color: const Color(0x1EFFFFFF),
+                              ),
+                            _AdwTouchIconButton(
+                              kind: iconItems[i].$2,
+                              nativeIconBytes:
+                                  iconItems[i].$1.type ==
+                                              ContextMenuButtonType.custom &&
+                                          iconItems[i].$2 !=
+                                              _AdwTouchIconKind.readAloud
+                                      ? nativeIcons[
+                                          (iconItems[i].$1.label ?? '')
+                                              .toLowerCase()]
+                                      : null,
+                              semanticLabel: _labelFor(iconItems[i].$1, labels),
+                              onPressed: _wrapAction(
+                                iconItems[i].$1.onPressed,
+                                onDismissPopup,
+                              ),
                             ),
-                          _AdwTouchIconButton(
-                            kind: iconItems[i].$2,
-                            semanticLabel: _labelFor(iconItems[i].$1, labels),
-                            onPressed: _wrapAction(
-                              iconItems[i].$1.onPressed,
-                              onDismissPopup,
-                            ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              if (iconItems.isNotEmpty && textItems.isNotEmpty)
-                const SizedBox(width: 6),
-              if (textItems.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6.0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0x18FFFFFF),
-                      borderRadius: BorderRadius.circular(6.0),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int i = 0; i < textItems.length; i++) ...[
-                          if (i > 0)
-                            Container(
-                              width: 1,
-                              height: 34,
-                              color: const Color(0x1EFFFFFF),
-                            ),
-                          _AdwTouchOsdButton(
-                            label: _labelFor(textItems[i], labels),
-                            onPressed: _wrapAction(
-                              textItems[i].onPressed,
-                              onDismissPopup,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+              ),
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -970,6 +1027,7 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
           context,
           items: allItems,
           labels: _labels,
+          nativeIcons: _nativeActionIcons,
           arrowSide: arrowSide,
         ),
       ),
@@ -1014,15 +1072,21 @@ enum _AdwTouchIconKind {
   selectAll,
   insertEmoji,
   share,
+  translate,
+  readAloud,
+  search,
+  externalAction,
 }
 
 class _AdwTouchIconButton extends StatefulWidget {
   final _AdwTouchIconKind kind;
+  final Uint8List? nativeIconBytes;
   final String semanticLabel;
   final VoidCallback? onPressed;
 
   const _AdwTouchIconButton({
     required this.kind,
+    this.nativeIconBytes,
     required this.semanticLabel,
     this.onPressed,
   });
@@ -1032,6 +1096,13 @@ class _AdwTouchIconButton extends StatefulWidget {
 }
 
 class _AdwTouchIconButtonState extends State<_AdwTouchIconButton> {
+  static const List<double> _kMonochromeMatrix = <double>[
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0,      0,      0,      0.9, 0,
+  ];
+
   bool _hovered = false;
   bool _pressed = false;
 
@@ -1049,37 +1120,55 @@ class _AdwTouchIconButtonState extends State<_AdwTouchIconButton> {
     return Semantics(
       label: widget.semanticLabel,
       button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (mounted) setState(() => _hovered = true);
-        },
-        onExit: (_) {
-          if (mounted) setState(() => _hovered = false);
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) {
-            if (mounted) setState(() => _pressed = true);
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) => AdwTextSelectionControls._markToolbarPointerDown(),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) {
+            if (mounted) setState(() => _hovered = true);
           },
-          onTapUp: (_) {
-            if (mounted) setState(() => _pressed = false);
+          onExit: (_) {
+            if (mounted) setState(() => _hovered = false);
           },
-          onTapCancel: () {
-            if (mounted) setState(() => _pressed = false);
-          },
-          onTap: widget.onPressed,
-          child: Container(
-            width: 38,
-            height: 34,
-            color: bg,
-            alignment: Alignment.center,
-            child: CustomPaint(
-              size: const Size(16, 16),
-              painter: _AdwTouchSymbolicIconPainter(
-                kind: widget.kind,
-                color: const Color(0xE6FFFFFF),
-              ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              if (mounted) setState(() => _pressed = true);
+            },
+            onTapUp: (_) {
+              if (mounted) setState(() => _pressed = false);
+            },
+            onTapCancel: () {
+              if (mounted) setState(() => _pressed = false);
+            },
+            onTap: widget.onPressed,
+            child: Container(
+              width: 38,
+              height: 34,
+              color: bg,
+              alignment: Alignment.center,
+              child: widget.nativeIconBytes != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(3.5),
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.matrix(_kMonochromeMatrix),
+                        child: Image.memory(
+                          widget.nativeIconBytes!,
+                          width: 16,
+                          height: 16,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                      ),
+                    )
+                  : CustomPaint(
+                      size: const Size(16, 16),
+                      painter: _AdwTouchSymbolicIconPainter(
+                        kind: widget.kind,
+                        color: const Color(0xE6FFFFFF),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -1177,6 +1266,54 @@ class _AdwTouchSymbolicIconPainter extends CustomPainter {
         canvas.drawCircle(const Offset(12.2, 12.5), 2.0, fill);
         canvas.drawLine(const Offset(5.0, 7.2), const Offset(10.6, 4.3), stroke);
         canvas.drawLine(const Offset(5.0, 8.8), const Offset(10.6, 11.7), stroke);
+      case _AdwTouchIconKind.translate:
+        // Stylized 'A' + globe/script strokes for Translate.
+        canvas.drawLine(const Offset(2.0, 4.0), const Offset(8.5, 4.0), stroke);
+        canvas.drawLine(const Offset(5.2, 2.2), const Offset(5.2, 4.0), stroke);
+        canvas.drawLine(const Offset(7.2, 4.0), const Offset(3.2, 10.5), stroke);
+        canvas.drawLine(const Offset(3.5, 6.2), const Offset(7.5, 10.2), stroke);
+        canvas.drawLine(const Offset(8.8, 13.5), const Offset(11.3, 7.0), stroke);
+        canvas.drawLine(const Offset(13.8, 13.5), const Offset(11.3, 7.0), stroke);
+        canvas.drawLine(const Offset(9.7, 11.5), const Offset(12.9, 11.5), stroke);
+      case _AdwTouchIconKind.readAloud:
+        // Speaker cone + sound wave arcs.
+        final speaker = Path()
+          ..moveTo(2.0, 6.2)
+          ..lineTo(4.8, 6.2)
+          ..lineTo(8.2, 3.2)
+          ..lineTo(8.2, 12.8)
+          ..lineTo(4.8, 9.8)
+          ..lineTo(2.0, 9.8)
+          ..close();
+        canvas.drawPath(speaker, fill);
+        canvas.drawArc(
+          const Rect.fromLTWH(8.5, 5.2, 3.2, 5.6),
+          -math.pi / 3,
+          2 * math.pi / 3,
+          false,
+          stroke,
+        );
+        canvas.drawArc(
+          const Rect.fromLTWH(9.5, 3.0, 5.0, 10.0),
+          -math.pi / 3,
+          2 * math.pi / 3,
+          false,
+          stroke,
+        );
+      case _AdwTouchIconKind.search:
+        canvas.drawCircle(const Offset(7.0, 7.0), 4.5, stroke);
+        canvas.drawLine(const Offset(10.4, 10.4), const Offset(14.0, 14.0), stroke);
+      case _AdwTouchIconKind.externalAction:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(2.2, 4.2, 9.6, 9.6),
+            const Radius.circular(1.8),
+          ),
+          stroke,
+        );
+        canvas.drawLine(const Offset(7.8, 8.2), const Offset(13.5, 2.5), stroke);
+        canvas.drawLine(const Offset(9.8, 2.5), const Offset(13.5, 2.5), stroke);
+        canvas.drawLine(const Offset(13.5, 2.5), const Offset(13.5, 6.2), stroke);
     }
   }
 
@@ -1636,79 +1773,6 @@ class _AdwMagnifierFramePainter extends CustomPainter {
       oldDelegate.arrowCenterX != arrowCenterX;
 }
 
-/// Flat OSD button inside `popover.touch-selection` for custom text actions.
-class _AdwTouchOsdButton extends StatefulWidget {
-  final String label;
-  final VoidCallback? onPressed;
-
-  const _AdwTouchOsdButton({
-    required this.label,
-    this.onPressed,
-  });
-
-  @override
-  State<_AdwTouchOsdButton> createState() => _AdwTouchOsdButtonState();
-}
-
-class _AdwTouchOsdButtonState extends State<_AdwTouchOsdButton> {
-  bool _hovered = false;
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AdwTheme.maybeOf(context);
-    const fg = Color(0xE6FFFFFF); // RGB(255 255 255 / 90%)
-    final style = (theme?.typography.body ?? const TextStyle(fontSize: 13.5))
-        .copyWith(
-      color: fg,
-      fontSize: 13.5,
-      fontWeight: FontWeight.w600,
-    );
-
-    final Color bg;
-    if (_pressed) {
-      bg = const Color(0x29FFFFFF);
-    } else if (_hovered) {
-      bg = const Color(0x1AFFFFFF);
-    } else {
-      bg = const Color(0x00000000);
-    }
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (mounted) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (mounted) setState(() => _hovered = false);
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) {
-          if (mounted) setState(() => _pressed = true);
-        },
-        onTapUp: (_) {
-          if (mounted) setState(() => _pressed = false);
-        },
-        onTapCancel: () {
-          if (mounted) setState(() => _pressed = false);
-        },
-        onTap: widget.onPressed,
-        child: Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(widget.label, style: style),
-        ),
-      ),
-    );
-  }
-}
-
 class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
   final Offset anchorAbove;
   final Offset anchorBelow;
@@ -1823,6 +1887,7 @@ class _AdwEditableTextState extends State<AdwEditableText>
       _selectionGestureDetectorBuilder;
   late final TextMagnifierConfiguration _magnifierConfiguration;
   bool _showSelectionHandles = false;
+  PointerDeviceKind _lastPointerKind = PointerDeviceKind.mouse;
 
   @override
   bool get forcePressEnabled => false;
@@ -1887,28 +1952,39 @@ class _AdwEditableTextState extends State<AdwEditableText>
   Widget build(BuildContext context) {
     final hasOverlay = Overlay.maybeOf(context) != null;
     return TextFieldTapRegion(
-      child: _selectionGestureDetectorBuilder.buildGestureDetector(
+      child: Listener(
         behavior: HitTestBehavior.translucent,
-        child: EditableText(
-          key: editableTextKey,
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          style: widget.style,
-          cursorColor: widget.cursorColor,
-          backgroundCursorColor: widget.backgroundCursorColor,
-          selectionColor: widget.selectionColor,
-          cursorWidth: widget.cursorWidth,
-          cursorOpacityAnimates: widget.cursorOpacityAnimates,
-          showCursor: widget.showCursor,
-          showSelectionHandles: _showSelectionHandles,
-          onSelectionChanged: _handleSelectionChanged,
-          onSelectionHandleTapped: _handleSelectionHandleTapped,
-          rendererIgnoresPointer: true,
-          enableInteractiveSelection: true,
-          selectionControls:
-              hasOverlay ? AdwTextSelectionControls.forPlatform(context) : null,
-          contextMenuBuilder:
-              hasOverlay ? AdwTextSelectionControls.contextMenuBuilder : null,
+        onPointerDown: (event) {
+          _lastPointerKind = event.kind;
+        },
+        child: _selectionGestureDetectorBuilder.buildGestureDetector(
+          behavior: HitTestBehavior.translucent,
+          child: EditableText(
+            key: editableTextKey,
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            style: widget.style,
+            cursorColor: widget.cursorColor,
+            backgroundCursorColor: widget.backgroundCursorColor,
+            selectionColor: widget.selectionColor,
+            cursorWidth: widget.cursorWidth,
+            cursorOpacityAnimates: widget.cursorOpacityAnimates,
+            showCursor: widget.showCursor,
+            showSelectionHandles: _showSelectionHandles,
+            onSelectionChanged: _handleSelectionChanged,
+            onSelectionHandleTapped: _handleSelectionHandleTapped,
+            rendererIgnoresPointer: true,
+            enableInteractiveSelection: true,
+            selectionControls:
+                hasOverlay ? AdwTextSelectionControls.forPlatform(context) : null,
+            contextMenuBuilder: hasOverlay
+                ? (ctx, state) => AdwTextSelectionControls.contextMenuBuilder(
+                      ctx,
+                      state,
+                      isTouch: _lastPointerKind == PointerDeviceKind.touch ||
+                          _lastPointerKind == PointerDeviceKind.stylus,
+                    )
+                : null,
           magnifierConfiguration: hasOverlay
               ? _magnifierConfiguration
               : TextMagnifierConfiguration.disabled,
@@ -1918,7 +1994,15 @@ class _AdwEditableTextState extends State<AdwEditableText>
           inputFormatters: widget.inputFormatters,
           onChanged: widget.onChanged,
           onSubmitted: widget.onSubmitted,
-          onTapOutside: widget.onTapOutside,
+          onTapOutside: widget.onTapOutside == null
+              ? null
+              : (event) {
+                  if (AdwTextSelectionControls._isRecentToolbarPointerDown) {
+                    return;
+                  }
+                  widget.onTapOutside!(event);
+                },
+        ),
         ),
       ),
     );
