@@ -1,0 +1,7 @@
+## 1.0.0-alpha
+
+* Initial pre-alpha release of **Adwaitter**, a pure Flutter GNOME Libadwaita 1.10+ UI widget library and design system (zero Material dependency).
+* Complete adaptive Light & Dark themes (`AdwThemeData`, `AdwColorScheme`, `AdwTypography`, `AdwStyleManager`) with GNOME/Android Material You dynamic accent colors and variable-weight `AdwaitaSans` / `AdwaitaMono` fonts.
+* Full GNOME Libadwaita widget suite: `AdwApplication`, `AdwWindow`, `AdwHeaderBar`, `AdwToolbarView`, `AdwNavigationView`, `AdwNavigationSplitView`, `AdwOverlaySplitView`, `AdwSidebar`, `AdwTabView`, `AdwViewSwitcher`, `AdwCarousel`, `AdwBottomSheet`, `AdwDialog`, `AdwAlertDialog`, `AdwAboutDialog`, `AdwPreferencesDialog`, `AdwShortcutsDialog`, `AdwPopover`, `AdwContextMenu`, `AdwToastOverlay`, `AdwBanner`, `AdwTooltip`, `AdwSearchBar`, `AdwClamp`, `AdwClampScrollable`, `AdwBreakpointBin`, `AdwWrapBox`, `AdwMultiLayoutView`, `AdwCard`, `AdwOsdSurface`, `AdwLinkedBox`, `AdwActionRow`, `AdwExpanderRow`, `AdwEntryRow`, `AdwComboRow`, `AdwSpinRow`, `AdwButtonRow`, `AdwButton`, `AdwSplitButton`, `AdwToggleGroup`, `AdwDropdown`, `AdwEntry`, `AdwSwitch`, `AdwCheckbox`, `AdwSlider`, `AdwProgressBar`, `AdwLevelBar`, `AdwSpinner`, `AdwAvatar`, `AdwStatusPage`.
+* Zero-config Android plugin (`AdwaitterPlugin.kt`): edge-to-edge layout, predictive back gesture support, multi-window detection, Material You accent colors, haptic feedback, and `openUri` / file picker portal handlers.
+* Added CLI starter generator (`dart run adwaitter:setup`).
