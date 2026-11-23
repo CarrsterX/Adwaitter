@@ -665,16 +665,12 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
                   // Trackpad gestures are handled exclusively via PointerPanZoom events above
                   // to avoid double-counting deltas with HorizontalDragGestureRecognizer.
                   () => HorizontalDragGestureRecognizer(
-                    supportedDevices: effectiveAllowMouseDrag
-                        ? const {
-                            PointerDeviceKind.touch,
-                            PointerDeviceKind.mouse,
-                            PointerDeviceKind.stylus,
-                          }
-                        : const {
-                            PointerDeviceKind.touch,
-                            PointerDeviceKind.stylus,
-                          },
+                    // Mouse drags must never hijack text selection or trigger
+                    // swipe-back; trackpad uses PointerPanZoom above.
+                    supportedDevices: const {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.stylus,
+                    },
                   ),
                   (HorizontalDragGestureRecognizer instance) {
                     instance
