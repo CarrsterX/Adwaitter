@@ -90,3 +90,8 @@ export 'src/widgets/display/adw_emblem.dart';
 export 'src/widgets/display/adw_level_bar.dart';
 export 'src/widgets/display/adw_progress_bar.dart';
 export 'src/widgets/display/adw_spinner.dart';
+
+/// No-op Dart plugin registration for non-Android platforms.
+class AdwaitterDartPlugin {
+  static void registerWith() {}
+}
