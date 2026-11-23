@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/rendering.dart' show RenderMetaData;
 import 'package:flutter/services.dart'
-    show Clipboard, MethodChannel, TextInputFormatter;
+    show Clipboard, HapticFeedback, MethodChannel, TextInputFormatter;
 import 'package:flutter/widgets.dart';
 
 import '../theme/adw_colors.dart';
@@ -348,9 +348,13 @@ class AdwTextSelectionControls extends TextSelectionControls
     final Color color =
         accentColor ?? theme?.colors.accentColor ?? AdwColors.accentBlue;
 
-    final Widget handle = _AdwSelectionHandle(
-      type: type,
-      color: color,
+    final Widget handle = Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => HapticFeedback.mediumImpact(),
+      child: _AdwSelectionHandle(
+        type: type,
+        color: color,
+      ),
     );
 
     if (onTap == null) return handle;
@@ -944,7 +948,7 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
               borderRadius: BorderRadius.circular(6.0),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0x18FFFFFF),
+                  color: const Color(0xFF35353A),
                   borderRadius: BorderRadius.circular(6.0),
                 ),
                 child: RawScrollbar(
@@ -965,7 +969,7 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
                               Container(
                                 width: 1,
                                 height: 34,
-                                color: const Color(0x1EFFFFFF),
+                                color: const Color(0xFF45454B),
                               ),
                             _AdwTouchIconButton(
                               kind: iconItems[i].$2,
@@ -1008,10 +1012,19 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
     ];
     if (allItems.isEmpty) return const SizedBox.shrink();
     final screenSize = MediaQuery.sizeOf(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final visibleBottom = screenSize.height - bottomInset;
     final maxWidth = math.max(180.0, screenSize.width - 16.0);
-    final anchorBelow =
+    final rawAnchorBelow =
         widget.anchors.secondaryAnchor ?? widget.anchors.primaryAnchor;
-    final placeAbove = anchorBelow.dy + 76.0 > screenSize.height;
+    // Clear the selection handles below the text baseline without leaving
+    // extra empty space below the input.
+    const double handleClearance = 14.0;
+    final anchorBelow = Offset(
+      rawAnchorBelow.dx,
+      rawAnchorBelow.dy + handleClearance,
+    );
+    final placeAbove = anchorBelow.dy + 76.0 > visibleBottom;
     final arrowSide =
         placeAbove ? AdwPopoverArrowSide.bottom : AdwPopoverArrowSide.top;
 
@@ -1020,6 +1033,7 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
         anchorAbove: widget.anchors.primaryAnchor,
         anchorBelow: anchorBelow,
         preferBelow: true,
+        bottomInset: bottomInset,
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -1364,6 +1378,8 @@ class _AdwTextMagnifier extends StatefulWidget {
 class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
   static bool _nativeLinuxMagnifierUnsupported = false;
   bool _nativeMagnifierActive = false;
+  double? _lastGestureX;
+  int _preferredSide = 0; // -1 = left of finger, 1 = right of finger, 0 = unset
 
   bool get _canUseNativeLinuxMagnifier =>
       !_nativeLinuxMagnifierUnsupported &&
@@ -1444,11 +1460,19 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
-    const totalWidth = _AdwTextMagnifier._kTotalWidth;
-    const totalHeight = _AdwTextMagnifier._kTotalHeight;
-    const lensWidth = _AdwTextMagnifier._kLensWidth;
-    const lensHeight = _AdwTextMagnifier._kLensHeight;
-    const padding = _AdwTextMagnifier._kPadding;
+    final bool isAndroidSideMagnifier =
+        defaultTargetPlatform == TargetPlatform.android;
+    const double arrowH = _AdwTextMagnifier._kArrowHeight;
+    final double lensWidth =
+        isAndroidSideMagnifier ? 76.0 : _AdwTextMagnifier._kLensWidth;
+    final double lensHeight =
+        isAndroidSideMagnifier ? 44.0 : _AdwTextMagnifier._kLensHeight;
+    final double padding =
+        isAndroidSideMagnifier ? 6.0 : _AdwTextMagnifier._kPadding;
+    final double totalWidth =
+        isAndroidSideMagnifier ? lensWidth + padding * 2 + arrowH : _AdwTextMagnifier._kTotalWidth;
+    final double totalHeight =
+        isAndroidSideMagnifier ? lensHeight + padding * 2 : _AdwTextMagnifier._kTotalHeight;
     const outerRadius = _AdwTextMagnifier._kOuterRadius;
     const arrowWidth = _AdwTextMagnifier._kArrowWidth;
     const scale = _AdwTextMagnifier._kScale;
@@ -1457,6 +1481,8 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
       valueListenable: widget.magnifierInfo,
       builder: (context, info, _) {
         if (info == MagnifierInfo.empty) {
+          _lastGestureX = null;
+          _preferredSide = 0;
           return const SizedBox.shrink();
         }
         final targetX = (!info.caretRect.isEmpty
@@ -1473,12 +1499,64 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
             ? info.caretRect.center.dy
             : info.globalGesturePosition.dy;
 
-        final left = (targetX - totalWidth / 2)
-            .clamp(
-              8.0,
-              math.max(8.0, screenSize.width - totalWidth - 8.0),
-            )
-            .toDouble();
+        final EditableTextState? editableState =
+            widget.resolveEditableText?.call();
+
+        final double left;
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          const double edgeMargin = 8.0;
+          const double fingerGap = 24.0;
+          final double fingerX = info.globalGesturePosition.dx;
+          final double dx =
+              _lastGestureX != null ? fingerX - _lastGestureX! : 0.0;
+          _lastGestureX = fingerX;
+
+          final double leftSpace = fingerX - fingerGap - edgeMargin;
+          final double rightSpace =
+              (screenSize.width - edgeMargin) - (fingerX + fingerGap);
+          final bool hasLeftSpace = leftSpace >= totalWidth;
+          final bool hasRightSpace = rightSpace >= totalWidth;
+
+          int desiredSide = 0;
+          if (dx > 1.5) {
+            desiredSide = -1; // Swiping right -> place magnifier on the left
+          } else if (dx < -1.5) {
+            desiredSide = 1; // Swiping left -> place magnifier on the right
+          }
+
+          if (_preferredSide == 0) {
+            if (desiredSide == -1) {
+              _preferredSide = hasLeftSpace ? -1 : 1;
+            } else if (desiredSide == 1) {
+              _preferredSide = hasRightSpace ? 1 : -1;
+            } else {
+              _preferredSide = leftSpace >= rightSpace ? -1 : 1;
+            }
+          } else if (desiredSide != 0 && desiredSide != _preferredSide) {
+            // Only switch to the opposite side once there is enough room.
+            if ((desiredSide == -1 && hasLeftSpace) ||
+                (desiredSide == 1 && hasRightSpace)) {
+              _preferredSide = desiredSide;
+            }
+          }
+
+          final double desiredLeft = _preferredSide == -1
+              ? fingerX - fingerGap - totalWidth
+              : fingerX + fingerGap;
+          left = desiredLeft
+              .clamp(
+                edgeMargin,
+                math.max(edgeMargin, screenSize.width - totalWidth - edgeMargin),
+              )
+              .toDouble();
+        } else {
+          left = (targetX - totalWidth / 2)
+              .clamp(
+                8.0,
+                math.max(8.0, screenSize.width - totalWidth - 8.0),
+              )
+              .toDouble();
+        }
 
         final Rect? inputBounds = widget.resolveInputBounds?.call();
         final double anchorTop = inputBounds != null
@@ -1487,8 +1565,6 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
                 ? info.caretRect.top - 4.0
                 : info.globalGesturePosition.dy - 14.0);
 
-        final EditableTextState? editableState =
-            widget.resolveEditableText?.call();
         final theme = AdwTheme.maybeOf(context);
         final Color lensBg =
             theme?.colors.windowBackground ?? const Color(0xFF222226);
@@ -1511,30 +1587,54 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
           }
         }
 
-        final double top = (anchorTop - totalHeight)
-            .clamp(
-              0.0,
-              math.max(0.0, screenSize.height - totalHeight - 4.0),
-            )
-            .toDouble();
+        final double boxWidth = totalWidth;
+        final double boxHeight = totalHeight;
+        final _MagnifierArrowSide arrowSide = isAndroidSideMagnifier
+            ? (_preferredSide == -1
+                ? _MagnifierArrowSide.right
+                : _MagnifierArrowSide.left)
+            : _MagnifierArrowSide.bottom;
 
-        final arrowOffset = (targetX - left)
-            .clamp(
-              outerRadius + arrowWidth / 2 + 2.0,
-              totalWidth - outerRadius - arrowWidth / 2 - 2.0,
-            )
-            .toDouble();
+        final double top = isAndroidSideMagnifier
+            ? (targetY - boxHeight / 2)
+                .clamp(
+                  8.0,
+                  math.max(8.0, screenSize.height - boxHeight - 8.0),
+                )
+                .toDouble()
+            : (anchorTop - boxHeight)
+                .clamp(
+                  0.0,
+                  math.max(0.0, screenSize.height - boxHeight - 4.0),
+                )
+                .toDouble();
 
-        const double lensTopInWidget = padding;
+        final double arrowOffset = isAndroidSideMagnifier
+            ? (targetY - top)
+                .clamp(
+                  outerRadius + arrowWidth / 2 + 2.0,
+                  boxHeight - outerRadius - arrowWidth / 2 - 2.0,
+                )
+                .toDouble()
+            : (targetX - left)
+                .clamp(
+                  outerRadius + arrowWidth / 2 + 2.0,
+                  boxWidth - outerRadius - arrowWidth / 2 - 2.0,
+                )
+                .toDouble();
+
+        final double lensLeftInWidget =
+            arrowSide == _MagnifierArrowSide.left ? padding + arrowH : padding;
+        final double lensTopInWidget = padding;
         final lensCenterGlobal = Offset(
-          left + padding + lensWidth / 2,
+          left + lensLeftInWidget + lensWidth / 2,
           top + lensTopInWidget + lensHeight / 2,
         );
         final focalOffset = Offset(targetX, targetY) - lensCenterGlobal;
 
         final Widget lensContent = editableState != null && editableState.mounted
             ? CustomPaint(
-                size: const Size(lensWidth, lensHeight),
+                size: Size(lensWidth, lensHeight),
                 painter: _AdwVectorTextMagnifierPainter(
                   editableState: editableState,
                   textDirection: Directionality.of(context),
@@ -1543,7 +1643,7 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
                 ),
               )
             : RawMagnifier(
-                size: const Size(lensWidth, lensHeight),
+                size: Size(lensWidth, lensHeight),
                 magnificationScale: scale,
                 focalPointOffset: focalOffset,
                 decoration: const MagnifierDecoration(),
@@ -1555,27 +1655,27 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
           top: top,
           child: IgnorePointer(
             child: SizedBox(
-              width: totalWidth,
-              height: totalHeight,
+              width: boxWidth,
+              height: boxHeight,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                    left: padding,
+                    left: lensLeftInWidget,
                     top: lensTopInWidget,
                     child: ClipRect(child: lensContent),
                   ),
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _AdwMagnifierFramePainter(
-                        lensRect: const Rect.fromLTWH(
-                          padding,
+                        lensRect: Rect.fromLTWH(
+                          lensLeftInWidget,
                           lensTopInWidget,
                           lensWidth,
                           lensHeight,
                         ),
-                        arrowOnTop: false,
-                        arrowCenterX: arrowOffset,
+                        arrowSide: arrowSide,
+                        arrowCenter: arrowOffset,
                       ),
                     ),
                   ),
@@ -1701,15 +1801,17 @@ class _AdwVectorTextMagnifierPainter extends CustomPainter {
       true;
 }
 
+enum _MagnifierArrowSide { top, bottom, left, right }
+
 class _AdwMagnifierFramePainter extends CustomPainter {
   final Rect lensRect;
-  final bool arrowOnTop;
-  final double arrowCenterX;
+  final _MagnifierArrowSide arrowSide;
+  final double arrowCenter;
 
   const _AdwMagnifierFramePainter({
     required this.lensRect,
-    required this.arrowOnTop,
-    required this.arrowCenterX,
+    required this.arrowSide,
+    required this.arrowCenter,
   });
 
   @override
@@ -1719,28 +1821,47 @@ class _AdwMagnifierFramePainter extends CustomPainter {
     const double outerR = _AdwTextMagnifier._kOuterRadius;
     const double lensR = _AdwTextMagnifier._kLensRadius;
 
-    final double bodyTop = arrowOnTop ? arrowH : 0.0;
-    final double bodyBottom = arrowOnTop ? size.height : size.height - arrowH;
-    final outerRect = Rect.fromLTRB(0, bodyTop, size.width, bodyBottom);
+    final double bodyLeft = arrowSide == _MagnifierArrowSide.left ? arrowH : 0.0;
+    final double bodyRight =
+        arrowSide == _MagnifierArrowSide.right ? size.width - arrowH : size.width;
+    final double bodyTop = arrowSide == _MagnifierArrowSide.top ? arrowH : 0.0;
+    final double bodyBottom =
+        arrowSide == _MagnifierArrowSide.bottom ? size.height - arrowH : size.height;
+    final outerRect = Rect.fromLTRB(bodyLeft, bodyTop, bodyRight, bodyBottom);
 
     Path outerPath = Path()
       ..addRRect(RRect.fromRectAndRadius(outerRect, const Radius.circular(outerR)));
 
     final halfW = arrowW / 2;
-    if (arrowOnTop) {
-      final arrow = Path()
-        ..moveTo(arrowCenterX - halfW, bodyTop + 1)
-        ..lineTo(arrowCenterX, 0)
-        ..lineTo(arrowCenterX + halfW, bodyTop + 1)
-        ..close();
-      outerPath = Path.combine(PathOperation.union, outerPath, arrow);
-    } else {
-      final arrow = Path()
-        ..moveTo(arrowCenterX - halfW, bodyBottom - 1)
-        ..lineTo(arrowCenterX, size.height)
-        ..lineTo(arrowCenterX + halfW, bodyBottom - 1)
-        ..close();
-      outerPath = Path.combine(PathOperation.union, outerPath, arrow);
+    switch (arrowSide) {
+      case _MagnifierArrowSide.top:
+        final arrow = Path()
+          ..moveTo(arrowCenter - halfW, bodyTop + 1)
+          ..lineTo(arrowCenter, 0)
+          ..lineTo(arrowCenter + halfW, bodyTop + 1)
+          ..close();
+        outerPath = Path.combine(PathOperation.union, outerPath, arrow);
+      case _MagnifierArrowSide.bottom:
+        final arrow = Path()
+          ..moveTo(arrowCenter - halfW, bodyBottom - 1)
+          ..lineTo(arrowCenter, size.height)
+          ..lineTo(arrowCenter + halfW, bodyBottom - 1)
+          ..close();
+        outerPath = Path.combine(PathOperation.union, outerPath, arrow);
+      case _MagnifierArrowSide.left:
+        final arrow = Path()
+          ..moveTo(bodyLeft + 1, arrowCenter - halfW)
+          ..lineTo(0, arrowCenter)
+          ..lineTo(bodyLeft + 1, arrowCenter + halfW)
+          ..close();
+        outerPath = Path.combine(PathOperation.union, outerPath, arrow);
+      case _MagnifierArrowSide.right:
+        final arrow = Path()
+          ..moveTo(bodyRight - 1, arrowCenter - halfW)
+          ..lineTo(size.width, arrowCenter)
+          ..lineTo(bodyRight - 1, arrowCenter + halfW)
+          ..close();
+        outerPath = Path.combine(PathOperation.union, outerPath, arrow);
     }
 
     final holePath = Path()
@@ -1769,19 +1890,21 @@ class _AdwMagnifierFramePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _AdwMagnifierFramePainter oldDelegate) =>
       oldDelegate.lensRect != lensRect ||
-      oldDelegate.arrowOnTop != arrowOnTop ||
-      oldDelegate.arrowCenterX != arrowCenterX;
+      oldDelegate.arrowSide != arrowSide ||
+      oldDelegate.arrowCenter != arrowCenter;
 }
 
 class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
   final Offset anchorAbove;
   final Offset anchorBelow;
   final bool preferBelow;
+  final double bottomInset;
 
   const _AdwToolbarLayoutDelegate({
     required this.anchorAbove,
     required this.anchorBelow,
     this.preferBelow = false,
+    this.bottomInset = 0.0,
   });
 
   @override
@@ -1792,7 +1915,8 @@ class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
   @override
   Offset getPositionForChild(Size size, Size childSize) {
     const double margin = 8.0;
-    const double gap = 6.0;
+    const double gap = 2.0;
+    final double visibleHeight = math.max(0.0, size.height - bottomInset);
     final double dx = (anchorAbove.dx - childSize.width / 2).clamp(
       margin,
       math.max(margin, size.width - childSize.width - margin),
@@ -1800,10 +1924,10 @@ class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
     double dy;
     if (preferBelow) {
       dy = anchorBelow.dy + gap;
-      if (dy + childSize.height > size.height - margin) {
+      if (dy + childSize.height > visibleHeight - margin) {
         dy = (anchorAbove.dy - childSize.height - gap).clamp(
           margin,
-          math.max(margin, size.height - childSize.height - margin),
+          math.max(margin, visibleHeight - childSize.height - margin),
         );
       }
     } else {
@@ -1811,7 +1935,7 @@ class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
       if (dy < margin) {
         dy = (anchorBelow.dy + gap).clamp(
           margin,
-          math.max(margin, size.height - childSize.height - margin),
+          math.max(margin, visibleHeight - childSize.height - margin),
         );
       }
     }
@@ -1822,7 +1946,8 @@ class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
   bool shouldRelayout(covariant _AdwToolbarLayoutDelegate oldDelegate) {
     return anchorAbove != oldDelegate.anchorAbove ||
         anchorBelow != oldDelegate.anchorBelow ||
-        preferBelow != oldDelegate.preferBelow;
+        preferBelow != oldDelegate.preferBelow ||
+        bottomInset != oldDelegate.bottomInset;
   }
 }
 
@@ -1975,6 +2100,7 @@ class _AdwEditableTextState extends State<AdwEditableText>
             onSelectionHandleTapped: _handleSelectionHandleTapped,
             rendererIgnoresPointer: true,
             enableInteractiveSelection: true,
+            scrollPadding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 96.0),
             selectionControls:
                 hasOverlay ? AdwTextSelectionControls.forPlatform(context) : null,
             contextMenuBuilder: hasOverlay
