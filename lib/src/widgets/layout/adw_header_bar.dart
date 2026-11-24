@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -136,7 +136,8 @@ class AdwHeaderBar extends StatelessWidget {
         Widget? startControls;
         Widget? endControls;
 
-        final bool isMobilePlatform =
+        final bool hideWindowControls =
+            kIsWeb ||
             defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -155,7 +156,7 @@ class AdwHeaderBar extends StatelessWidget {
                 onPressed: dialogScope.close,
               );
             }
-          } else if (!isMobilePlatform) {
+          } else if (!hideWindowControls) {
             if (windowControls != null) {
               if (showEndWindowControls && layout.endButtons.isNotEmpty) {
                 endControls = windowControls;

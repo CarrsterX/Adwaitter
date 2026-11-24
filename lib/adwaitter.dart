@@ -93,5 +93,5 @@ export 'src/widgets/display/adw_spinner.dart';
 
 /// No-op Dart plugin registration for non-Android platforms.
 class AdwaitterDartPlugin {
-  static void registerWith() {}
+  static void registerWith([Object? registrar]) {}
 }

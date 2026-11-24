@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, ValueListenable, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
@@ -424,7 +423,9 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
 
   AdwWindowController _createDefaultController() {
     if (!kIsWeb &&
-        (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS)) {
       return AdwNativeWindowController();
     }
     return _NoopWindowController();
@@ -434,12 +435,14 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
     final bool isMobile =
-        defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS;
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    final bool isFullViewport = kIsWeb || isMobile;
     final effectiveIsMaximized =
-        widget.isMaximized ?? (isMobile ? true : _effectiveController.isMaximized);
+        widget.isMaximized ?? (isFullViewport ? true : _effectiveController.isMaximized);
     final effectiveIsFullscreen = _effectiveController.isFullscreen;
-    final isSquareCorners = isMobile ||
+    final isSquareCorners = isFullViewport ||
         effectiveIsMaximized ||
         effectiveIsFullscreen ||
         _effectiveController.isTiled;

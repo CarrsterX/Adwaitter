@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/src/widgets/_window.dart';
-import 'package:flutter/src/widgets/_window_linux.dart';
 import 'package:flutter/src/widgets/_window_positioner.dart';
 import 'package:flutter/widgets.dart';
 
@@ -12,7 +11,9 @@ import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_sub_window.dart';
-import '../layout/adw_window.dart';
+import '../layout/adw_sub_window_platform_stub.dart'
+    if (dart.library.io) '../layout/adw_sub_window_platform_io.dart'
+    as sub_window_platform;
 
 /// Anchor points for positioning a floating [AdwPopoverSurface] relative to
 /// an anchor rectangle in the parent window.
@@ -228,13 +229,7 @@ AdwPopoverHandle showAdwPopover({
             ),
           );
 
-          if (popupController is PopupWindowControllerLinux) {
-            popupController.setAppPaintable(true);
-            popupController.setBackgroundColor(const Color(0x00000000));
-            AdwNativeWindowController.attachPopupWindow(
-              windowHandle: popupController.windowHandle.address,
-            );
-          }
+          sub_window_platform.configureLinuxPopupWindow(popupController);
 
           final linuxPlacement = _AdwPopoverPlacement();
           void syncLinuxPlacement() {

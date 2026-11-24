@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -145,7 +145,7 @@ class AdwDesktopSettings {
 
   /// Initializes platform channel bindings for desktop animation and shell button preferences.
   static void initialize() {
-    if (_initialized || kIsWeb || !Platform.isLinux) return;
+    if (_initialized || kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return;
     _initialized = true;
 
     _channel.setMethodCallHandler((call) async {

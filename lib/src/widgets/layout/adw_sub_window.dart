@@ -1,18 +1,23 @@
 // ignore_for_file: invalid_use_of_internal_member, invalid_use_of_protected_member, implementation_imports
 
-import 'dart:ffi' as ffi;
-import 'dart:io' show Platform;
 import 'dart:ui' show Display, FlutterView;
 
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, ValueListenable, kIsWeb;
+    show
+        ChangeNotifier,
+        TargetPlatform,
+        ValueListenable,
+        defaultTargetPlatform,
+        kIsWeb;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:flutter/src/foundation/_features.dart' as flutter_features;
 import 'package:flutter/src/widgets/_window.dart';
-import 'package:flutter/src/widgets/_window_linux.dart';
 import 'package:flutter/widgets.dart';
 
 import '../navigation/adw_navigation_transition.dart';
+import 'adw_sub_window_platform_stub.dart'
+    if (dart.library.io) 'adw_sub_window_platform_io.dart'
+    as sub_window_platform;
 import 'adw_window.dart';
 
 /// Builder signature for content hosted inside a native secondary [AdwWindow]
@@ -229,7 +234,7 @@ class AdwSubWindowManager extends ChangeNotifier {
   static bool get isNativeLinuxWindowingSupported =>
       !_nativeWindowingUnavailable &&
       !kIsWeb &&
-      Platform.isLinux &&
+      defaultTargetPlatform == TargetPlatform.linux &&
       WidgetsBinding.instance.platformDispatcher.engineId != null;
 
   /// Ensures Flutter's native windowing subsystem is enabled on Linux.
@@ -237,9 +242,7 @@ class AdwSubWindowManager extends ChangeNotifier {
     if (!isNativeLinuxWindowingSupported) return;
     flutter_features.isWindowingEnabled = true;
     final binding = WidgetsBinding.instance;
-    if (binding.windowingOwner is! WindowingOwnerLinux) {
-      binding.windowingOwner = createDefaultWindowingOwner();
-    }
+    sub_window_platform.ensureLinuxWindowingOwner(binding);
     instance._ensureRootController();
     instance.ensureRootWindowRegistered();
   }
@@ -262,24 +265,14 @@ class AdwSubWindowManager extends ChangeNotifier {
     _rootRegistrationFuture = () async {
       final handles = await AdwNativeWindowController.getWindowHandles(viewId: 0);
       if (handles == null) return false;
-      final owner = WidgetsBinding.instance.windowingOwner;
-      if (owner is! WindowingOwnerLinux) return false;
-      final winPtr = ffi.Pointer<ffi.Void>.fromAddress(handles.windowHandle);
-      final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(handles.viewHandle);
-      owner.registrar.register(
-        viewId: 0,
-        windowHandle: winPtr,
-        viewHandle: viewPtr,
+      final registered = sub_window_platform.registerLinuxRootWindowHandles(
+        WidgetsBinding.instance,
+        windowHandle: handles.windowHandle,
+        viewHandle: handles.viewHandle,
+        implicitViewId:
+            WidgetsBinding.instance.platformDispatcher.implicitView?.viewId,
       );
-      final implicitViewId =
-          WidgetsBinding.instance.platformDispatcher.implicitView?.viewId;
-      if (implicitViewId != null && implicitViewId != 0) {
-        owner.registrar.register(
-          viewId: implicitViewId,
-          windowHandle: winPtr,
-          viewHandle: viewPtr,
-        );
-      }
+      if (!registered) return false;
       _rootWindowRegistered = true;
       return true;
     }();
@@ -323,29 +316,17 @@ class AdwSubWindowManager extends ChangeNotifier {
           },
         );
 
-        final owner =
-            WidgetsBinding.instance.windowingOwner as WindowingOwnerLinux;
-        final linuxController = WindowControllerLinux(
-          owner: owner,
+        final linuxController = sub_window_platform.createLinuxSubWindow(
+          binding: WidgetsBinding.instance,
           delegate: delegate,
           size: size,
           constraints: constraints,
           title: title,
-          decorated: false,
-        );
-        owner.registrar.register(
-          viewId: linuxController.rootView.viewId,
-          windowHandle: linuxController.windowHandle.cast(),
-          viewHandle: linuxController.flutterViewHandle.cast(),
-        );
-        linuxController.setAppPaintable(true);
-        linuxController.setBackgroundColor(const Color(0x00000000));
-        AdwNativeWindowController.attachSubWindow(
-          windowHandle: linuxController.windowHandle.address,
-          viewHandle: linuxController.flutterViewHandle.address,
-          viewId: linuxController.rootView.viewId,
           parentViewId: parentViewId,
         );
+        if (linuxController == null) {
+          throw UnsupportedError('Linux sub-window creation unavailable.');
+        }
 
         final adwController = AdwNativeWindowController(
           viewId: linuxController.rootView.viewId,

@@ -1,10 +1,11 @@
-import 'dart:io' show File, Platform, Process;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'adw_colors.dart';
+import 'adw_style_platform_stub.dart'
+    if (dart.library.io) 'adw_style_platform_io.dart' as style_platform;
 import 'adw_typography.dart';
 
 /// System color scheme preference mirroring Libadwaita's `AdwColorScheme`.
@@ -148,7 +149,7 @@ class AdwStyleManager extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
 
-    if (!kIsWeb && Platform.isLinux) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
       _channel.setMethodCallHandler((call) async {
         if (call.method == 'onSystemAppearanceChanged') {
           final Map<dynamic, dynamic>? args =
@@ -160,16 +161,16 @@ class AdwStyleManager extends ChangeNotifier {
       });
       instance._fetchInitialAppearance();
       instance._loadSystemEmojiFont();
-    } else if (!kIsWeb && Platform.isAndroid) {
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       instance._fetchAndroidDynamicAccent();
     }
   }
 
   /// Refreshes system appearance / dynamic accent from the host platform.
   void refreshSystemAppearance() {
-    if (!kIsWeb && Platform.isAndroid) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _fetchAndroidDynamicAccent();
-    } else if (!kIsWeb && Platform.isLinux) {
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
       _fetchInitialAppearance();
     }
   }
@@ -205,19 +206,11 @@ class AdwStyleManager extends ChangeNotifier {
         // Fall back to direct fc-match query if runner does not implement method
       }
       if (fontPath == null || fontPath.isEmpty) {
-        final res = await Process.run(
-          'fc-match',
-          <String>['--format=%{file}', 'emoji:color=true'],
-        );
-        if (res.exitCode == 0) {
-          final out = (res.stdout as String).trim();
-          if (out.isNotEmpty) fontPath = out;
-        }
+        fontPath = await style_platform.querySystemEmojiFontPath();
       }
       if (fontPath == null || fontPath.isEmpty) return;
-      final file = File(fontPath);
-      if (!file.existsSync()) return;
-      final bytes = await file.readAsBytes();
+      final bytes = await style_platform.readLocalFileBytes(fontPath);
+      if (bytes == null) return;
       final loader = FontLoader(AdwTypography.systemEmojiFamily)
         ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
       await loader.load();
