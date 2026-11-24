@@ -734,9 +734,8 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
 
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-          child: SelectableRegion(
+          child: AdwSelectableRegion(
             focusNode: _legalFocusNode,
-            selectionControls: AdwTextSelectionControls.forPlatform(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -641,8 +641,6 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
             (MediaQuery.maybePaddingOf(context)?.left ?? 0.0) + 28.0,
           )
         : widget.edgeWidth;
-    final bool effectiveAllowMouseDrag =
-        (isIOS || isAndroidGestureNav) ? false : widget.allowMouseDrag;
     final bool allowTrackpadSwipe =
         platform != TargetPlatform.android && platform != TargetPlatform.iOS;
 

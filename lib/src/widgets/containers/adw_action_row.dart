@@ -125,28 +125,11 @@ class _AdwActionRowState extends State<AdwActionRow> {
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 2),
                     if (widget.isProperty)
-                      DefaultSelectionStyle(
-                        selectionColor:
-                            theme.colors.accentColor.withValues(alpha: 0.3),
-                        cursorColor: theme.colors.accentColor,
-                        child: TextFieldTapRegion(
-                          onTapOutside: (_) {
-                            final node = _propertySelectionFocusNode;
-                            if (node != null && node.hasFocus) {
-                              node.unfocus();
-                            }
-                          },
-                          child: SelectableRegion(
-                            focusNode: _getPropertySelectionFocusNode(),
-                            selectionControls:
-                                AdwTextSelectionControls.forPlatform(context),
-                            contextMenuBuilder: AdwTextSelectionControls
-                                .selectableContextMenuBuilder,
-                            child: DefaultTextStyle(
-                              style: theme.typography.body.copyWith(height: 1.2),
-                              child: widget.subtitle!,
-                            ),
-                          ),
+                      AdwSelectableRegion(
+                        focusNode: _getPropertySelectionFocusNode(),
+                        child: DefaultTextStyle(
+                          style: theme.typography.body.copyWith(height: 1.2),
+                          child: widget.subtitle!,
                         ),
                       )
                     else

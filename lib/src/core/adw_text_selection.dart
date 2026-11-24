@@ -300,14 +300,26 @@ class AdwTextSelectionControls extends TextSelectionControls
   }
 
   /// Adwaita context menu builder for [SelectableRegion.contextMenuBuilder].
+  ///
+  /// On Linux, touch selection on non-input selectable text hides the touch
+  /// menu by default (matching native GTK4 / Libadwaita) unless
+  /// [enableLinuxTouchMenu] is `true`. Mouse right-click always shows the
+  /// vertical desktop popover menu, and Android/iOS always show the touch bar.
   static Widget selectableContextMenuBuilder(
     BuildContext context,
-    SelectableRegionState selectableRegionState,
-  ) {
+    SelectableRegionState selectableRegionState, {
+    bool enableLinuxTouchMenu = false,
+  }) {
     final anchors = selectableRegionState.contextMenuAnchors;
     final isTouchMode = anchors.secondaryAnchor != null ||
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
+    if (isTouchMode &&
+        !enableLinuxTouchMenu &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.linux) {
+      return const SizedBox.shrink();
+    }
     return _AdwTextSelectionToolbar(
       anchors: anchors,
       buttonItems: selectableRegionState.contextMenuButtonItems,
@@ -661,9 +673,11 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
         }
       } catch (_) {}
     }
+    final hasCustomItems =
+        widget.buttonItems.any((b) => b.type == ContextMenuButtonType.custom);
     if (!kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
-        widget.selectedText.isNotEmpty) {
+        (widget.selectedText.isNotEmpty || hasCustomItems)) {
       try {
         final raw = await AdwTextSelectionControls._textActionsChannel
             .invokeListMethod<dynamic>('getTextActions');
@@ -684,7 +698,8 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
             if (rawIcon is Uint8List && rawIcon.isNotEmpty) {
               extraIcons[lowerLabel] = rawIcon;
             }
-            if (existingLabels.contains(lowerLabel)) {
+            if (widget.selectedText.isEmpty ||
+                existingLabels.contains(lowerLabel)) {
               continue;
             }
             existingLabels.add(lowerLabel);
@@ -951,45 +966,50 @@ class _AdwTextSelectionToolbarState extends State<_AdwTextSelectionToolbar> {
                   color: const Color(0xFF35353A),
                   borderRadius: BorderRadius.circular(6.0),
                 ),
-                child: RawScrollbar(
-                  interactive: false,
-                  thickness: 2.0,
-                  radius: const Radius.circular(1.0),
-                  thumbColor: const Color(0x66FFFFFF),
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context)
-                        .copyWith(scrollbars: false),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (int i = 0; i < iconItems.length; i++) ...[
-                            if (i > 0)
-                              Container(
-                                width: 1,
-                                height: 34,
-                                color: const Color(0xFF45454B),
+                child: PrimaryScrollController.none(
+                  child: RawScrollbar(
+                    interactive: false,
+                    padding: EdgeInsets.zero,
+                    scrollbarOrientation: ScrollbarOrientation.bottom,
+                    thickness: 2.0,
+                    radius: const Radius.circular(1.0),
+                    thumbColor: const Color(0x66FFFFFF),
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context)
+                          .copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int i = 0; i < iconItems.length; i++) ...[
+                              if (i > 0)
+                                Container(
+                                  width: 1,
+                                  height: 34,
+                                  color: const Color(0xFF45454B),
+                                ),
+                              _AdwTouchIconButton(
+                                kind: iconItems[i].$2,
+                                nativeIconBytes:
+                                    iconItems[i].$1.type ==
+                                                ContextMenuButtonType.custom &&
+                                            iconItems[i].$2 !=
+                                                _AdwTouchIconKind.readAloud
+                                        ? nativeIcons[
+                                            (iconItems[i].$1.label ?? '')
+                                                .toLowerCase()]
+                                        : null,
+                                semanticLabel:
+                                    _labelFor(iconItems[i].$1, labels),
+                                onPressed: _wrapAction(
+                                  iconItems[i].$1.onPressed,
+                                  onDismissPopup,
+                                ),
                               ),
-                            _AdwTouchIconButton(
-                              kind: iconItems[i].$2,
-                              nativeIconBytes:
-                                  iconItems[i].$1.type ==
-                                              ContextMenuButtonType.custom &&
-                                          iconItems[i].$2 !=
-                                              _AdwTouchIconKind.readAloud
-                                      ? nativeIcons[
-                                          (iconItems[i].$1.label ?? '')
-                                              .toLowerCase()]
-                                      : null,
-                              semanticLabel: _labelFor(iconItems[i].$1, labels),
-                              onPressed: _wrapAction(
-                                iconItems[i].$1.onPressed,
-                                onDismissPopup,
-                              ),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -1398,6 +1418,36 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
     super.dispose();
   }
 
+  static int _activeCaretOffset(
+    EditableTextState editableState,
+    double targetX,
+    int maxLength,
+  ) {
+    final sel = editableState.textEditingValue.selection;
+    if (!sel.isValid) return maxLength;
+    final base = sel.baseOffset.clamp(0, maxLength);
+    final extent = sel.extentOffset.clamp(0, maxLength);
+    if (base == extent) return extent;
+    try {
+      final render = editableState.renderEditable;
+      final baseGlobalX = render
+          .localToGlobal(
+            render.getLocalRectForCaret(TextPosition(offset: base)).center,
+          )
+          .dx;
+      final extentGlobalX = render
+          .localToGlobal(
+            render.getLocalRectForCaret(TextPosition(offset: extent)).center,
+          )
+          .dx;
+      return (targetX - baseGlobalX).abs() < (targetX - extentGlobalX).abs()
+          ? base
+          : extent;
+    } catch (_) {
+      return extent;
+    }
+  }
+
   void _syncNativeLinuxMagnifier(
     BuildContext context,
     MagnifierInfo info,
@@ -1412,9 +1462,8 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
         w.obscureText ? w.obscuringCharacter * val.text.length : val.text;
     final sel = val.selection;
     final hasSel = sel.isValid && !sel.isCollapsed;
-    final extent = sel.isValid
-        ? sel.extentOffset.clamp(0, displayText.length)
-        : displayText.length;
+    final activeOffset =
+        _activeCaretOffset(editableState, targetX, displayText.length);
     final selStart = sel.isValid ? sel.start.clamp(0, displayText.length) : 0;
     final selEnd = sel.isValid ? sel.end.clamp(0, displayText.length) : 0;
     final textColor = (w.style.color ?? const Color(0xFFFFFFFF)).toARGB32();
@@ -1429,7 +1478,7 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
       'text': displayText,
       'fontFamily': w.style.fontFamily ?? 'Sans',
       'fontSize': w.style.fontSize ?? 14.0,
-      'caretIndex': extent,
+      'caretIndex': activeOffset,
       'selectionStart': selStart,
       'selectionEnd': selEnd,
       'hasSelection': hasSel,
@@ -1485,19 +1534,31 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
           _preferredSide = 0;
           return const SizedBox.shrink();
         }
-        final targetX = (!info.caretRect.isEmpty
-                ? info.caretRect.center.dx
-                : info.globalGesturePosition.dx)
+        final bool hasCaretPosition = info.caretRect != Rect.zero;
+        final double rawTargetX = hasCaretPosition
+            ? info.caretRect.center.dx
+            : info.globalGesturePosition.dx;
+        final Rect horizontalBounds = !info.currentLineBoundaries.isEmpty
+            ? info.currentLineBoundaries
+            : info.fieldBounds;
+        final targetX = rawTargetX
             .clamp(
-              info.fieldBounds.isEmpty ? 0.0 : info.fieldBounds.left,
-              info.fieldBounds.isEmpty
+              horizontalBounds.isEmpty ? 0.0 : horizontalBounds.left,
+              horizontalBounds.isEmpty
                   ? screenSize.width
-                  : info.fieldBounds.right,
+                  : horizontalBounds.right,
             )
             .toDouble();
-        final targetY = !info.caretRect.isEmpty
+        final double rawTargetY = hasCaretPosition
             ? info.caretRect.center.dy
-            : info.globalGesturePosition.dy;
+            : (!info.currentLineBoundaries.isEmpty
+                ? info.currentLineBoundaries.center.dy
+                : info.globalGesturePosition.dy);
+        final double targetY = !info.fieldBounds.isEmpty
+            ? rawTargetY
+                .clamp(info.fieldBounds.top, info.fieldBounds.bottom)
+                .toDouble()
+            : rawTargetY;
 
         final EditableTextState? editableState =
             widget.resolveEditableText?.call();
@@ -1640,6 +1701,11 @@ class _AdwTextMagnifierState extends State<_AdwTextMagnifier> {
                   textDirection: Directionality.of(context),
                   backgroundColor: lensBg,
                   scale: scale,
+                  activeOffset: _activeCaretOffset(
+                    editableState,
+                    targetX,
+                    editableState.textEditingValue.text.length,
+                  ),
                 ),
               )
             : RawMagnifier(
@@ -1694,12 +1760,14 @@ class _AdwVectorTextMagnifierPainter extends CustomPainter {
   final TextDirection textDirection;
   final Color backgroundColor;
   final double scale;
+  final int activeOffset;
 
   const _AdwVectorTextMagnifierPainter({
     required this.editableState,
     required this.textDirection,
     required this.backgroundColor,
     required this.scale,
+    required this.activeOffset,
   });
 
   @override
@@ -1729,12 +1797,10 @@ class _AdwVectorTextMagnifierPainter extends CustomPainter {
     )..layout();
 
     final sel = value.selection;
-    final extent = sel.isValid
-        ? sel.extentOffset.clamp(0, displayText.length)
-        : displayText.length;
+    final clampedActive = activeOffset.clamp(0, displayText.length);
 
     final caretOffset = painter.getOffsetForCaret(
-      TextPosition(offset: extent),
+      TextPosition(offset: clampedActive),
       Rect.zero,
     );
 
@@ -1753,7 +1819,7 @@ class _AdwVectorTextMagnifierPainter extends CustomPainter {
         final boxes = painter.getBoxesForSelection(
           TextSelection(
             baseOffset: sel.baseOffset.clamp(0, displayText.length),
-            extentOffset: extent,
+            extentOffset: sel.extentOffset.clamp(0, displayText.length),
           ),
         );
         final selPaint = Paint()..color = selColor;
@@ -1948,6 +2014,83 @@ class _AdwToolbarLayoutDelegate extends SingleChildLayoutDelegate {
         anchorBelow != oldDelegate.anchorBelow ||
         preferBelow != oldDelegate.preferBelow ||
         bottomInset != oldDelegate.bottomInset;
+  }
+}
+
+/// Reusable [SelectableRegion] wrapper with consistent Adwaita styling,
+/// teardrop touch handles, OSD touch selection toolbar, vertical desktop
+/// popover menu, touch magnifier, and tap-outside unfocus handling.
+class AdwSelectableRegion extends StatefulWidget {
+  final Widget child;
+  final FocusNode? focusNode;
+
+  /// Whether to show the touch selection toolbar on Linux touchscreens.
+  ///
+  /// Defaults to `false` to match native GTK4 / Libadwaita behavior, where
+  /// non-input selectable text does not open a touch selection popover on
+  /// Linux (mouse right-click still opens the vertical desktop popover menu).
+  /// On Android and iOS the touch selection toolbar is always shown.
+  final bool enableLinuxTouchMenu;
+
+  const AdwSelectableRegion({
+    super.key,
+    required this.child,
+    this.focusNode,
+    this.enableLinuxTouchMenu = false,
+  });
+
+  @override
+  State<AdwSelectableRegion> createState() => _AdwSelectableRegionState();
+}
+
+class _AdwSelectableRegionState extends State<AdwSelectableRegion> {
+  FocusNode? _internalFocusNode;
+
+  FocusNode get _focusNode =>
+      widget.focusNode ?? (_internalFocusNode ??= FocusNode());
+
+  @override
+  void dispose() {
+    _internalFocusNode?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AdwTheme.maybeOf(context);
+    final accentColor = theme?.colors.accentColor ?? AdwColors.accentBlue;
+    final hasOverlay = Overlay.maybeOf(context) != null;
+
+    return DefaultSelectionStyle(
+      selectionColor: accentColor.withValues(alpha: 0.3),
+      cursorColor: accentColor,
+      child: TextFieldTapRegion(
+        onTapOutside: (_) {
+          if (AdwTextSelectionControls._isRecentToolbarPointerDown) {
+            return;
+          }
+          if (_focusNode.hasFocus) {
+            _focusNode.unfocus();
+          }
+        },
+        child: SelectableRegion(
+          focusNode: _focusNode,
+          selectionControls: AdwTextSelectionControls.forPlatform(context),
+          contextMenuBuilder: hasOverlay
+              ? (ctx, state) =>
+                  AdwTextSelectionControls.selectableContextMenuBuilder(
+                    ctx,
+                    state,
+                    enableLinuxTouchMenu: widget.enableLinuxTouchMenu,
+                  )
+              : null,
+          magnifierConfiguration: hasOverlay
+              ? AdwTextSelectionControls.magnifierConfiguration
+              : TextMagnifierConfiguration.disabled,
+          child: widget.child,
+        ),
+      ),
+    );
   }
 }
 

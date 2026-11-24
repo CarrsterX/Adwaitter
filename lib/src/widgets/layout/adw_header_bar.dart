@@ -56,7 +56,7 @@ class AdwHeaderBar extends StatelessWidget {
     this.showTitle = true,
     this.windowControls,
     this.padding = defaultPadding,
-    this.isFlat = false,
+    this.isFlat = true,
   });
 
   @override
