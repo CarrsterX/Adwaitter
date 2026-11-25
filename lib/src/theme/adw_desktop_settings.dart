@@ -148,6 +148,7 @@ class AdwDesktopSettings {
       ValueNotifier<bool>(false);
 
   static bool _initialized = false;
+  static _AndroidSettingsLifecycleObserver? _lifecycleObserver;
 
   /// Initializes platform channel bindings for desktop/Android animation and shell preferences.
   static void initialize() {
@@ -180,10 +181,17 @@ class AdwDesktopSettings {
       }
     });
 
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _lifecycleObserver ??= _AndroidSettingsLifecycleObserver();
+      WidgetsBinding.instance.addObserver(_lifecycleObserver!);
+    }
+
     _fetchInitialSettings();
   }
 
-  static void _fetchInitialSettings() async {
+  /// Re-queries the host animation settings (useful on Android resume when
+  /// Developer Options changed `ANIMATOR_DURATION_SCALE` in the background).
+  static Future<void> refreshAnimationSettings() async {
     try {
       final Map<dynamic, dynamic>? result =
           await _channel.invokeMethod<Map<dynamic, dynamic>>('getAnimationSettings');
@@ -191,8 +199,12 @@ class AdwDesktopSettings {
         _updateFromMap(result);
       }
     } catch (_) {
-      // Gracefully retain GNOME standard defaults if channel is unavailable
+      // Gracefully retain current animation settings if channel is unavailable
     }
+  }
+
+  static void _fetchInitialSettings() async {
+    await refreshAnimationSettings();
 
     if (defaultTargetPlatform != TargetPlatform.linux) return;
 
@@ -244,6 +256,15 @@ class AdwDesktopSettings {
       durationFactor: factor,
       desktop: desktop,
     );
+  }
+}
+
+class _AndroidSettingsLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      AdwDesktopSettings.refreshAnimationSettings();
+    }
   }
 }
 

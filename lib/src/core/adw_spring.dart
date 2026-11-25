@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/physics.dart';
 
+import '../theme/adw_desktop_settings.dart';
+
 /// Spring physics parameters mirroring Libadwaita's `AdwSpringParams`.
 ///
 /// Used to drive fluid, velocity-preserving transitions for predictive
@@ -73,18 +75,60 @@ class AdwSpringParams {
     );
   }
 
-  /// Creates a [SpringSimulation] from [start] to [end] with initial [velocity].
-  SpringSimulation createSimulation({
+  /// Creates a [Simulation] from [start] to [end] with initial [velocity],
+  /// automatically scaled by the active desktop/Android animation duration
+  /// factor (`AdwDesktopSettings.animationSettings`).
+  Simulation createSimulation({
     required double start,
     required double end,
     double velocity = 0.0,
   }) {
-    return SpringSimulation(
+    final settings = AdwDesktopSettings.animationSettings.value;
+    final factor = settings.enableAnimations ? settings.durationFactor : 0.0;
+    final base = SpringSimulation(
       toSpringDescription(),
       start,
       end,
       velocity,
     );
+    if (factor == 1.0) {
+      return base;
+    }
+    return _ScaledSpringSimulation(
+      base: base,
+      end: end,
+      durationFactor: factor,
+    );
+  }
+}
+
+class _ScaledSpringSimulation extends Simulation {
+  final SpringSimulation base;
+  final double end;
+  final double durationFactor;
+
+  _ScaledSpringSimulation({
+    required this.base,
+    required this.end,
+    required this.durationFactor,
+  });
+
+  @override
+  double x(double time) {
+    if (durationFactor <= 0.0) return end;
+    return base.x(time / durationFactor);
+  }
+
+  @override
+  double dx(double time) {
+    if (durationFactor <= 0.0) return 0.0;
+    return base.dx(time / durationFactor) / durationFactor;
+  }
+
+  @override
+  bool isDone(double time) {
+    if (durationFactor <= 0.0) return true;
+    return base.isDone(time / durationFactor);
   }
 }
 
