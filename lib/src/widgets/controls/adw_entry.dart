@@ -141,10 +141,17 @@ class _AdwEntryState extends State<AdwEntry> {
               BorderRadius.circular(AdwMetrics.buttonRadius),
           border: _focused
               ? Border.all(
-                  color: focusColor.withValues(alpha: 0.50),
+                  color: theme.colors.isHighContrast
+                      ? theme.colors.focusBorderColor
+                      : focusColor.withValues(alpha: 0.50),
                   width: 2.0,
                 )
-              : null,
+              : (theme.colors.isHighContrast
+                  ? Border.all(
+                      color: theme.colors.borderColor,
+                      width: 1.0,
+                    )
+                  : null),
         ),
         child: Row(
           children: [

@@ -594,7 +594,9 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              if (widget.showBorder && !isSquareCorners && theme.colors.isDark)
+              if (widget.showBorder &&
+                  !isSquareCorners &&
+                  (theme.colors.isDark || theme.colors.isHighContrast))
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(

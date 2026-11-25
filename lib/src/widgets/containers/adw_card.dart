@@ -81,7 +81,7 @@ class _AdwCardState extends State<AdwCard> {
         onTapCancel:
             _isInteractive ? () => setState(() => _pressed = false) : null,
         child: AnimatedContainer(
-          duration: AdwCurves.normalDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
           curve: AdwCurves.standard,
           padding: widget.padding,
           alignment: widget.alignment,
@@ -89,6 +89,9 @@ class _AdwCardState extends State<AdwCard> {
             color: bg,
             borderRadius: widget.borderRadius ??
                 BorderRadius.circular(AdwMetrics.cardRadius),
+            border: theme.colors.isHighContrast
+                ? Border.all(color: theme.colors.borderColor, width: 1.0)
+                : null,
             boxShadow: const [
               BoxShadow(
                 color: Color(0x08000006),

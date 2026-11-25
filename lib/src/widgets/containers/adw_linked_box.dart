@@ -27,7 +27,10 @@ class AdwLinkedBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final gapColor = dividerColor ?? theme.colors.windowBackground;
+    final gapColor = dividerColor ??
+        (theme.colors.isHighContrast
+            ? theme.colors.borderColor
+            : theme.colors.windowBackground);
 
     final List<Widget> spaced = [];
     for (int i = 0; i < children.length; i++) {
@@ -41,7 +44,7 @@ class AdwLinkedBox extends StatelessWidget {
       spaced.add(children[i]);
     }
 
-    return ClipRRect(
+    final clipped = ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: direction == Axis.horizontal
           ? IntrinsicHeight(
@@ -59,5 +62,21 @@ class AdwLinkedBox extends StatelessWidget {
               ),
             ),
     );
+
+    if (theme.colors.isHighContrast) {
+      return DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: theme.colors.borderColor,
+            width: 1.0,
+          ),
+        ),
+        child: clipped,
+      );
+    }
+
+    return clipped;
   }
 }

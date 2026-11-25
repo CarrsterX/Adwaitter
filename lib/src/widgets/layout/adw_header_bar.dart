@@ -217,6 +217,14 @@ class AdwHeaderBar extends StatelessWidget {
             color: isFlat
                 ? const Color(0x00000000)
                 : theme.colors.headerBarBackground,
+            border: (!isFlat && theme.colors.isHighContrast)
+                ? Border(
+                    bottom: BorderSide(
+                      color: theme.colors.borderColor,
+                      width: 1.0,
+                    ),
+                  )
+                : null,
             boxShadow: isFlat
                 ? null
                 : [

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../theme/adw_curves.dart';
+import '../theme/adw_desktop_settings.dart';
 import '../theme/adw_theme.dart';
 
 /// Libadwaita / GTK4 overlay scrollbar indicator (`AdwScrollbar`).
@@ -50,7 +51,19 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
   double _dragStartPixels = 0.0;
 
   @override
+  void initState() {
+    super.initState();
+    AdwDesktopSettings.overlayScrolling.addListener(_onOverlayScrollingChanged);
+  }
+
+  void _onOverlayScrollingChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    AdwDesktopSettings.overlayScrolling
+        .removeListener(_onOverlayScrollingChanged);
     _fadeTimer?.cancel();
     _hoverFadeTimer?.cancel();
     super.dispose();
@@ -167,9 +180,14 @@ class _AdwScrollbarState extends State<AdwScrollbar> {
     final isScrollable = _hasMetrics &&
         (_maxScrollExtent > _minScrollExtent) &&
         _viewportDimension > 0;
+    final alwaysShow = !AdwDesktopSettings.overlayScrolling.value;
     final isVisible = isScrollable &&
-        (_isViewHovered || _isThumbHovered || _isScrolling || _isDragging);
-    final isExpanded = _isThumbHovered || _isDragging;
+        (alwaysShow ||
+            _isViewHovered ||
+            _isThumbHovered ||
+            _isScrolling ||
+            _isDragging);
+    final isExpanded = alwaysShow || _isThumbHovered || _isDragging;
 
     // GTK4 `scrollbar slider`: slim idle pill, 7px hovered (9px with border).
     final thickness = isExpanded ? (isDark ? 9.0 : 7.0) : (isDark ? 4.0 : 2.5);

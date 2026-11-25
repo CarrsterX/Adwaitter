@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../controls/adw_button_row.dart';
 
 /// Container group for preferences (`AdwPreferencesGroup`).
 ///
@@ -29,6 +30,18 @@ class AdwPreferencesGroup extends StatelessWidget {
     this.boxed = true,
   });
 
+  Color _resolveCardBorderColor(AdwThemeData theme, Widget child) {
+    if (child is AdwButtonRow) {
+      if (child.style == AdwButtonRowStyle.destructive) {
+        return theme.colors.destructiveBorderColor;
+      }
+      if (child.style == AdwButtonRowStyle.suggested) {
+        return theme.colors.accentColor;
+      }
+    }
+    return theme.colors.borderColor;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
@@ -40,9 +53,11 @@ class AdwPreferencesGroup extends StatelessWidget {
         itemsWithDividers.add(
           Container(
             height: 1,
-            color: theme.colors.isDark
-                ? theme.colors.windowBackground
-                : theme.colors.dividerColor,
+            color: theme.colors.isHighContrast
+                ? theme.colors.borderColor
+                : (theme.colors.isDark
+                    ? theme.colors.windowBackground
+                    : theme.colors.dividerColor),
           ),
         );
       }
@@ -122,6 +137,16 @@ class AdwPreferencesGroup extends StatelessWidget {
                         ),
                       ],
               ),
+              foregroundDecoration: theme.colors.isHighContrast
+                  ? BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(AdwMetrics.cardRadius),
+                      border: Border.all(
+                        color: theme.colors.borderColor,
+                        width: 1.0,
+                      ),
+                    )
+                  : null,
               clipBehavior: Clip.antiAlias,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -161,6 +186,19 @@ class AdwPreferencesGroup extends StatelessWidget {
                             ),
                           ],
                   ),
+                  foregroundDecoration: theme.colors.isHighContrast
+                      ? BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AdwMetrics.cardRadius),
+                          border: Border.all(
+                            color: _resolveCardBorderColor(
+                              theme,
+                              children[i],
+                            ),
+                            width: 1.0,
+                          ),
+                        )
+                      : null,
                   clipBehavior: Clip.antiAlias,
                   child: children[i],
                 ),

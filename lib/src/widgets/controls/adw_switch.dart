@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show HapticFeedback, MethodChannel;
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
+import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 
@@ -98,22 +99,17 @@ class _AdwSwitchState extends State<AdwSwitch> {
         trackColor = Color.lerp(trackColor, const Color(0xFFFFFFFF), 0.12)!;
       }
     } else {
-      if (isDark) {
-        if (_isPressed && _isEnabled) {
-          trackColor = const Color(0x40FFFFFF); // 25% white
-        } else if (_isHovered && _isEnabled) {
-          trackColor = const Color(0x33FFFFFF); // 20% white
-        } else {
-          trackColor = const Color(0x26FFFFFF); // 15% white
-        }
+      final baseOff = theme.colors.switchOffTrackColor;
+      if (_isPressed && _isEnabled) {
+        trackColor = Color.lerp(
+          baseOff,
+          isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
+          0.16,
+        )!;
+      } else if (_isHovered && _isEnabled) {
+        trackColor = theme.colors.switchOffTrackHoverColor;
       } else {
-        if (_isPressed && _isEnabled) {
-          trackColor = const Color(0x40000000); // 25% black
-        } else if (_isHovered && _isEnabled) {
-          trackColor = const Color(0x33000000); // 20% black
-        } else {
-          trackColor = const Color(0x26000000); // 15% black
-        }
+        trackColor = baseOff;
       }
     }
 
@@ -122,7 +118,11 @@ class _AdwSwitchState extends State<AdwSwitch> {
     }
 
     Color sliderColor;
-    if (effectiveChecked || _isHovered || _isPressed || !isDark) {
+    if (effectiveChecked ||
+        theme.colors.isHighContrast ||
+        _isHovered ||
+        _isPressed ||
+        !isDark) {
       sliderColor = const Color(0xFFFFFFFF);
     } else {
       // 80% white + 20% view-bg-color (#1D1D20)
@@ -246,32 +246,85 @@ class _AdwSwitchState extends State<AdwSwitch> {
             color: trackColor,
             borderRadius: BorderRadius.circular(switchHeight / 2),
           ),
-          child: Stack(
-            children: [
-              AnimatedPositioned(
-                duration: _dragProgress != null ? Duration.zero : duration,
-                curve: AdwCurves.standard,
-                left: sliderLeft,
-                top: sliderPadding,
-                bottom: sliderPadding,
-                width: sliderSize,
-                child: Container(
-                  width: sliderSize,
-                  height: sliderSize,
-                  decoration: BoxDecoration(
-                    color: sliderColor,
-                    shape: BoxShape.circle,
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x33000000), // 20% shadow opacity
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: AdwDesktopSettings.showStatusShapes,
+            builder: (context, showShapes, sliderChild) {
+              return Stack(
+                children: [
+                  if (showShapes) ...[
+                    // ON indicator: centered vertical bar `|` in left half
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: switchWidth / 2,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          duration: duration,
+                          opacity: effectiveChecked ? 1.0 : 0.0,
+                          child: Container(
+                            width: 2.5,
+                            height: 10.0,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFFFF),
+                              borderRadius: BorderRadius.circular(1.25),
+                            ),
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    // OFF indicator: centered circle `○` in right half
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: switchWidth / 2,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          duration: duration,
+                          opacity: effectiveChecked ? 0.0 : 1.0,
+                          child: Container(
+                            width: 10.0,
+                            height: 10.0,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.colors.switchShapeOffColor,
+                                width: 2.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  sliderChild!,
+                ],
+              );
+            },
+            child: AnimatedPositioned(
+              duration: _dragProgress != null ? Duration.zero : duration,
+              curve: AdwCurves.standard,
+              left: sliderLeft,
+              top: sliderPadding,
+              bottom: sliderPadding,
+              width: sliderSize,
+              child: Container(
+                width: sliderSize,
+                height: sliderSize,
+                decoration: BoxDecoration(
+                  color: sliderColor,
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000), // 20% shadow opacity
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

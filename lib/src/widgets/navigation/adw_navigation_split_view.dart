@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/widgets.dart';
 
-import '../../theme/adw_curves.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_window.dart';
 import 'adw_navigation_view.dart';
@@ -46,7 +45,22 @@ class AdwNavigationSplitViewScope extends InheritedWidget {
 class AdwNavigationSplitView extends StatefulWidget {
   final Widget sidebar;
   final Widget content;
-  final double sidebarWidth;
+
+  /// Optional fixed sidebar width override. When `null` (default), the sidebar
+  /// width dynamically tracks [sidebarWidthFraction] of the available width,
+  /// clamped between [minSidebarWidth] and [maxSidebarWidth] — matching
+  /// upstream Libadwaita `AdwNavigationSplitView`.
+  final double? sidebarWidth;
+
+  /// Minimum sidebar width in logical pixels (upstream default: `180.0`).
+  final double minSidebarWidth;
+
+  /// Maximum sidebar width in logical pixels (upstream default: `280.0`).
+  final double maxSidebarWidth;
+
+  /// Fraction of total width allocated to the sidebar (upstream default: `0.25`).
+  final double sidebarWidthFraction;
+
   final double breakpoint;
   final bool? collapsed;
   final bool showSidebar;
@@ -59,7 +73,10 @@ class AdwNavigationSplitView extends StatefulWidget {
     super.key,
     required this.sidebar,
     required this.content,
-    this.sidebarWidth = 240.0,
+    this.sidebarWidth,
+    this.minSidebarWidth = 180.0,
+    this.maxSidebarWidth = 280.0,
+    this.sidebarWidthFraction = 0.25,
     this.breakpoint = 540.0,
     this.collapsed,
     this.showSidebar = true,
@@ -218,6 +235,10 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
           _collapsedNavController = null;
         }
 
+        final double computedSidebarWidth = widget.sidebarWidth ??
+            (constraints.maxWidth * widget.sidebarWidthFraction)
+                .clamp(widget.minSidebarWidth, widget.maxSidebarWidth);
+
         return AdwNavigationSplitViewScope(
           isCollapsed: false,
           showContentPage: () {},
@@ -229,10 +250,8 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
                 Listener(
                   behavior: HitTestBehavior.translucent,
                   onPointerDown: (_) => _preferContentOnCollapse = false,
-                  child: AnimatedContainer(
-                    duration: AdwCurves.normalDuration,
-                    curve: AdwCurves.standard,
-                    width: widget.sidebarWidth +
+                  child: Container(
+                    width: computedSidebarWidth +
                         (isMobile ? MediaQuery.paddingOf(context).left : 0.0),
                     decoration: BoxDecoration(
                       color: effectiveSidebarBg,

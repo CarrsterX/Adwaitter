@@ -293,7 +293,7 @@ class _AdwButtonState extends State<AdwButton> {
         },
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           constraints: BoxConstraints(
             minWidth: widget.width ?? 0.0,
@@ -307,7 +307,15 @@ class _AdwButtonState extends State<AdwButton> {
             color: backgroundColor,
             borderRadius: widget.borderRadius ?? borderRadius,
             border: Border.all(
-              color: borderColor,
+              color: (theme.colors.isHighContrast &&
+                      borderColor == const Color(0x00000000) &&
+                      (widget.style != AdwButtonStyle.flat ||
+                          _isHovered ||
+                          _isPressed))
+                  ? (widget.style == AdwButtonStyle.destructive
+                      ? theme.colors.destructiveBorderColor
+                      : theme.colors.borderColor)
+                  : borderColor,
               width: 1,
             ),
           ),

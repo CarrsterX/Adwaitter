@@ -111,6 +111,21 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
       body = Stack(
         children: [
           Positioned.fill(child: body),
+          if (widget.topBar != null &&
+              widget.topBarScrollShadow &&
+              theme.colors.isHighContrast &&
+              _isScrolledUnderTop)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Container(
+                  height: 1.0,
+                  color: theme.colors.borderColor,
+                ),
+              ),
+            ),
           if (widget.topBar != null && widget.topBarScrollShadow)
             Positioned(
               top: 0,

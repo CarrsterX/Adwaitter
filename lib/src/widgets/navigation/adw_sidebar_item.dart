@@ -69,13 +69,23 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
           onTapCancel: () => setState(() => _isPressed = false),
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: AdwCurves.shortDuration,
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
             constraints: const BoxConstraints(minHeight: 40.0),
             padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 3.0),
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(9.0),
             ),
+            foregroundDecoration: (theme.colors.isHighContrast &&
+                    (widget.isSelected || _isHovered || _isPressed))
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(9.0),
+                    border: Border.all(
+                      color: theme.colors.borderColor,
+                      width: 1.0,
+                    ),
+                  )
+                : null,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

@@ -140,6 +140,12 @@ class AdwDesktopSettings {
       ValueNotifier(const AdwAnimationSettings());
   static final ValueNotifier<AdwWindowButtonLayout> windowButtonLayout =
       ValueNotifier(const AdwWindowButtonLayout());
+  static final ValueNotifier<double> textScalingFactor =
+      ValueNotifier<double>(1.0);
+  static final ValueNotifier<bool> overlayScrolling =
+      ValueNotifier<bool>(true);
+  static final ValueNotifier<bool> showStatusShapes =
+      ValueNotifier<bool>(false);
 
   static bool _initialized = false;
 
@@ -159,6 +165,12 @@ class AdwDesktopSettings {
         final String? layout = call.arguments as String?;
         if (layout != null) {
           windowButtonLayout.value = AdwWindowButtonLayout.parse(layout);
+        }
+      } else if (call.method == 'onAccessibilitySettingsChanged') {
+        final Map<dynamic, dynamic>? args =
+            call.arguments as Map<dynamic, dynamic>?;
+        if (args != null) {
+          _updateAccessibilityFromMap(args);
         }
       }
     });
@@ -185,6 +197,31 @@ class AdwDesktopSettings {
       }
     } catch (_) {
       // Gracefully retain default button layout if channel is unavailable
+    }
+
+    try {
+      final Map<dynamic, dynamic>? a11y = await _channel
+          .invokeMethod<Map<dynamic, dynamic>>('getAccessibilitySettings');
+      if (a11y != null) {
+        _updateAccessibilityFromMap(a11y);
+      }
+    } catch (_) {
+      // Gracefully retain GNOME accessibility defaults if channel is unavailable
+    }
+  }
+
+  static void _updateAccessibilityFromMap(Map<dynamic, dynamic> map) {
+    final num? scaleNum = map['textScalingFactor'] as num?;
+    if (scaleNum != null) {
+      textScalingFactor.value = scaleNum.toDouble().clamp(0.5, 3.0);
+    }
+    final bool? overlay = map['overlayScrolling'] as bool?;
+    if (overlay != null) {
+      overlayScrolling.value = overlay;
+    }
+    final bool? shapes = map['showStatusShapes'] as bool?;
+    if (shapes != null) {
+      showStatusShapes.value = shapes;
     }
   }
 

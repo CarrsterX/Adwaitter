@@ -685,6 +685,9 @@ class AdwPopoverSurface extends StatelessWidget {
         decoration: BoxDecoration(
           color: effectiveBg,
           borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
+          border: theme.colors.isHighContrast
+              ? Border.all(color: theme.colors.borderColor, width: 1.0)
+              : null,
           boxShadow: const <BoxShadow>[
             BoxShadow(
               color: Color(0x0D000000),
@@ -721,7 +724,9 @@ class AdwPopoverSurface extends StatelessWidget {
       return CustomPaint(
         painter: _AdwPopoverSurfacePainter(
           backgroundColor: effectiveBg,
-          borderColor: isOsd ? const Color(0x1AFFFFFF) : null,
+          borderColor: theme.colors.isHighContrast
+              ? theme.colors.borderColor
+              : (isOsd ? const Color(0x1AFFFFFF) : null),
           radius: AdwMetrics.cardRadius,
           arrowSide: effectiveArrowSide,
           arrowWidth: arrowWidth,
@@ -970,9 +975,7 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
     final theme = AdwTheme.of(context);
     final menuScope = _AdwPopoverMenuScope.maybeOf(context);
     final isEnabled = widget.onTap != null;
-    final isScopeHighlighted =
-        isEnabled && menuScope != null && menuScope.claimInitial(_itemToken);
-    final isHighlighted = widget.isHighlighted || isScopeHighlighted;
+    final isHighlighted = widget.isHighlighted;
     final hoverFill = theme.colors.isDark
         ? const Color(0xFF4A4A4D)
         : const Color(0xFFEBEBEB);
@@ -1013,7 +1016,7 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
             isEnabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           alignment: Alignment.centerLeft,
           constraints: const BoxConstraints(minHeight: 32),
@@ -1022,6 +1025,17 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
             color: bg,
             borderRadius: BorderRadius.circular(6.0),
           ),
+          foregroundDecoration: (theme.colors.isHighContrast &&
+                  isEnabled &&
+                  (_isHovered || _isPressed))
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(6.0),
+                  border: Border.all(
+                    color: theme.colors.borderColor,
+                    width: 1.0,
+                  ),
+                )
+              : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

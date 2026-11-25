@@ -273,6 +273,12 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                           )
                         : theme.colors.accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(999),
+                    border: theme.colors.isHighContrast
+                        ? Border.all(
+                            color: theme.colors.versionPillBorderColor,
+                            width: 1.0,
+                          )
+                        : null,
                   ),
                   child: AdwButton.flat(
                     height: 30,

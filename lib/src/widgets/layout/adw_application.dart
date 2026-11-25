@@ -192,7 +192,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
       home: widget.home,
       builder: (context, child) {
         final isDark = _isDarkMode(context);
-        final defaultTheme = isDark
+        final baseTheme = isDark
             ? (widget.darkTheme ??
                 AdwThemeData.dark(
                   accent: effectiveAccent,
@@ -203,6 +203,9 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
                   accent: effectiveAccent,
                   accentColorOverride: effectiveCustomAccent,
                 ));
+        final defaultTheme = AdwStyleManager.instance.highContrast
+            ? baseTheme.withHighContrast()
+            : baseTheme;
         _syncNativeWindowBackground(defaultTheme.colors.windowBackground);
 
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
@@ -225,21 +228,41 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
         return ValueListenableBuilder<AdwAnimationSettings>(
           valueListenable: AdwDesktopSettings.animationSettings,
           builder: (context, animSettings, _) {
-            final themedChild = AdwTheme(
-              data: defaultTheme,
-              child: AdwAnimationScope(
-                settings: animSettings,
-                child: AdwWindowShapeScope(
-                  borderRadiusNotifier: _windowBorderRadius,
-                  child: ScrollConfiguration(
-                    behavior: widget.scrollBehavior ?? const AdwScrollBehavior(),
-                    child: widget.builder != null
-                        ? widget.builder!(context, content)
-                        : content,
+            return ValueListenableBuilder<double>(
+              valueListenable: AdwDesktopSettings.textScalingFactor,
+              builder: (context, textScale, _) {
+                final Widget inner = widget.builder != null
+                    ? widget.builder!(context, content)
+                    : content;
+                final MediaQueryData? mq = MediaQuery.maybeOf(context);
+                final bool disableAnims = !animSettings.enableAnimations;
+                final Widget scaledInner =
+                    (mq != null && (textScale != 1.0 || disableAnims))
+                        ? MediaQuery(
+                            data: mq.copyWith(
+                              textScaler: textScale != 1.0
+                                  ? TextScaler.linear(textScale)
+                                  : mq.textScaler,
+                              disableAnimations:
+                                  disableAnims || mq.disableAnimations,
+                            ),
+                            child: inner,
+                          )
+                        : inner;
+                final themedChild = AdwTheme(
+                  data: defaultTheme,
+                  child: AdwAnimationScope(
+                    settings: animSettings,
+                    child: AdwWindowShapeScope(
+                      borderRadiusNotifier: _windowBorderRadius,
+                      child: ScrollConfiguration(
+                        behavior:
+                            widget.scrollBehavior ?? const AdwScrollBehavior(),
+                        child: scaledInner,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            );
+                );
 
             return ListenableBuilder(
               listenable: AdwSubWindowManager.instance,
@@ -290,6 +313,8 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
                 );
               },
               child: themedChild,
+            );
+              },
             );
           },
         );

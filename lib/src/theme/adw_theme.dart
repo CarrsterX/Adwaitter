@@ -20,6 +20,7 @@ enum AdwThemeMode {
 /// Semantic color scheme defining GNOME Libadwaita tokens.
 class AdwColorScheme {
   final bool isDark;
+  final bool isHighContrast;
   final Color windowBackground;
   final Color windowForeground;
   final Color secondaryForeground;
@@ -70,20 +71,80 @@ class AdwColorScheme {
       ? const Color(0xFF28282C)
       : const Color(0xFFF3F3F5);
 
-  /// Outer hairline border around floating CSD windows (`window.csd`).
-  Color get windowOutline => isDark
-      ? const Color(0x80000000)
-      : const Color(0x00000000);
+  /// Flat `AdwSplitButton` hovered-half background (`#404043` dark, `#DFDFE0` light high-contrast).
+  Color get splitButtonFlatHoverColor => isDark
+      ? const Color(0xFF404043)
+      : (isHighContrast ? const Color(0xFFDFDFE0) : hoverColor);
 
-  /// Subtle 1px inner edge highlight on floating CSD windows (`~8%` white in dark mode).
-  Color get windowInnerBorder => isDark
-      ? const Color(0x14FFFFFF)
-      : const Color(0x00000000);
+  /// Flat `AdwSplitButton` non-hovered sibling half background (`#323235` dark, `#ECECED` light high-contrast).
+  Color get splitButtonFlatSiblingColor => isDark
+      ? const Color(0xFF323235)
+      : (isHighContrast ? const Color(0xFFECECED) : const Color(0x05000000));
+
+  /// Flat `AdwSplitButton` high-contrast border for the non-hovered sibling half (`#545456` dark).
+  Color get splitButtonFlatSiblingBorderColor =>
+      isDark ? const Color(0xFF545456) : borderColor.withValues(alpha: 0.65);
+
+  /// High-contrast inner divider color for `AdwSplitButton` (`#D3D3D3` dark, `#4C4C50` light).
+  Color get splitButtonDividerHighContrastColor =>
+      isDark ? const Color(0xFFD3D3D3) : const Color(0xFF4C4C50);
+
+  /// Track background color for non-flat `AdwToggleGroup`
+  /// (`#38383B` dark, `#47474B` dark high-contrast, `#E6E6E7` light).
+  Color get toggleGroupTrackColor => isDark
+      ? (isHighContrast ? const Color(0xFF47474B) : const Color(0xFF38383B))
+      : const Color(0xFFE6E6E7);
+
+  /// High-contrast border color for the `AdwAboutDialog` version pill (`#5681BB`).
+  Color get versionPillBorderColor => const Color(0xFF5681BB);
+
+  /// Focused input ring color (`#74B4FF` in high-contrast mode).
+  Color get focusBorderColor => isHighContrast
+      ? const Color(0xFF74B4FF)
+      : accentColor.withValues(alpha: 0.50);
+
+  /// Focused ring color for `AdwSpinRow`
+  /// (dark: `#4F77AC` / HC `#86C6FF`; light: `#73A1D1` / HC `#3680CB`).
+  Color get spinRowFocusBorderColor => isDark
+      ? (isHighContrast ? const Color(0xFF86C6FF) : const Color(0xFF4F77AC))
+      : (isHighContrast ? const Color(0xFF3680CB) : const Color(0xFF73A1D1));
+
+  /// High-contrast border color for destructive actions (`#CA6C69` in dark mode).
+  Color get destructiveBorderColor =>
+      isDark ? const Color(0xFFCA6C69) : destructiveColor;
+
+  /// OFF-state track background color for `AdwSwitch`
+  /// (`#515155` dark, `#707073` dark high-contrast, `#E0E0E1` light, `#C2C2C3` light high-contrast).
+  Color get switchOffTrackColor => isDark
+      ? (isHighContrast ? const Color(0xFF707073) : const Color(0xFF515155))
+      : (isHighContrast ? const Color(0xFFC2C2C3) : const Color(0xFFE0E0E1));
+
+  /// OFF-state track hover color for `AdwSwitch` (`#A9A9AB` in light high-contrast).
+  Color get switchOffTrackHoverColor => isDark
+      ? Color.lerp(switchOffTrackColor, const Color(0xFFFFFFFF), 0.08)!
+      : (isHighContrast
+          ? const Color(0xFFA9A9AB)
+          : Color.lerp(switchOffTrackColor, const Color(0xFF000000), 0.08)!);
+
+  /// OFF-state circle (`○`) color for `AdwSwitch` when `show-status-shapes` is enabled.
+  Color get switchShapeOffColor => isHighContrast
+      ? (isDark ? const Color(0xFFE8E8E9) : const Color(0xFF2D2D32))
+      : (isDark ? const Color(0xB3FFFFFF) : const Color(0xFF2D2D32));
+
+  /// Outer hairline border around floating CSD windows (`window.csd`).
+  Color get windowOutline =>
+      isDark ? const Color(0x80000000) : const Color(0x00000000);
+
+  /// Subtle 1px inner edge highlight on floating CSD windows (`~8%` white in dark mode,
+  /// or `borderColor` in high-contrast mode, painted cleanly on top of clipped content).
+  Color get windowInnerBorder => isHighContrast
+      ? borderColor
+      : (isDark ? const Color(0x14FFFFFF) : const Color(0x00000000));
 
   /// Dimmed icon color used by `AdwStatusPage` and `AdwPreferencesPage` headers.
   Color get statusIconColor => isDark
-      ? const Color(0xFF9B9B9D)
-      : const Color(0xFF8C8C90);
+      ? (isHighContrast ? const Color(0xFFE8E8E9) : const Color(0xFF9B9B9D))
+      : (isHighContrast ? const Color(0xFF46464A) : const Color(0xFF8C8C90));
 
   /// Idle background for `AdwButtonRow` cards.
   Color get buttonRowBackground => isDark
@@ -172,6 +233,7 @@ class AdwColorScheme {
 
   const AdwColorScheme({
     required this.isDark,
+    this.isHighContrast = false,
     required this.windowBackground,
     required this.windowForeground,
     required this.secondaryForeground,
@@ -231,7 +293,7 @@ class AdwColorScheme {
       destructiveForeground: const Color(0xFFFFFFFF),
       successColor: AdwColors.green4,
       warningColor: AdwColors.yellow5,
-      hoverColor: const Color(0x0F000000), // ~6%
+      hoverColor: const Color(0x06000000), // ~2.4% (#F9F9F9 over #FFFFFF)
       activeColor: const Color(0x1F000000), // ~12%
       sidebarBackground: const Color(0xFFEBEBED),
       // Exact upstream Libadwaita light sidebar border (#DADADC)
@@ -271,11 +333,51 @@ class AdwColorScheme {
       destructiveForeground: const Color(0xFFFFFFFF),
       successColor: AdwColors.green5,
       warningColor: const Color(0xFFCD9309),
-      hoverColor: const Color(0x0FFFFFFF), // ~6%
+      hoverColor: const Color(0x08FFFFFF), // ~3% (#39393D over #333337)
       activeColor: const Color(0x1FFFFFFF), // ~12%
       sidebarBackground: const Color(0xFF2E2E32),
       // RGB(0 0 6 / 36%) over #2E2E32 -> #1D1D22
       sidebarBorder: const Color(0x5C000006),
+    );
+  }
+
+  /// Returns a high-contrast variant matching Libadwaita `_high_contrast.scss`
+  /// (50% border opacity, stronger dividers, and higher secondary text contrast).
+  AdwColorScheme withHighContrast() {
+    return AdwColorScheme(
+      isDark: isDark,
+      isHighContrast: true,
+      windowBackground: windowBackground,
+      windowForeground: windowForeground,
+      secondaryForeground:
+          isDark ? const Color(0xE6FFFFFF) : const Color(0xD9000000),
+      viewBackground: viewBackground,
+      viewForeground: viewForeground,
+      cardBackground: cardBackground,
+      cardForeground: cardForeground,
+      headerBarBackground: headerBarBackground,
+      headerBarForeground: headerBarForeground,
+      dialogBackground: dialogBackground,
+      dialogForeground: dialogForeground,
+      popoverBackground: popoverBackground,
+      popoverForeground: popoverForeground,
+      borderColor:
+          isDark ? const Color(0x80FFFFFF) : const Color(0xFF89898C),
+      dividerColor:
+          isDark ? const Color(0x66FFFFFF) : const Color(0xFF89898C),
+      accentColor: accentColor,
+      accentForeground: accentForeground,
+      destructiveColor: destructiveColor,
+      destructiveForeground: destructiveForeground,
+      successColor: successColor,
+      warningColor: warningColor,
+      hoverColor:
+          isDark ? const Color(0x08FFFFFF) : const Color(0x06000000),
+      activeColor:
+          isDark ? const Color(0x33FFFFFF) : const Color(0x26000000),
+      sidebarBackground: sidebarBackground,
+      sidebarBorder:
+          isDark ? const Color(0x80FFFFFF) : const Color(0xFF89898C),
     );
   }
 }
@@ -289,6 +391,17 @@ class AdwThemeData {
     required this.colors,
     required this.typography,
   });
+
+  AdwThemeData withHighContrast() {
+    final hcColors = colors.withHighContrast();
+    return AdwThemeData(
+      colors: hcColors,
+      typography: AdwTypography.fromColors(
+        foreground: hcColors.windowForeground,
+        secondaryForeground: hcColors.secondaryForeground,
+      ),
+    );
+  }
 
   factory AdwThemeData.light({
     AdwAccentColor accent = AdwAccentColor.blue,

@@ -46,7 +46,7 @@ abstract final class AdwMetrics {
   static const double buttonMinHeight = 34.0;
 
   /// Track width of a standard switch control (46px).
-  static const double switchWidth = 46.0;
+  static const double switchWidth = 48.0;
 
   /// Track height of a standard switch control (26px).
   static const double switchHeight = 26.0;

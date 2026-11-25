@@ -252,26 +252,35 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                     ),
                   ],
           ),
-          foregroundDecoration: theme.colors.isDark
+          foregroundDecoration: (theme.colors.isDark ||
+                  theme.colors.isHighContrast)
               ? BoxDecoration(
                   borderRadius: radius,
                   border: isBottomSheet
-                      ? const Border(
+                      ? Border(
                           top: BorderSide(
-                            color: Color(0xFF323235),
+                            color: theme.colors.isHighContrast
+                                ? theme.colors.borderColor
+                                : const Color(0xFF323235),
                             width: 1.0,
                           ),
                           left: BorderSide(
-                            color: Color(0xFF323235),
+                            color: theme.colors.isHighContrast
+                                ? theme.colors.borderColor
+                                : const Color(0xFF323235),
                             width: 1.0,
                           ),
                           right: BorderSide(
-                            color: Color(0xFF323235),
+                            color: theme.colors.isHighContrast
+                                ? theme.colors.borderColor
+                                : const Color(0xFF323235),
                             width: 1.0,
                           ),
                         )
                       : Border.all(
-                          color: const Color(0xFF323235),
+                          color: theme.colors.isHighContrast
+                              ? theme.colors.borderColor
+                              : const Color(0xFF323235),
                           width: 1.0,
                         ),
                 )

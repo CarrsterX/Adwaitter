@@ -150,28 +150,31 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
 
     final fg = theme.colors.windowForeground;
     final baseBg = widget.isFlat
-        ? const Color(0x00000000)
+        ? theme.colors.splitButtonFlatSiblingColor.withValues(alpha: 0.0)
         : (theme.colors.isDark
             ? const Color(0xFF38383B)
             : const Color(0xFFE6E6E7));
+    final bool isAnyActive = _primaryHovered ||
+        _primaryPressed ||
+        _dropdownHovered ||
+        _dropdownPressed ||
+        _isMenuOpen;
+    final nonFlatHoverBg = Color.lerp(baseBg, fg, 0.08)!;
+    final nonFlatActiveBg = Color.lerp(baseBg, fg, 0.16)!;
     final primaryBg = _primaryPressed
-        ? (widget.isFlat
-            ? theme.colors.activeColor
-            : fg.withValues(alpha: 0.30))
+        ? (widget.isFlat ? theme.colors.activeColor : nonFlatActiveBg)
         : _primaryHovered
             ? (widget.isFlat
-                ? theme.colors.hoverColor
-                : fg.withValues(alpha: 0.15))
-            : baseBg;
+                ? theme.colors.splitButtonFlatHoverColor
+                : nonFlatHoverBg)
+            : (widget.isFlat ? baseBg : baseBg);
     final dropdownBg = (_dropdownPressed || _isMenuOpen)
-        ? (widget.isFlat
-            ? theme.colors.activeColor
-            : fg.withValues(alpha: 0.30))
+        ? (widget.isFlat ? theme.colors.activeColor : nonFlatActiveBg)
         : _dropdownHovered
             ? (widget.isFlat
-                ? theme.colors.hoverColor
-                : fg.withValues(alpha: 0.15))
-            : baseBg;
+                ? theme.colors.splitButtonFlatHoverColor
+                : nonFlatHoverBg)
+            : (widget.isFlat ? baseBg : baseBg);
 
     Widget primaryContent = widget.child ??
         Row(
@@ -200,9 +203,25 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
     final primaryHorizontalPadding =
         (widget.label != null || widget.child != null) ? 10.0 : 8.0;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
-      child: Row(
+    final splitContent = AnimatedContainer(
+      duration: duration,
+      decoration: BoxDecoration(
+        color: (widget.isFlat && isAnyActive)
+            ? theme.colors.splitButtonFlatSiblingColor
+            : baseBg,
+        borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+        border: widget.isFlat
+            ? Border.all(
+                color: (theme.colors.isHighContrast && isAnyActive)
+                    ? theme.colors.splitButtonFlatSiblingBorderColor
+                    : const Color(0x00000000),
+                width: 1.0,
+              )
+            : null,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           MouseRegion(
@@ -224,21 +243,51 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
                 padding: EdgeInsets.symmetric(
                   horizontal: primaryHorizontalPadding,
                 ),
-                color: primaryBg,
+                decoration: BoxDecoration(
+                  color: primaryBg,
+                  borderRadius: widget.isFlat
+                      ? BorderRadius.circular(AdwMetrics.buttonRadius)
+                      : null,
+                ),
+                foregroundDecoration: (widget.isFlat &&
+                        theme.colors.isHighContrast &&
+                        (_primaryHovered || _primaryPressed))
+                    ? BoxDecoration(
+                        borderRadius:
+                            BorderRadius.circular(AdwMetrics.buttonRadius),
+                        border: Border.all(
+                          color: theme.colors.borderColor,
+                          width: 1.0,
+                        ),
+                      )
+                    : null,
                 child: Center(child: primaryContent),
               ),
             ),
           ),
-          Container(
-            width: 1,
-            height: widget.isFlat ? widget.height - 10.0 : widget.height,
-            color: widget.isFlat
-                ? (theme.colors.isDark
-                    ? const Color(0xFF646467)
-                    : const Color(0xFFBEBEC0))
-                : (theme.colors.isDark
-                    ? const Color(0x28FFFFFF)
-                    : const Color(0x22000000)),
+          AnimatedOpacity(
+            duration: duration,
+            opacity: (widget.isFlat &&
+                    (_primaryHovered ||
+                        _primaryPressed ||
+                        _dropdownHovered ||
+                        _dropdownPressed ||
+                        _isMenuOpen))
+                ? 0.0
+                : 1.0,
+            child: Container(
+              width: 1,
+              height: widget.isFlat ? widget.height - 10.0 : widget.height,
+              color: theme.colors.isHighContrast
+                  ? theme.colors.splitButtonDividerHighContrastColor
+                  : (widget.isFlat
+                      ? (theme.colors.isDark
+                          ? const Color(0xFF646467)
+                          : const Color(0xFFBEBEC0))
+                      : (theme.colors.isDark
+                          ? const Color(0x28FFFFFF)
+                          : const Color(0x22000000))),
+            ),
           ),
           MouseRegion(
             key: _dropdownKey,
@@ -258,7 +307,24 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
                 duration: duration,
                 height: widget.height,
                 padding: const EdgeInsets.symmetric(horizontal: 5),
-                color: dropdownBg,
+                decoration: BoxDecoration(
+                  color: dropdownBg,
+                  borderRadius: widget.isFlat
+                      ? BorderRadius.circular(AdwMetrics.buttonRadius)
+                      : null,
+                ),
+                foregroundDecoration: (widget.isFlat &&
+                        theme.colors.isHighContrast &&
+                        (_dropdownHovered || _dropdownPressed || _isMenuOpen))
+                    ? BoxDecoration(
+                        borderRadius:
+                            BorderRadius.circular(AdwMetrics.buttonRadius),
+                        border: Border.all(
+                          color: theme.colors.borderColor,
+                          width: 1.0,
+                        ),
+                      )
+                    : null,
                 child: Center(
                   child: CustomPaint(
                     size: const Size(14, 14),
@@ -270,7 +336,24 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
           ),
         ],
       ),
+      ),
     );
+
+    if (theme.colors.isHighContrast && !widget.isFlat) {
+      return DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+          border: Border.all(
+            color: theme.colors.borderColor,
+            width: 1.0,
+          ),
+        ),
+        child: splitContent,
+      );
+    }
+
+    return splitContent;
   }
 }
 

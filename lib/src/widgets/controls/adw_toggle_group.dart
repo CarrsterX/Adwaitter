@@ -174,9 +174,7 @@ class AdwToggleGroup<T> extends StatelessWidget {
 
     final trackColor = isFlat
         ? const Color(0x00000000)
-        : (theme.colors.isDark
-            ? const Color(0xFF38383B)
-            : const Color(0xFFE6E6E7));
+        : theme.colors.toggleGroupTrackColor;
 
     return Container(
       height: isVertical ? null : height,
@@ -184,6 +182,15 @@ class AdwToggleGroup<T> extends StatelessWidget {
         color: trackColor,
         borderRadius: BorderRadius.circular(outerRadius),
       ),
+      foregroundDecoration: (!isFlat && theme.colors.isHighContrast)
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(outerRadius),
+              border: Border.all(
+                color: theme.colors.borderColor,
+                width: 1.0,
+              ),
+            )
+          : null,
       padding: isFlat ? EdgeInsets.zero : const EdgeInsets.all(3),
       child: isVertical
           ? IntrinsicWidth(
@@ -326,6 +333,16 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
             minHeight: widget.minHeight,
           ),
           padding: widget.padding,
+          foregroundDecoration: (theme.colors.isHighContrast &&
+                  (widget.isSelected || _isHovered || _isPressed))
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
+                  border: Border.all(
+                    color: theme.colors.borderColor,
+                    width: 1.0,
+                  ),
+                )
+              : null,
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(widget.borderRadius),

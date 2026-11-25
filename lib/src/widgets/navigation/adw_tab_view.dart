@@ -601,6 +601,14 @@ class _AdwTabBarState extends State<AdwTabBar> {
                     ? null
                     : BoxDecoration(
                         color: theme.colors.headerBarBackground,
+                        border: theme.colors.isHighContrast
+                            ? Border(
+                                bottom: BorderSide(
+                                  color: theme.colors.borderColor,
+                                  width: 1.0,
+                                ),
+                              )
+                            : null,
                       ),
                 padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
                 child: Row(
@@ -925,7 +933,7 @@ class _AdwTabItemState extends State<_AdwTabItem> {
                 clipBehavior: Clip.none,
                 children: [
                   AnimatedContainer(
-                    duration: AdwCurves.shortDuration,
+                    duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                     curve: AdwCurves.standard,
                     constraints: BoxConstraints(
                       minHeight: 34,
@@ -936,6 +944,13 @@ class _AdwTabItemState extends State<_AdwTabItem> {
                       color: bg,
                       borderRadius:
                           BorderRadius.circular(AdwMetrics.buttonRadius),
+                      border: (theme.colors.isHighContrast &&
+                              (widget.isSelected || _isHovered))
+                          ? Border.all(
+                              color: theme.colors.borderColor,
+                              width: 1.0,
+                            )
+                          : null,
                     ),
                     child: widget.page.pinned
                         ? _buildPinnedContent(fg)

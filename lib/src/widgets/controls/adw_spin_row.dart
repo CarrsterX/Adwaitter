@@ -95,17 +95,17 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
           behavior: HitTestBehavior.opaque,
           onTap: () => _focusNode.requestFocus(),
           child: AnimatedContainer(
-            duration: AdwCurves.shortDuration,
+            duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
             curve: AdwCurves.standard,
             constraints:
                 const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
               border: Border.all(
-                color: theme.colors.accentColor.withValues(
-                  alpha: _isFocused ? 0.75 : 0.0,
-                ),
+                color: _isFocused
+                    ? theme.colors.spinRowFocusBorderColor
+                    : theme.colors.spinRowFocusBorderColor
+                        .withValues(alpha: 0.0),
                 width: 2.0,
               ),
             ),
@@ -147,13 +147,13 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 15),
                     _SpinButton(
                       isIncrement: false,
                       enabled: canDecrement,
                       onPressed: _decrement,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 10),
                     _SpinButton(
                       isIncrement: true,
                       enabled: canIncrement,
@@ -228,11 +228,14 @@ class _SpinButtonState extends State<_SpinButton> {
         },
         onTap: widget.enabled ? widget.onPressed : null,
         child: Container(
-          width: 28,
-          height: 28,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: bgColor,
+            border: theme.colors.isHighContrast
+                ? Border.all(color: theme.colors.borderColor, width: 1.0)
+                : null,
           ),
           child: CustomPaint(
             painter: _SpinSymbolPainter(

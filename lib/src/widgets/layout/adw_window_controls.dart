@@ -111,13 +111,16 @@ class _AdwWindowControlButtonState extends State<AdwWindowControlButton> {
             height: widget.buttonSize,
             child: Center(
               child: AnimatedContainer(
-                duration: AdwCurves.shortDuration,
+                duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                 curve: AdwCurves.standard,
                 width: widget.circleSize,
                 height: widget.circleSize,
                 decoration: BoxDecoration(
                   color: bg,
                   shape: BoxShape.circle,
+                  border: theme.colors.isHighContrast
+                      ? Border.all(color: theme.colors.borderColor, width: 1.0)
+                      : null,
                 ),
                 child: Center(
                   child: SizedBox(
