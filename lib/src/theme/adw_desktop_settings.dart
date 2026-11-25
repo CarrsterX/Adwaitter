@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'adw_web_settings_stub.dart'
+    if (dart.library.js_interop) 'adw_web_settings_web.dart';
+
 /// Configuration descriptor for desktop animation characteristics and speed factors.
 class AdwAnimationSettings {
   /// Whether animations are enabled globally by the host desktop environment.
@@ -160,12 +163,30 @@ class AdwDesktopSettings {
   static bool _initialized = false;
   static _AndroidSettingsLifecycleObserver? _lifecycleObserver;
 
-  /// Initializes platform channel bindings for desktop/Android animation and shell preferences.
+  /// Initializes platform channel bindings for desktop/Android animation and shell preferences,
+  /// or browser CSS Media Queries (`prefers-reduced-motion`, `prefers-contrast`) on Web.
   static void initialize() {
-    if (_initialized ||
-        kIsWeb ||
-        (defaultTargetPlatform != TargetPlatform.linux &&
-            defaultTargetPlatform != TargetPlatform.android)) {
+    if (_initialized) return;
+
+    if (kIsWeb) {
+      _initialized = true;
+      initializeWebAccessibilitySettings(
+        onReducedMotionChanged: (reduced) {
+          animationSettings.value = AdwAnimationSettings(
+            enableAnimations: !reduced,
+            durationFactor: reduced ? 0.0 : 1.0,
+            desktop: 'Web',
+          );
+        },
+        onHighContrastChanged: (highContrast) {
+          contrastLevel.value = highContrast ? 1.0 : 0.0;
+        },
+      );
+      return;
+    }
+
+    if (defaultTargetPlatform != TargetPlatform.linux &&
+        defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
     _initialized = true;
