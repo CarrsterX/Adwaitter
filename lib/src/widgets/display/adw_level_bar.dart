@@ -55,7 +55,7 @@ class AdwLevelBar extends StatelessWidget {
             if (i > 0) SizedBox(width: segmentSpacing),
             Expanded(
               child: AnimatedContainer(
-                duration: AdwCurves.shortDuration,
+                duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                 curve: AdwCurves.standard,
                 height: height,
                 decoration: BoxDecoration(
@@ -76,7 +76,7 @@ class AdwLevelBar extends StatelessWidget {
         color: emptyColor,
         alignment: Alignment.centerLeft,
         child: AnimatedFractionallySizedBox(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           widthFactor: fraction,
           child: Container(

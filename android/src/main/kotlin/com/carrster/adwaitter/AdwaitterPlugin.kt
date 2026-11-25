@@ -11,12 +11,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.DragEvent
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -79,10 +83,22 @@ class AdwaitterPlugin :
     private var mediaCanPause: Boolean = true
     private var mediaCanSeek: Boolean = true
 
+    private lateinit var settingsChannel: MethodChannel
+    private var animatorScaleObserver: ContentObserver? = null
+
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, "libadwaitter/style")
         channel.setMethodCallHandler(this)
+        settingsChannel = MethodChannel(binding.binaryMessenger, "libadwaitter/settings")
+        settingsChannel.setMethodCallHandler { call, result ->
+            if (call.method == "getAnimationSettings") {
+                result.success(buildAndroidAnimationSettingsMap())
+            } else {
+                result.notImplemented()
+            }
+        }
+        registerAnimatorScaleObserver()
         portalChannel = MethodChannel(binding.binaryMessenger, "libadwaitter/portal")
         portalChannel.setMethodCallHandler { call, result ->
             onPortalMethodCall(call, result)
@@ -99,13 +115,69 @@ class AdwaitterPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        unregisterAnimatorScaleObserver()
         releaseMediaSession()
         channel.setMethodCallHandler(null)
+        settingsChannel.setMethodCallHandler(null)
         portalChannel.setMethodCallHandler(null)
         mediaChannel.setMethodCallHandler(null)
         dndChannel.setMethodCallHandler(null)
         textActionsChannel.setMethodCallHandler(null)
         applicationContext = null
+    }
+
+    private fun buildAndroidAnimationSettingsMap(): Map<String, Any> {
+        val ctx = applicationContext
+        val scale = if (ctx != null) {
+            try {
+                Settings.Global.getFloat(
+                    ctx.contentResolver,
+                    Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1.0f,
+                ).coerceIn(0.0f, 10.0f)
+            } catch (_: Throwable) {
+                1.0f
+            }
+        } else {
+            1.0f
+        }
+        return mapOf(
+            "enableAnimations" to (scale > 0.0f),
+            "durationFactor" to scale.toDouble(),
+            "desktop" to "Android",
+        )
+    }
+
+    private fun registerAnimatorScaleObserver() {
+        val ctx = applicationContext ?: return
+        if (animatorScaleObserver != null) return
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                settingsChannel.invokeMethod(
+                    "onAnimationSettingsChanged",
+                    buildAndroidAnimationSettingsMap(),
+                )
+            }
+        }
+        try {
+            ctx.contentResolver.registerContentObserver(
+                Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+                false,
+                observer,
+            )
+            animatorScaleObserver = observer
+        } catch (_: Throwable) {
+            // Ignore if restricted on older/custom ROMs
+        }
+    }
+
+    private fun unregisterAnimatorScaleObserver() {
+        val obs = animatorScaleObserver ?: return
+        animatorScaleObserver = null
+        try {
+            applicationContext?.contentResolver?.unregisterContentObserver(obs)
+        } catch (_: Throwable) {
+        }
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {

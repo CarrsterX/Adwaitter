@@ -131,7 +131,7 @@ class _AdwEntryState extends State<AdwEntry> {
         behavior: HitTestBehavior.opaque,
         onTap: () => _focusNode.requestFocus(),
         child: AnimatedContainer(
-        duration: AdwCurves.shortDuration,
+        duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
         curve: AdwCurves.standard,
         height: widget.height,
         padding: const EdgeInsets.symmetric(horizontal: 9.0),

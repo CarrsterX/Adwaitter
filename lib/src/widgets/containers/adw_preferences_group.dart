@@ -4,6 +4,30 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../controls/adw_button_row.dart';
 
+/// Provides the exact [BorderRadius] for a row's position inside an
+/// [AdwPreferencesGroup] (top-rounded for first, bottom-rounded for last,
+/// all-rounded for single/separated, square for middle rows).
+class AdwGroupRowShape extends InheritedWidget {
+  final BorderRadius borderRadius;
+
+  const AdwGroupRowShape({
+    super.key,
+    required this.borderRadius,
+    required super.child,
+  });
+
+  static BorderRadius borderRadiusOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<AdwGroupRowShape>()
+            ?.borderRadius ??
+        BorderRadius.circular(AdwMetrics.cardRadius);
+  }
+
+  @override
+  bool updateShouldNotify(AdwGroupRowShape oldWidget) =>
+      borderRadius != oldWidget.borderRadius;
+}
+
 /// Container group for preferences (`AdwPreferencesGroup`).
 ///
 /// Groups preference rows ([AdwActionRow], [AdwSwitchRow], [AdwExpanderRow], etc.)
@@ -48,7 +72,25 @@ class AdwPreferencesGroup extends StatelessWidget {
 
     final List<Widget> itemsWithDividers = [];
     for (int i = 0; i < children.length; i++) {
-      itemsWithDividers.add(children[i]);
+      final bool isFirst = i == 0;
+      final bool isLast = i == children.length - 1;
+      final BorderRadius rowRadius = (isFirst && isLast)
+          ? BorderRadius.circular(AdwMetrics.cardRadius)
+          : isFirst
+              ? const BorderRadius.vertical(
+                  top: Radius.circular(AdwMetrics.cardRadius),
+                )
+              : isLast
+                  ? const BorderRadius.vertical(
+                      bottom: Radius.circular(AdwMetrics.cardRadius),
+                    )
+                  : BorderRadius.zero;
+      itemsWithDividers.add(
+        AdwGroupRowShape(
+          borderRadius: rowRadius,
+          child: children[i],
+        ),
+      );
       if (i < children.length - 1) {
         itemsWithDividers.add(
           Container(

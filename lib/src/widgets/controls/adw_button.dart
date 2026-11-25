@@ -253,7 +253,7 @@ class _AdwButtonState extends State<AdwButton> {
             : const EdgeInsets.symmetric(horizontal: 12, vertical: 6));
 
     Widget buttonContent = AnimatedDefaultTextStyle(
-      duration: AdwCurves.shortDuration,
+      duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
       style: theme.typography.heading.copyWith(
         color: foregroundColor,
       ),

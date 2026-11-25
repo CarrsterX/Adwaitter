@@ -26,6 +26,7 @@ class AdwToolbarView extends StatefulWidget {
   final Widget? topBar;
   final Widget content;
   final Widget? bottomBar;
+  final AdwToolbarStyle topBarStyle;
   final AdwToolbarStyle bottomBarStyle;
   final bool topBarScrollShadow;
   final bool bottomBarScrollShadow;
@@ -40,6 +41,7 @@ class AdwToolbarView extends StatefulWidget {
     this.topBar,
     required this.content,
     this.bottomBar,
+    this.topBarStyle = AdwToolbarStyle.flat,
     this.bottomBarStyle = AdwToolbarStyle.flat,
     this.topBarScrollShadow = true,
     this.bottomBarScrollShadow = false,
@@ -133,7 +135,7 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
               right: 0,
               child: IgnorePointer(
                 child: AnimatedOpacity(
-                  duration: AdwCurves.shortDuration,
+                  duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                   curve: AdwCurves.standard,
                   opacity: _isScrolledUnderTop ? 1.0 : 0.0,
                   child: Column(
@@ -162,7 +164,7 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
               right: 0,
               child: IgnorePointer(
                 child: AnimatedOpacity(
-                  duration: AdwCurves.shortDuration,
+                  duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                   curve: AdwCurves.standard,
                   opacity: _isScrolledUnderBottom ? 1.0 : 0.0,
                   child: Column(
@@ -185,6 +187,37 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
               ),
             ),
         ],
+      );
+    }
+
+    Widget? resolvedTopBar = widget.topBar;
+    if (resolvedTopBar != null &&
+        widget.topBarStyle != AdwToolbarStyle.flat) {
+      final raisedShade = shadeColor.withValues(alpha: shadeColor.a * 0.5);
+      resolvedTopBar = Container(
+        decoration: BoxDecoration(
+          color: theme.colors.headerBarBackground,
+          border: widget.topBarStyle == AdwToolbarStyle.raisedBorder
+              ? Border(
+                  bottom: BorderSide(color: shadeColor, width: 1.0),
+                )
+              : null,
+          boxShadow: widget.topBarStyle == AdwToolbarStyle.raised
+              ? [
+                  BoxShadow(
+                    color: raisedShade,
+                    blurRadius: 0.0,
+                    offset: const Offset(0, 1),
+                  ),
+                  BoxShadow(
+                    color: raisedShade,
+                    blurRadius: 4.0,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: resolvedTopBar,
       );
     }
 
@@ -231,7 +264,7 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
               ? _BottomInsetPadding(child: body)
               : body,
         ),
-        if (widget.topBar != null) widget.topBar!,
+        if (resolvedTopBar != null) resolvedTopBar,
       ],
     );
   }

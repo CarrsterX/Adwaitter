@@ -257,7 +257,7 @@ class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           constraints: BoxConstraints(minHeight: isWide ? 34 : 36),
           decoration: BoxDecoration(

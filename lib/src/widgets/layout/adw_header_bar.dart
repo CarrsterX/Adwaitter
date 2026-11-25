@@ -254,7 +254,7 @@ class AdwHeaderBar extends StatelessWidget {
               Positioned.fill(
                 child: AnimatedOpacity(
                   opacity: isWindowActive ? 1.0 : 0.55,
-                  duration: AdwCurves.shortDuration,
+                  duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                   child: CustomMultiChildLayout(
                     delegate: _AdwHeaderBarLayoutDelegate(
                       padding: resolvedPadding,

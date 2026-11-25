@@ -81,7 +81,7 @@ class _AdwProgressBarState extends State<AdwProgressBar>
           color: effectiveTrack,
           alignment: Alignment.centerLeft,
           child: AnimatedFractionallySizedBox(
-            duration: AdwCurves.shortDuration,
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
             curve: AdwCurves.standard,
             widthFactor: fraction,
             child: Container(

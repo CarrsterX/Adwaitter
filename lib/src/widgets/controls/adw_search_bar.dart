@@ -97,12 +97,12 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
 
     return ClipRect(
       child: AnimatedAlign(
-        duration: AdwCurves.normalDuration,
+        duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
         curve: AdwCurves.standard,
         alignment: Alignment.topCenter,
         heightFactor: widget.revealed ? 1.0 : 0.0,
         child: AnimatedOpacity(
-          duration: AdwCurves.normalDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
           curve: AdwCurves.standard,
           opacity: widget.revealed ? 1.0 : 0.0,
           child: IgnorePointer(
@@ -123,7 +123,7 @@ class _AdwSearchBarState extends State<AdwSearchBar> {
                       onTap: () => _focusNode.requestFocus(),
                       child: AdwInputBounds(
                         child: AnimatedContainer(
-                          duration: AdwCurves.shortDuration,
+                          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                         curve: AdwCurves.standard,
                         height: 34.0,
                         padding: const EdgeInsets.symmetric(horizontal: 10.0),

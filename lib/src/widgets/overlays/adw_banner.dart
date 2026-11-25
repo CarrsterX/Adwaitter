@@ -40,7 +40,7 @@ class _AdwBannerState extends State<AdwBanner>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: AdwCurves.windowDuration,
+      duration: AdwCurves.resolveGlobal(AdwCurves.windowDuration),
       value: widget.revealed ? 1.0 : 0.0,
     );
     _expandAnimation = CurvedAnimation(
@@ -75,7 +75,7 @@ class _AdwBannerState extends State<AdwBanner>
     return SizeTransition(
       sizeFactor: _expandAnimation,
       child: AnimatedContainer(
-        duration: AdwCurves.shortDuration,
+        duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
         curve: AdwCurves.standard,
         width: double.infinity,
         color: isWindowActive
@@ -84,7 +84,7 @@ class _AdwBannerState extends State<AdwBanner>
         constraints: const BoxConstraints(minHeight: 46),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: AnimatedOpacity(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           opacity: isWindowActive ? 1.0 : 0.50,
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -272,7 +272,7 @@ class _AdwBannerButtonState extends State<_AdwBannerButton> {
         },
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           constraints: const BoxConstraints(
             minHeight: AdwMetrics.buttonMinHeight,

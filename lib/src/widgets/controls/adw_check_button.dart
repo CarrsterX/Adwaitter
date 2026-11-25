@@ -56,7 +56,7 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
         behavior: HitTestBehavior.opaque,
         onTap: isEnabled ? () => widget.onChanged!(widget.value) : null,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           width: widget.size,
           height: widget.size,
@@ -147,7 +147,7 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
         behavior: HitTestBehavior.opaque,
         onTap: isEnabled ? () => widget.onChanged!(!isChecked) : null,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           width: effectiveSize,
           height: effectiveSize,
@@ -166,11 +166,11 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
           child: widget.selectionMode
               ? AnimatedScale(
                   scale: isChecked ? 1.0 : 0.6,
-                  duration: AdwCurves.shortDuration,
+                  duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                   curve: AdwCurves.standard,
                   child: AnimatedOpacity(
                     opacity: isChecked ? 1.0 : 0.0,
-                    duration: AdwCurves.shortDuration,
+                    duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                     curve: AdwCurves.standard,
                     child: CustomPaint(
                       painter: _CheckmarkPainter(

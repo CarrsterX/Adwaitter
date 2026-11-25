@@ -441,7 +441,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                         setState(() => _isBottomBarPressed = false),
                     onTap: widget.canOpen ? () => _setOpen(true) : null,
                     child: AnimatedContainer(
-                      duration: AdwCurves.shortDuration,
+                      duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                       height: effectiveBottomBarHeight,
                       color: _isBottomBarPressed
                           ? theme.colors.foreground.withValues(alpha: 0.16)

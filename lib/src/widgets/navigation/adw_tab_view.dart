@@ -763,7 +763,7 @@ class _AdwTabBarState extends State<AdwTabBar> {
         _draggingPage == leftPage ||
         _draggingPage == rightPage;
     return AnimatedOpacity(
-      duration: AdwCurves.shortDuration,
+      duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
       opacity: hidden ? 0.0 : 1.0,
       child: Container(
         width: 1,

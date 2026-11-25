@@ -132,7 +132,7 @@ class _AdwDropdownState<T> extends State<AdwDropdown<T>> {
         onTap: _isEnabled ? _openMenu : null,
         child: AnimatedContainer(
           key: _buttonKey,
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           width: widget.width,
           constraints: const BoxConstraints(

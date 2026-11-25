@@ -102,7 +102,7 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
 
     _animController = AnimationController(
       vsync: this,
-      duration: AdwCurves.normalDuration,
+      duration: AdwCurves.resolveGlobal(AdwCurves.normalDuration),
       value: _isExpanded ? 1.0 : 0.0,
     );
 
@@ -192,7 +192,7 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
             behavior: HitTestBehavior.opaque,
             onTap: _toggleExpanded,
             child: AnimatedContainer(
-              duration: AdwCurves.shortDuration,
+              duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
               curve: AdwCurves.standard,
               constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
               color: _isHovered && canExpand

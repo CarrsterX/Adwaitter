@@ -37,14 +37,24 @@ abstract final class AdwCurves {
   /// Slow duration for complex enter/exit and page transformations: 400ms.
   static const Duration slowDuration = Duration(milliseconds: 400);
 
-  /// Resolves [baseDuration] against desktop animation settings (GNOME, Qt/KDE, XFCE):
+  /// Resolves [baseDuration] against desktop animation settings (GNOME, Qt/KDE, XFCE)
+  /// and platform accessibility (`MediaQuery.disableAnimations`).
   /// - Returns [Duration.zero] if animations are disabled globally by the user.
   /// - Scales duration according to desktop speed factor (e.g. KDE AnimationDurationFactor).
   static Duration resolve(BuildContext context, Duration baseDuration) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true) {
+      return Duration.zero;
+    }
     final scope = AdwAnimationScope.maybeOf(context);
     if (scope != null) {
       return scope.settings.resolve(baseDuration);
     }
+    return AdwDesktopSettings.animationSettings.value.resolve(baseDuration);
+  }
+
+  /// Resolves [baseDuration] without a [BuildContext] (e.g. in `PageRoute`
+  /// getters or `State.initState` `AnimationController` setup).
+  static Duration resolveGlobal(Duration baseDuration) {
     return AdwDesktopSettings.animationSettings.value.resolve(baseDuration);
   }
 }

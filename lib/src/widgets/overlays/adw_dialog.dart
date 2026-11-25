@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/adw_spring.dart';
 import '../../core/adw_insets.dart';
 import '../../theme/adw_curves.dart';
+import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_window.dart';
@@ -230,7 +231,7 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
             : null;
 
         final sheet = AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           decoration: BoxDecoration(
             color: theme.colors.windowBackground,
             borderRadius: radius,
@@ -339,7 +340,9 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
           ),
         );
 
-        final anim = _AdwDialogAnimationScope.maybeOf(context)?.animation;
+        final animScope = _AdwDialogAnimationScope.maybeOf(context);
+        final anim = animScope?.animation;
+        final isReducedMotion = animScope?.reduceMotion ?? false;
 
         if (isBottomSheet) {
           return Stack(
@@ -360,6 +363,12 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                   animation: anim ?? const AlwaysStoppedAnimation<double>(1.0),
                   builder: (context, child) {
                     final progress = anim?.value ?? 1.0;
+                    if (isReducedMotion) {
+                      return Opacity(
+                        opacity: progress.clamp(0.0, 1.0),
+                        child: child,
+                      );
+                    }
                     final overshoot = math.max(0.0, progress - 1.0);
                     return FractionalTranslation(
                       translation: Offset(0.0, 1.0 - progress),
@@ -408,6 +417,12 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
             animation: anim ?? const AlwaysStoppedAnimation<double>(1.0),
             builder: (context, child) {
               final progress = anim?.value ?? 1.0;
+              if (isReducedMotion) {
+                return Opacity(
+                  opacity: progress.clamp(0.0, 1.0),
+                  child: child,
+                );
+              }
               final scale = 0.8 + 0.2 * progress;
               return Opacity(
                 opacity: progress.clamp(0.0, 1.0),
@@ -427,9 +442,11 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
 
 class _AdwDialogAnimationScope extends InheritedWidget {
   final Animation<double> animation;
+  final bool reduceMotion;
 
   const _AdwDialogAnimationScope({
     required this.animation,
+    required this.reduceMotion,
     required super.child,
   });
 
@@ -439,7 +456,8 @@ class _AdwDialogAnimationScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(covariant _AdwDialogAnimationScope oldWidget) {
-    return animation != oldWidget.animation;
+    return animation != oldWidget.animation ||
+        reduceMotion != oldWidget.reduceMotion;
   }
 }
 
@@ -498,8 +516,12 @@ class _AdwDialogRoute<T> extends PopupRoute<T> {
       return TickerFuture.complete();
     }
     if (reduceMotion) {
-      controller!.value = 1.0;
-      return TickerFuture.complete();
+      controller!.value = 0.0;
+      return controller!.animateTo(
+        1.0,
+        duration: transitionDuration,
+        curve: Curves.easeOut,
+      );
     }
     controller!.value = 0.0;
     final spring = initialBottomSheet
@@ -531,6 +553,7 @@ class _AdwDialogRoute<T> extends PopupRoute<T> {
   ) {
     return _AdwDialogAnimationScope(
       animation: animation,
+      reduceMotion: reduceMotion,
       child: pageBuilder(context),
     );
   }
@@ -591,15 +614,11 @@ Future<T?> showAdwDialog<T>({
     _AdwDialogRoute<T>(
       barrierDismissible: barrierDismissible,
       initialBottomSheet: initialBottomSheet,
-      reduceMotion: reduceMotion,
-      transitionDuration: AdwCurves.resolve(
-        context,
-        AdwCurves.normalDuration,
-      ),
-      reverseTransitionDuration: AdwCurves.resolve(
-        context,
-        AdwCurves.normalDuration,
-      ),
+      reduceMotion: reduceMotion ||
+          !AdwDesktopSettings.animationSettings.value.enableAnimations ||
+          MediaQuery.maybeDisableAnimationsOf(context) == true,
+      transitionDuration: AdwCurves.normalDuration,
+      reverseTransitionDuration: AdwCurves.normalDuration,
       pageBuilder: (dialogContext) {
         Widget content = CallbackShortcuts(
           bindings: {

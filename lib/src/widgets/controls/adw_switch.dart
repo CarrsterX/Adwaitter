@@ -146,8 +146,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
             ? switchWidth - sliderSize - sliderPadding // 23.0
             : sliderPadding); // 3.0
 
-    final Duration duration =
-        AdwCurves.resolve(context, AdwCurves.switchDuration);
+    final Duration duration = AdwCurves.switchDuration;
 
     return MouseRegion(
       cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,

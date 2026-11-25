@@ -613,7 +613,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedContainer(
-                    duration: AdwCurves.shortDuration,
+                    duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                     color: effectiveIsActive
                         ? const Color(0x00000000)
                         : (theme.colors.isDark

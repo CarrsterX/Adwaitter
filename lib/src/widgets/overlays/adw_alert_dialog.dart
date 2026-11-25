@@ -135,15 +135,17 @@ Future<T?> showAdwAlertDialog<T>({
 }) {
   final themeData = AdwTheme.maybeOf(context);
   final windowController = AdwWindowScope.maybeOf(context)?.controller;
+  final reduceMotion =
+      AdwCurves.resolve(context, AdwCurves.shortDuration) == Duration.zero;
 
   return Navigator.of(context, rootNavigator: true).push<T>(
     PageRouteBuilder<T>(
       opaque: false,
       barrierDismissible: barrierDismissible,
       barrierColor: themeData?.colors.dimmingColor ?? const Color(0x29000006),
-      transitionDuration: AdwCurves.resolve(context, AdwCurves.mediumDuration),
-      reverseTransitionDuration:
-          AdwCurves.resolve(context, AdwCurves.normalDuration),
+      transitionDuration:
+          reduceMotion ? AdwCurves.normalDuration : AdwCurves.mediumDuration,
+      reverseTransitionDuration: AdwCurves.normalDuration,
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         Widget dialog = AdwAlertDialog(
           heading: heading,
@@ -172,6 +174,12 @@ Future<T?> showAdwAlertDialog<T>({
           parent: animation,
           curve: Curves.easeOut,
         );
+        if (reduceMotion) {
+          return FadeTransition(
+            opacity: fadeAnimation,
+            child: child,
+          );
+        }
         final scaleAnimation = CurvedAnimation(
           parent: animation,
           curve: AdwCurves.spring,

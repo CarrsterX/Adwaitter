@@ -84,7 +84,7 @@ class _AdwEntryRowState extends State<AdwEntryRow>
         widget.controller ?? TextEditingController(text: widget.initialValue);
     _labelController = AnimationController(
       vsync: this,
-      duration: AdwCurves.normalDuration,
+      duration: AdwCurves.resolveGlobal(AdwCurves.normalDuration),
       value: _shouldFloat ? 1.0 : 0.0,
     );
     _labelAnimation = CurvedAnimation(
@@ -199,7 +199,7 @@ class _AdwEntryRowState extends State<AdwEntryRow>
             minHeight: hasTitle ? AdwMetrics.rowMinHeight : 0.0,
           ),
           child: AnimatedContainer(
-            duration: AdwCurves.shortDuration,
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
             curve: AdwCurves.standard,
             decoration: BoxDecoration(
               color: _isFocused

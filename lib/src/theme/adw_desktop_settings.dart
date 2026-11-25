@@ -149,9 +149,14 @@ class AdwDesktopSettings {
 
   static bool _initialized = false;
 
-  /// Initializes platform channel bindings for desktop animation and shell button preferences.
+  /// Initializes platform channel bindings for desktop/Android animation and shell preferences.
   static void initialize() {
-    if (_initialized || kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return;
+    if (_initialized ||
+        kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.linux &&
+            defaultTargetPlatform != TargetPlatform.android)) {
+      return;
+    }
     _initialized = true;
 
     _channel.setMethodCallHandler((call) async {
@@ -188,6 +193,8 @@ class AdwDesktopSettings {
     } catch (_) {
       // Gracefully retain GNOME standard defaults if channel is unavailable
     }
+
+    if (defaultTargetPlatform != TargetPlatform.linux) return;
 
     try {
       final String? layout =
@@ -229,7 +236,7 @@ class AdwDesktopSettings {
     final bool enabled = map['enableAnimations'] as bool? ?? true;
     final num? factorNum = map['durationFactor'] as num?;
     final double factor =
-        (factorNum != null ? factorNum.toDouble() : 1.0).clamp(0.0, 5.0);
+        (factorNum != null ? factorNum.toDouble() : 1.0).clamp(0.0, 10.0);
     final String desktop = map['desktop'] as String? ?? 'GNOME';
 
     animationSettings.value = AdwAnimationSettings(

@@ -511,7 +511,7 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
                     behavior: HitTestBehavior.opaque,
                     onTap: _searchFocusNode.requestFocus,
                     child: AnimatedContainer(
-                      duration: AdwCurves.shortDuration,
+                      duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                       curve: AdwCurves.standard,
                       height: 34,
                       padding: EdgeInsets.symmetric(
@@ -690,7 +690,7 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
                       )
                     : null,
                 titleWidget: AnimatedSwitcher(
-                  duration: AdwCurves.shortDuration,
+                  duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                   child: KeyedSubtree(
                     key: ValueKey('${_isSearching}_$showHeaderSwitcher'),
                     child: titleWidget,
@@ -698,7 +698,7 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
                 ),
               ),
               content: AnimatedSwitcher(
-                duration: AdwCurves.shortDuration,
+                duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                 child: KeyedSubtree(
                   key: ValueKey(_isSearching ? 'search' : 'pages'),
                   child: body,

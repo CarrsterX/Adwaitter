@@ -173,7 +173,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: () => _showPopoverMenu(context),
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
           color: rowBg,

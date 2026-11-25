@@ -141,7 +141,7 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
         },
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           curve: AdwCurves.standard,
           constraints: BoxConstraints(minHeight: widget.minHeight),
           color: bgColor,

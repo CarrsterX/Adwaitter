@@ -180,7 +180,7 @@ class _AdwActionRowState extends State<AdwActionRow> {
         },
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: AdwCurves.shortDuration,
+          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
           color: rowColor,
           child: content,
         ),

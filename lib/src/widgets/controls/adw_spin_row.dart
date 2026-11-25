@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../containers/adw_preferences_group.dart';
 
 /// Preference row with numeric increment/decrement spin control (`AdwSpinRow`).
 ///
@@ -101,6 +102,7 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
                 const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             foregroundDecoration: BoxDecoration(
+              borderRadius: AdwGroupRowShape.borderRadiusOf(context),
               border: Border.all(
                 color: _isFocused
                     ? theme.colors.spinRowFocusBorderColor

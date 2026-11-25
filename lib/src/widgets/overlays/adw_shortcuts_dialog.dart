@@ -541,7 +541,7 @@ class _AdwShortcutsDialogState extends State<AdwShortcutsDialog> {
                 behavior: HitTestBehavior.opaque,
                 onTap: _searchFocusNode.requestFocus,
               child: AnimatedContainer(
-                duration: AdwCurves.shortDuration,
+                duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                 curve: AdwCurves.standard,
                 height: 34,
                 padding: EdgeInsets.symmetric(

@@ -171,10 +171,12 @@ class AdwNavigationPageRoute<T> extends PageRoute<T> {
   String? get barrierLabel => null;
 
   @override
-  Duration get transitionDuration => AdwCurves.normalDuration;
+  Duration get transitionDuration =>
+      AdwCurves.resolveGlobal(AdwCurves.normalDuration);
 
   @override
-  Duration get reverseTransitionDuration => AdwCurves.normalDuration;
+  Duration get reverseTransitionDuration =>
+      AdwCurves.resolveGlobal(AdwCurves.normalDuration);
 
   @override
   bool canTransitionTo(TransitionRoute<dynamic> nextRoute) {
