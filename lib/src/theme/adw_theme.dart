@@ -343,41 +343,76 @@ class AdwColorScheme {
 
   /// Returns a high-contrast variant matching Libadwaita `_high_contrast.scss`
   /// (50% border opacity, stronger dividers, and higher secondary text contrast).
-  AdwColorScheme withHighContrast() {
+  ///
+  /// On Android 14+, [level] supports two elevated tiers:
+  /// - `0.5` (medium): softer visible borders & dividers.
+  /// - `1.0` (high): full Libadwaita High Contrast borders & dividers.
+  ///
+  /// When [highTextContrast] is `true` (Android-only), foreground and secondary
+  /// text colors are boosted to maximum legibility.
+  AdwColorScheme withHighContrast({
+    double level = 1.0,
+    bool highTextContrast = false,
+  }) {
+    final bool hasBorderContrast = level >= 0.25;
+    final bool isFullContrast = level >= 0.75;
+
+    final Color effectiveBorder = !hasBorderContrast
+        ? borderColor
+        : isFullContrast
+            ? (isDark ? const Color(0x80FFFFFF) : const Color(0xFF89898C))
+            : (isDark ? const Color(0x4DFFFFFF) : const Color(0xFFB0B0B4));
+
+    final Color effectiveDivider = !hasBorderContrast
+        ? dividerColor
+        : isFullContrast
+            ? (isDark ? const Color(0x66FFFFFF) : const Color(0xFF89898C))
+            : (isDark ? const Color(0x3DFFFFFF) : const Color(0xFFB8B8BC));
+
+    final Color effectivePrimaryFg = highTextContrast
+        ? (isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000))
+        : windowForeground;
+
+    final Color effectiveSecondaryFg = highTextContrast
+        ? (isDark ? const Color(0xF2FFFFFF) : const Color(0xE6000000))
+        : hasBorderContrast
+            ? (isDark ? const Color(0xE6FFFFFF) : const Color(0xD9000000))
+            : secondaryForeground;
+
     return AdwColorScheme(
       isDark: isDark,
-      isHighContrast: true,
+      isHighContrast: hasBorderContrast,
       windowBackground: windowBackground,
-      windowForeground: windowForeground,
-      secondaryForeground:
-          isDark ? const Color(0xE6FFFFFF) : const Color(0xD9000000),
+      windowForeground: effectivePrimaryFg,
+      secondaryForeground: effectiveSecondaryFg,
       viewBackground: viewBackground,
-      viewForeground: viewForeground,
+      viewForeground: highTextContrast ? effectivePrimaryFg : viewForeground,
       cardBackground: cardBackground,
-      cardForeground: cardForeground,
+      cardForeground: highTextContrast ? effectivePrimaryFg : cardForeground,
       headerBarBackground: headerBarBackground,
-      headerBarForeground: headerBarForeground,
+      headerBarForeground:
+          highTextContrast ? effectivePrimaryFg : headerBarForeground,
       dialogBackground: dialogBackground,
-      dialogForeground: dialogForeground,
+      dialogForeground: highTextContrast ? effectivePrimaryFg : dialogForeground,
       popoverBackground: popoverBackground,
-      popoverForeground: popoverForeground,
-      borderColor:
-          isDark ? const Color(0x80FFFFFF) : const Color(0xFF89898C),
-      dividerColor:
-          isDark ? const Color(0x66FFFFFF) : const Color(0xFF89898C),
+      popoverForeground:
+          highTextContrast ? effectivePrimaryFg : popoverForeground,
+      borderColor: effectiveBorder,
+      dividerColor: effectiveDivider,
       accentColor: accentColor,
       accentForeground: accentForeground,
       destructiveColor: destructiveColor,
       destructiveForeground: destructiveForeground,
       successColor: successColor,
       warningColor: warningColor,
-      hoverColor:
-          isDark ? const Color(0x08FFFFFF) : const Color(0x06000000),
-      activeColor:
-          isDark ? const Color(0x33FFFFFF) : const Color(0x26000000),
+      hoverColor: hasBorderContrast
+          ? (isDark ? const Color(0x08FFFFFF) : const Color(0x06000000))
+          : hoverColor,
+      activeColor: hasBorderContrast
+          ? (isDark ? const Color(0x33FFFFFF) : const Color(0x26000000))
+          : activeColor,
       sidebarBackground: sidebarBackground,
-      sidebarBorder:
-          isDark ? const Color(0x80FFFFFF) : const Color(0xFF89898C),
+      sidebarBorder: hasBorderContrast ? effectiveBorder : sidebarBorder,
     );
   }
 }
@@ -392,8 +427,14 @@ class AdwThemeData {
     required this.typography,
   });
 
-  AdwThemeData withHighContrast() {
-    final hcColors = colors.withHighContrast();
+  AdwThemeData withHighContrast({
+    double level = 1.0,
+    bool highTextContrast = false,
+  }) {
+    final hcColors = colors.withHighContrast(
+      level: level,
+      highTextContrast: highTextContrast,
+    );
     return AdwThemeData(
       colors: hcColors,
       typography: AdwTypography.fromColors(

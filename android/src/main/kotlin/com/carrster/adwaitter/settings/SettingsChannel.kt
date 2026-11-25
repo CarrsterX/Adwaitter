@@ -1,7 +1,9 @@
 package com.carrster.adwaitter.settings
 
+import android.app.UiModeManager
 import android.content.Context
 import android.database.ContentObserver
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -17,22 +19,26 @@ internal class SettingsChannel(
 ) : MethodCallHandler {
     private val channel = MethodChannel(messenger, "libadwaitter/settings")
     private var animatorScaleObserver: ContentObserver? = null
+    private var highTextContrastObserver: ContentObserver? = null
+    private var contrastChangeListener: Any? = null
 
     init {
         channel.setMethodCallHandler(this)
         registerAnimatorScaleObserver()
+        registerContrastObservers()
     }
 
     fun dispose() {
         unregisterAnimatorScaleObserver()
+        unregisterContrastObservers()
         channel.setMethodCallHandler(null)
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        if (call.method == "getAnimationSettings") {
-            result.success(buildAndroidAnimationSettingsMap())
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            "getAnimationSettings" -> result.success(buildAndroidAnimationSettingsMap())
+            "getContrastSettings" -> result.success(buildAndroidContrastSettingsMap())
+            else -> result.notImplemented()
         }
     }
 
@@ -55,6 +61,42 @@ internal class SettingsChannel(
             "enableAnimations" to (scale > 0.0f),
             "durationFactor" to scale.toDouble(),
             "desktop" to "Android",
+        )
+    }
+
+    private fun buildAndroidContrastSettingsMap(): Map<String, Any> {
+        val ctx = contextProvider()
+        var contrastLevel = 0.0
+        var highTextContrast = false
+        if (ctx != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    val uiModeManager = ctx.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+                    if (uiModeManager != null) {
+                        contrastLevel = uiModeManager.contrast.toDouble().coerceIn(0.0, 1.0)
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+            try {
+                highTextContrast = Settings.Secure.getInt(
+                    ctx.contentResolver,
+                    "high_text_contrast_enabled",
+                    0,
+                ) == 1
+            } catch (_: Throwable) {
+            }
+        }
+        return mapOf(
+            "contrastLevel" to contrastLevel,
+            "highTextContrast" to highTextContrast,
+        )
+    }
+
+    private fun emitContrastChanged() {
+        channel.invokeMethod(
+            "onContrastSettingsChanged",
+            buildAndroidContrastSettingsMap(),
         )
     }
 
@@ -87,6 +129,64 @@ internal class SettingsChannel(
         try {
             contextProvider()?.contentResolver?.unregisterContentObserver(obs)
         } catch (_: Throwable) {
+        }
+    }
+
+    private fun registerContrastObservers() {
+        val ctx = contextProvider() ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            contrastChangeListener == null
+        ) {
+            try {
+                val uiModeManager = ctx.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+                if (uiModeManager != null) {
+                    val listener = UiModeManager.ContrastChangeListener { _ ->
+                        emitContrastChanged()
+                    }
+                    uiModeManager.addContrastChangeListener(ctx.mainExecutor, listener)
+                    contrastChangeListener = listener
+                }
+            } catch (_: Throwable) {
+            }
+        }
+        if (highTextContrastObserver == null) {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    emitContrastChanged()
+                }
+            }
+            try {
+                ctx.contentResolver.registerContentObserver(
+                    Settings.Secure.getUriFor("high_text_contrast_enabled"),
+                    false,
+                    observer,
+                )
+                highTextContrastObserver = observer
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    private fun unregisterContrastObservers() {
+        val ctx = contextProvider()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val listener = contrastChangeListener as? UiModeManager.ContrastChangeListener
+            contrastChangeListener = null
+            if (listener != null && ctx != null) {
+                try {
+                    val uiModeManager = ctx.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+                    uiModeManager?.removeContrastChangeListener(listener)
+                } catch (_: Throwable) {
+                }
+            }
+        }
+        val obs = highTextContrastObserver
+        highTextContrastObserver = null
+        if (obs != null && ctx != null) {
+            try {
+                ctx.contentResolver.unregisterContentObserver(obs)
+            } catch (_: Throwable) {
+            }
         }
     }
 }

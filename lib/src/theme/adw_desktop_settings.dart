@@ -147,6 +147,16 @@ class AdwDesktopSettings {
   static final ValueNotifier<bool> showStatusShapes =
       ValueNotifier<bool>(false);
 
+  /// Android 14+ contrast level (`0.0` = standard, `0.5` = medium, `1.0` = high).
+  /// Remains `0.0` on Linux (which uses `AdwStyleManager.highContrast`).
+  static final ValueNotifier<double> contrastLevel =
+      ValueNotifier<double>(0.0);
+
+  /// Android accessibility "High contrast text" toggle.
+  /// Remains `false` on Linux.
+  static final ValueNotifier<bool> highTextContrast =
+      ValueNotifier<bool>(false);
+
   static bool _initialized = false;
   static _AndroidSettingsLifecycleObserver? _lifecycleObserver;
 
@@ -178,6 +188,12 @@ class AdwDesktopSettings {
         if (args != null) {
           _updateAccessibilityFromMap(args);
         }
+      } else if (call.method == 'onContrastSettingsChanged') {
+        final Map<dynamic, dynamic>? args =
+            call.arguments as Map<dynamic, dynamic>?;
+        if (args != null) {
+          _updateContrastFromMap(args);
+        }
       }
     });
 
@@ -189,8 +205,8 @@ class AdwDesktopSettings {
     _fetchInitialSettings();
   }
 
-  /// Re-queries the host animation settings (useful on Android resume when
-  /// Developer Options changed `ANIMATOR_DURATION_SCALE` in the background).
+  /// Re-queries the host animation & Android contrast settings (useful on
+  /// Android resume when Developer Options or Display settings changed in the background).
   static Future<void> refreshAnimationSettings() async {
     try {
       final Map<dynamic, dynamic>? result =
@@ -200,6 +216,18 @@ class AdwDesktopSettings {
       }
     } catch (_) {
       // Gracefully retain current animation settings if channel is unavailable
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final Map<dynamic, dynamic>? contrast =
+            await _channel.invokeMethod<Map<dynamic, dynamic>>('getContrastSettings');
+        if (contrast != null) {
+          _updateContrastFromMap(contrast);
+        }
+      } catch (_) {
+        // Gracefully retain current contrast settings if channel is unavailable
+      }
     }
   }
 
@@ -241,6 +269,17 @@ class AdwDesktopSettings {
     final bool? shapes = map['showStatusShapes'] as bool?;
     if (shapes != null) {
       showStatusShapes.value = shapes;
+    }
+  }
+
+  static void _updateContrastFromMap(Map<dynamic, dynamic> map) {
+    final num? levelNum = map['contrastLevel'] as num?;
+    if (levelNum != null) {
+      contrastLevel.value = levelNum.toDouble().clamp(0.0, 1.0);
+    }
+    final bool? highText = map['highTextContrast'] as bool?;
+    if (highText != null) {
+      highTextContrast.value = highText;
     }
   }
 

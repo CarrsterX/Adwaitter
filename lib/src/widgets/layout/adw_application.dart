@@ -68,11 +68,15 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
     AdwDesktopSettings.initialize();
     AdwStyleManager.initialize();
     AdwStyleManager.instance.addListener(_onStyleChanged);
+    AdwDesktopSettings.contrastLevel.addListener(_onStyleChanged);
+    AdwDesktopSettings.highTextContrast.addListener(_onStyleChanged);
   }
 
   @override
   void dispose() {
     _windowBorderRadius.dispose();
+    AdwDesktopSettings.contrastLevel.removeListener(_onStyleChanged);
+    AdwDesktopSettings.highTextContrast.removeListener(_onStyleChanged);
     AdwStyleManager.instance.removeListener(_onStyleChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -203,8 +207,16 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
                   accent: effectiveAccent,
                   accentColorOverride: effectiveCustomAccent,
                 ));
-        final defaultTheme = AdwStyleManager.instance.highContrast
-            ? baseTheme.withHighContrast()
+        final androidContrast = AdwDesktopSettings.contrastLevel.value;
+        final androidHighText = AdwDesktopSettings.highTextContrast.value;
+        final effectiveContrast = AdwStyleManager.instance.highContrast
+            ? 1.0
+            : androidContrast;
+        final defaultTheme = (effectiveContrast >= 0.25 || androidHighText)
+            ? baseTheme.withHighContrast(
+                level: effectiveContrast,
+                highTextContrast: androidHighText,
+              )
             : baseTheme;
         _syncNativeWindowBackground(defaultTheme.colors.windowBackground);
 
