@@ -1,3 +1,10 @@
+## 1.0.0-alpha.9
+
+* **Pure Dart/Flutter Architecture**: Removed the native Android plugin from `adwaitter` (now hosted in `libadwaitter`), making `adwaitter` a 100% pure Dart/Flutter UI library with zero native code and zero external dependencies across all 6 platforms.
+* **Accessibility, Reduced Motion & Keyboard Navigation**: Added 1:1 GNOME HIG keyboard navigation (`Tab`/`Shift+Tab`/`Enter`/`Space`/arrows, roving tabindex in `AdwSidebarFocusGroup`, global auto-scroll on focus, 2px focus rings), `Semantics` across all interactive widgets, `AdwSpinRow` numeric `EditableText`, Reduced Motion parity, and Web CSS Media Queries (`prefers-reduced-motion`, `prefers-contrast`, `forced-colors`).
+* **Mobile System Bar Contrast**: Added automatic `AnnotatedRegion<SystemUiOverlayStyle>` in `AdwApplication` to sync status bar and navigation bar icon brightness with Light/Dark themes.
+* **Widget Test Suite & Showcase**: Expanded widget test suite to 60 passing tests and added desktop/mobile screenshots and animation GIFs to `README.md`.
+
 ## 1.0.0-alpha.8
 
 * Full Web and WebAssembly (WASM) compatibility: isolated `dart:io` and `dart:ffi` behind conditional imports and replaced direct `Platform` checks with `kIsWeb` / `defaultTargetPlatform`.

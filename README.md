@@ -2,11 +2,61 @@
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20the%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/carrster)
 
-Cross-platform **GNOME Adwaita UI** widget library and design system for Flutter (`package:flutter/widgets.dart`), built with zero dependency on Material or Cupertino and compatible with Android, iOS, Web, Linux, macOS, and Windows.
+Cross-platform **GNOME Adwaita UI** widget library and design system for Flutter (`package:flutter/widgets.dart`), built with **zero external dependencies**, zero dependency on Material or Cupertino, and **100% pure Dart/Flutter** — compatible with Linux, Android, iOS, macOS, Windows, and Web/WASM.
+
+> **Support for Apple Devices:** Help fund a MacBook Pro on [Ko-fi](https://ko-fi.com/carrster) to build, test, and maintain native macOS & iOS support for the Libadwaitter ecosystem.
 
 ## Related Packages
-- **[Libadwaitter](https://github.com/CarrsterX/Libadwaitter)**: Full GNOME & Linux Wayland desktop suite (`Adwaitter` + native GTK/Wayland bridges).
-- **[Adwaitter_Icons](https://github.com/CarrsterX/Adwaitter_Icons)**: Official GNOME Adwaita symbolic icons packaged for Flutter.
+- **[Libadwaitter](https://github.com/CarrsterX/Libadwaitter)**: Full GNOME & Android native integration suite (`Adwaitter` + native Linux GTK3/Wayland and Android Kotlin bridges).
+- **[Adwaitter_Icons](https://github.com/CarrsterX/Adwaitter_Icons)**: Official GNOME Adwaita symbolic and full-color icons packaged for Flutter.
+
+---
+
+## Showcase
+
+### Adaptive Desktop & Mobile (Dark & Light)
+
+| Desktop (Dark) | Desktop (Light) |
+| :---: | :---: |
+| ![Adwaitter Desktop Dark](doc/screenshots/adwaitter_desktop_home.png) | ![Adwaitter Desktop Light](doc/screenshots/adwaitter_desktop_home_light.png) |
+
+| Mobile (Dark) | Mobile (Light) |
+| :---: | :---: |
+| <img src="doc/screenshots/adwaitter_mobile_home.png" alt="Adwaitter Mobile Dark" width="280" /> | <img src="doc/screenshots/adwaitter_mobile_home_light.png" alt="Adwaitter Mobile Light" width="280" /> |
+
+### Android Predictive Back Gestures
+
+Smooth spring-physics predictive back gestures across both nested views (`AdwNavigationSplitView` / `AdwNavigationView`) and modals (`AdwBottomSheet` / `AdwDialog`):
+
+| Views & Navigation | Modals & Bottom Sheets |
+| :---: | :---: |
+| <img src="doc/screenshots/adwaitter_android_predictive_back_views.gif" alt="Android Predictive Back Views" width="280" /> | <img src="doc/screenshots/adwaitter_android_predictive_back_modals.gif" alt="Android Predictive Back Modals" width="280" /> |
+
+### Native Adwaita Animations & Haptic Feedback
+
+Built-in spring simulations (`AdwSpringParams`), Libadwaita easing curves, and native **haptic feedback** on switches, sliders, and gestures on supported platforms (Android/iOS):
+
+**Tab View (`AdwTabView` & `AdwTabBar`)**
+
+![Adwaitter Tab View Animations](doc/screenshots/adwaitter_animation_tabview.gif)
+
+**Navigation View & Modals (`AdwNavigationView` & `AdwDialog`)**
+
+![Adwaitter Navigation and Modals](doc/screenshots/adwaitter_animation_navigation_modals.gif)
+
+**Carousel & Switches (`AdwCarousel` & `AdwSwitch`)**
+
+![Adwaitter Carousel and Switches](doc/screenshots/adwaitter_animation_carousel_switches.gif)
+
+### Integrated Menus & Text Selection
+
+Pure-Flutter GNOME-styled popovers, context menus, and touch text selection toolbars with OSD magnifier:
+
+| Desktop Popovers & Menus | Mobile Text Selection & Menus |
+| :---: | :---: |
+| ![Adwaitter Desktop Menus](doc/screenshots/adwaitter_desktop_system_menus.png) | <img src="doc/screenshots/adwaitter_mobile_system_menu.png" alt="Adwaitter Mobile Menus" width="280" /> |
+
+---
 
 ## Quick Start (UI Counter Generator)
 
@@ -21,6 +71,9 @@ Options:
 - `--dry-run`: Preview changes without writing files.
 - `--no-backup`: Skip creating `lib/main.dart.bak`.
 
-## Android Setup
+## Pure-Flutter Platform Behavior
 
-`Adwaitter` enables Android defaults automatically out of the box—including system/gesture navigation bar safe zones, hidden desktop window controls, modal/nested-navigation `frameworkHandlesBack` sync, automatic gesture-vs-button navigation detection, Android 14+ **Predictive Back** (`android:enableOnBackInvokedCallback="true"` via manifest merger), and Android 12+ Material You dynamic accent color (`AdwaitterPlugin`). No manual changes to `AndroidManifest.xml` or `MainActivity` are required.
+`Adwaitter` requires **no native plugins** and works out of the box on all 6 Flutter platforms using Flutter's built-in APIs:
+- Automatic light/dark theme detection, status bar and navigation bar icon contrast (`SystemUiOverlayStyle`), edge-to-edge safe areas, and haptic feedback.
+- Built-in accessibility support (`Semantics`, keyboard navigation, focus rings, reduced motion, and Web CSS Media Queries).
+- Need native OS bridges (Linux GTK3 CSD, multi-window, XDG Portals, Drag & Drop, System Tray, MPRIS2, Polkit, Android 14+ 2-level contrast, or Material You dynamic accents)? Use **[libadwaitter](https://github.com/CarrsterX/Libadwaitter)**, which re-exports `adwaitter` and provides the native Linux & Android plugins automatically.

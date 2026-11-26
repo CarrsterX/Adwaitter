@@ -1,6 +1,6 @@
 name: adwaitter
 description: Cross-platform GNOME Adwaita UI widget library and design system for Flutter (Android, iOS, Web, Linux, macOS, Windows).
-version: 1.0.0-alpha.8
+version: 1.0.0-alpha.9
 homepage: https://github.com/CarrsterX/Adwaitter
 repository: https://github.com/CarrsterX/Adwaitter
 issue_tracker: https://github.com/CarrsterX/Adwaitter/issues
