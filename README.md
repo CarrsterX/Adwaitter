@@ -18,11 +18,11 @@ Cross-platform **GNOME Adwaita UI** widget library and design system for Flutter
 
 | Desktop (Dark) | Desktop (Light) |
 | :---: | :---: |
-| ![Adwaitter Desktop Dark](doc/screenshots/adwaitter_desktop_home.png) | ![Adwaitter Desktop Light](doc/screenshots/adwaitter_desktop_home_light.png) |
+| ![Adwaitter Desktop Dark](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_desktop_home.png) | ![Adwaitter Desktop Light](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_desktop_home_light.png) |
 
 | Mobile (Dark) | Mobile (Light) |
 | :---: | :---: |
-| <img src="doc/screenshots/adwaitter_mobile_home.png" alt="Adwaitter Mobile Dark" width="280" /> | <img src="doc/screenshots/adwaitter_mobile_home_light.png" alt="Adwaitter Mobile Light" width="280" /> |
+| <img src="https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_mobile_home.png" alt="Adwaitter Mobile Dark" width="280" /> | <img src="https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_mobile_home_light.png" alt="Adwaitter Mobile Light" width="280" /> |
 
 ### Android Predictive Back Gestures
 
@@ -30,7 +30,7 @@ Smooth spring-physics predictive back gestures across both nested views (`AdwNav
 
 | Views & Navigation | Modals & Bottom Sheets |
 | :---: | :---: |
-| <img src="doc/screenshots/adwaitter_android_predictive_back_views.gif" alt="Android Predictive Back Views" width="280" /> | <img src="doc/screenshots/adwaitter_android_predictive_back_modals.gif" alt="Android Predictive Back Modals" width="280" /> |
+| <img src="https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_android_predictive_back_views.gif" alt="Android Predictive Back Views" width="280" /> | <img src="https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_android_predictive_back_modals.gif" alt="Android Predictive Back Modals" width="280" /> |
 
 ### Native Adwaita Animations & Haptic Feedback
 
@@ -38,15 +38,15 @@ Built-in spring simulations (`AdwSpringParams`), Libadwaita easing curves, and n
 
 **Tab View (`AdwTabView` & `AdwTabBar`)**
 
-![Adwaitter Tab View Animations](doc/screenshots/adwaitter_animation_tabview.gif)
+![Adwaitter Tab View Animations](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_animation_tabview.gif)
 
 **Navigation View & Modals (`AdwNavigationView` & `AdwDialog`)**
 
-![Adwaitter Navigation and Modals](doc/screenshots/adwaitter_animation_navigation_modals.gif)
+![Adwaitter Navigation and Modals](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_animation_navigation_modals.gif)
 
 **Carousel & Switches (`AdwCarousel` & `AdwSwitch`)**
 
-![Adwaitter Carousel and Switches](doc/screenshots/adwaitter_animation_carousel_switches.gif)
+![Adwaitter Carousel and Switches](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_animation_carousel_switches.gif)
 
 ### Integrated Menus & Text Selection
 
@@ -54,7 +54,7 @@ Pure-Flutter GNOME-styled popovers, context menus, and touch text selection tool
 
 | Desktop Popovers & Menus | Mobile Text Selection & Menus |
 | :---: | :---: |
-| ![Adwaitter Desktop Menus](doc/screenshots/adwaitter_desktop_system_menus.png) | <img src="doc/screenshots/adwaitter_mobile_system_menu.png" alt="Adwaitter Mobile Menus" width="280" /> |
+| ![Adwaitter Desktop Menus](https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_desktop_system_menus.png) | <img src="https://raw.githubusercontent.com/CarrsterX/Adwaitter/alpha/doc/screenshots/adwaitter_mobile_system_menu.png" alt="Adwaitter Mobile Menus" width="280" /> |
 
 ---
 

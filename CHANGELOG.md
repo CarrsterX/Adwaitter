@@ -1,3 +1,7 @@
+## 1.0.0-alpha.10
+
+* Fixed `README.md` screenshot and GIF URLs to use absolute `raw.githubusercontent.com` links so they render reliably on `pub.dev`.
+
 ## 1.0.0-alpha.9
 
 * **Pure Dart/Flutter Architecture**: Removed the native Android plugin from `adwaitter` (now hosted in `libadwaitter`), making `adwaitter` a 100% pure Dart/Flutter UI library with zero native code and zero external dependencies across all 6 platforms.
