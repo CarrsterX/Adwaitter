@@ -3,7 +3,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart'
-    show LogicalKeyboardKey, MethodChannel, SystemNavigator;
+    show
+        LogicalKeyboardKey,
+        MethodChannel,
+        SystemNavigator,
+        SystemUiOverlayStyle;
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_insets.dart';
@@ -312,16 +316,32 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
                             child: inner,
                           )
                         : inner;
-                final themedChild = AdwTheme(
-                  data: defaultTheme,
-                  child: AdwAnimationScope(
-                    settings: animSettings,
-                    child: AdwWindowShapeScope(
-                      borderRadiusNotifier: _windowBorderRadius,
-                      child: ScrollConfiguration(
-                        behavior:
-                            widget.scrollBehavior ?? const AdwScrollBehavior(),
-                        child: scaledInner,
+                final overlayStyle = defaultTheme.colors.isDark
+                    ? SystemUiOverlayStyle.light.copyWith(
+                        statusBarColor: const Color(0x00000000),
+                        systemNavigationBarColor: const Color(0x00000000),
+                        systemNavigationBarIconBrightness: Brightness.light,
+                        systemNavigationBarContrastEnforced: false,
+                      )
+                    : SystemUiOverlayStyle.dark.copyWith(
+                        statusBarColor: const Color(0x00000000),
+                        systemNavigationBarColor: const Color(0x00000000),
+                        systemNavigationBarIconBrightness: Brightness.dark,
+                        systemNavigationBarContrastEnforced: false,
+                      );
+                final themedChild = AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: overlayStyle,
+                  child: AdwTheme(
+                    data: defaultTheme,
+                    child: AdwAnimationScope(
+                      settings: animSettings,
+                      child: AdwWindowShapeScope(
+                        borderRadiusNotifier: _windowBorderRadius,
+                        child: ScrollConfiguration(
+                          behavior:
+                              widget.scrollBehavior ?? const AdwScrollBehavior(),
+                          child: scaledInner,
+                        ),
                       ),
                     ),
                   ),
