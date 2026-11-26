@@ -110,16 +110,18 @@ class _AdwOverlaySplitViewState extends State<AdwOverlaySplitView>
           width: widget.sidebarWidth,
           decoration: BoxDecoration(
             color: effectiveSidebarBg,
-            border: Border(
-              left: isStart
+            border: BorderDirectional(
+              start: isStart
                   ? BorderSide.none
                   : BorderSide(color: theme.colors.sidebarBorder, width: 1.0),
-              right: isStart
+              end: isStart
                   ? BorderSide(color: theme.colors.sidebarBorder, width: 1.0)
                   : BorderSide.none,
             ),
           ),
-          child: widget.sidebar,
+          child: FocusTraversalGroup(
+            child: widget.sidebar,
+          ),
         );
 
         return AnimatedBuilder(
@@ -130,18 +132,22 @@ class _AdwOverlaySplitViewState extends State<AdwOverlaySplitView>
             if (!isCollapsed) {
               final animatedSidebar = ClipRect(
                 child: Align(
-                  alignment:
-                      isStart ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isStart
+                      ? AlignmentDirectional.centerEnd
+                      : AlignmentDirectional.centerStart,
                   widthFactor: progress,
                   child: sidebarPane,
                 ),
               );
 
+              final contentPane = Expanded(
+                child: FocusTraversalGroup(child: widget.content),
+              );
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: isStart
-                    ? [animatedSidebar, Expanded(child: widget.content)]
-                    : [Expanded(child: widget.content), animatedSidebar],
+                    ? [animatedSidebar, contentPane]
+                    : [contentPane, animatedSidebar],
               );
             }
 
@@ -159,11 +165,11 @@ class _AdwOverlaySplitViewState extends State<AdwOverlaySplitView>
                     ),
                   ),
                 if (progress > 0.0)
-                  Positioned(
+                  PositionedDirectional(
                     top: 0,
                     bottom: 0,
-                    left: isStart ? offset : null,
-                    right: !isStart ? offset : null,
+                    start: isStart ? offset : null,
+                    end: !isStart ? offset : null,
                     width: widget.sidebarWidth,
                     child: sidebarPane,
                   ),

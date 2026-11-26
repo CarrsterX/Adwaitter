@@ -30,6 +30,7 @@ class AdwRadio<T> extends StatefulWidget {
 
 class _AdwRadioState<T> extends State<AdwRadio<T>> {
   bool _isHovered = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -48,11 +49,36 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
             ? theme.colors.windowForeground.withValues(alpha: 0.06)
             : const Color(0x00000000));
 
-    return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      selected: isSelected,
+      enabled: isEnabled,
+      onTap: isEnabled ? () => widget.onChanged!(widget.value) : null,
+      child: FocusableActionDetector(
+        enabled: isEnabled,
+        mouseCursor:
+            isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isHovered != hovered) {
+            setState(() => _isHovered = hovered);
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onChanged!(widget.value);
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: isEnabled ? () => widget.onChanged!(widget.value) : null,
         child: AnimatedContainer(
@@ -70,6 +96,15 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
                     width: 1.5,
                   ),
           ),
+          foregroundDecoration: _isFocused
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.colors.focusBorderColor,
+                    width: 2.0,
+                  ),
+                )
+              : null,
           child: isSelected
               ? Center(
                   child: Container(
@@ -83,6 +118,7 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
                 )
               : null,
         ),
+      ),
       ),
     );
   }
@@ -113,6 +149,7 @@ class AdwCheckbox extends StatefulWidget {
 
 class _AdwCheckboxState extends State<AdwCheckbox> {
   bool _isHovered = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -139,11 +176,35 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
             ? theme.colors.windowForeground.withValues(alpha: 0.06)
             : const Color(0x00000000));
 
-    return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
+    return Semantics(
+      checked: isChecked,
+      enabled: isEnabled,
+      onTap: isEnabled ? () => widget.onChanged!(!isChecked) : null,
+      child: FocusableActionDetector(
+        enabled: isEnabled,
+        mouseCursor:
+            isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isHovered != hovered) {
+            setState(() => _isHovered = hovered);
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onChanged!(!isChecked);
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: isEnabled ? () => widget.onChanged!(!isChecked) : null,
         child: AnimatedContainer(
@@ -163,6 +224,18 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
                     width: widget.selectionMode ? 2.0 : 1.5,
                   ),
           ),
+          foregroundDecoration: _isFocused
+              ? BoxDecoration(
+                  shape:
+                      widget.selectionMode ? BoxShape.circle : BoxShape.rectangle,
+                  borderRadius:
+                      widget.selectionMode ? null : BorderRadius.circular(5.0),
+                  border: Border.all(
+                    color: theme.colors.focusBorderColor,
+                    width: 2.0,
+                  ),
+                )
+              : null,
           child: widget.selectionMode
               ? AnimatedScale(
                   scale: isChecked ? 1.0 : 0.6,
@@ -187,6 +260,7 @@ class _AdwCheckboxState extends State<AdwCheckbox> {
                     )
                   : null),
         ),
+      ),
       ),
     );
   }

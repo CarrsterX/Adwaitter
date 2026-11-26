@@ -633,48 +633,84 @@ class _AdwShortcutsDialogState extends State<AdwShortcutsDialog> {
   }
 }
 
-class _AdwShortcutRow extends StatelessWidget {
+class _AdwShortcutRow extends StatefulWidget {
   const _AdwShortcutRow({required this.item});
 
   final AdwShortcutsItem item;
 
   @override
+  State<_AdwShortcutRow> createState() => _AdwShortcutRowState();
+}
+
+class _AdwShortcutRowState extends State<_AdwShortcutRow> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AdwShortcutRow');
+  bool _isFocused = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
+    final item = widget.item;
     final hasSubtitle = item.subtitle != null && item.subtitle!.isNotEmpty;
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 54),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: theme.typography.body.copyWith(
-                      color: theme.colors.foreground,
+    return Semantics(
+      label: '${item.title}, ${AdwShortcutLabel.searchableText(item.accelerator)}',
+      child: FocusableActionDetector(
+        focusNode: _focusNode,
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) setState(() => _isFocused = focused);
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _focusNode.requestFocus(),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 54),
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius: AdwGroupRowShape.borderRadiusOf(context),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
                     ),
-                  ),
-                  if (hasSubtitle) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.subtitle!,
-                      style: theme.typography.caption.copyWith(
-                        color: theme.colors.foreground.withValues(alpha: 0.55),
+                  )
+                : null,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: theme.typography.body.copyWith(
+                          color: theme.colors.foreground,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      if (hasSubtitle) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          item.subtitle!,
+                          style: theme.typography.caption.copyWith(
+                            color:
+                                theme.colors.foreground.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AdwShortcutLabel(accelerator: item.accelerator),
+              ],
             ),
-            const SizedBox(width: 12),
-            AdwShortcutLabel(accelerator: item.accelerator),
-          ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../containers/adw_preferences_group.dart';
 
 enum AdwButtonRowStyle {
   standard,
@@ -60,6 +61,14 @@ class AdwButtonRow extends StatefulWidget {
 class _AdwButtonRowState extends State<AdwButtonRow> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AdwButtonRow');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +80,8 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
 
     final Color idleCardBg = theme.colors.buttonRowBackground;
 
+    final bool isHighlighted = _isHovered || _isFocused;
+
     switch (widget.style) {
       case AdwButtonRowStyle.standard:
         fgColor = theme.colors.windowForeground;
@@ -78,7 +89,7 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
           bgColor = idleCardBg;
         } else if (_isPressed) {
           bgColor = Color.alphaBlend(theme.colors.activeColor, idleCardBg);
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           bgColor = theme.colors.buttonRowHoverBackground;
         } else {
           bgColor = idleCardBg;
@@ -91,7 +102,7 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
         } else if (_isPressed) {
           bgColor = Color.alphaBlend(
               fgColor.withValues(alpha: 0.16), idleCardBg);
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           bgColor = theme.colors.destructiveRowHoverBackground;
         } else {
           bgColor = idleCardBg;
@@ -104,7 +115,7 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
           bgColor = base.withValues(alpha: 0.5);
         } else if (_isPressed) {
           bgColor = Color.lerp(base, const Color(0xFF000000), 0.15)!;
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           bgColor = Color.lerp(base, const Color(0xFFFFFFFF), 0.08)!;
         } else {
           bgColor = base;
@@ -114,65 +125,145 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
 
     final resolvedFg =
         isEnabled ? fgColor : fgColor.withValues(alpha: 0.45);
+    final rowRadius = AdwGroupRowShape.borderRadiusOf(context);
+    final Color focusColor = switch (widget.style) {
+      AdwButtonRowStyle.destructive =>
+        theme.colors.standaloneErrorColor.withValues(alpha: 0.70),
+      AdwButtonRowStyle.suggested => theme.colors.focusBorderColor,
+      AdwButtonRowStyle.standard => theme.colors.focusBorderColor,
+    };
+    final bool useOuterOffsetRing =
+        _isFocused && widget.style == AdwButtonRowStyle.suggested;
 
-    return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (isEnabled) setState(() => _isHovered = true);
-      },
-      onExit: (_) {
-        if (isEnabled) {
-          setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          });
-        }
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) {
-          if (isEnabled) setState(() => _isPressed = true);
-        },
-        onTapUp: (_) {
-          if (isEnabled) setState(() => _isPressed = false);
-        },
-        onTapCancel: () {
-          if (isEnabled) setState(() => _isPressed = false);
-        },
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          constraints: BoxConstraints(minHeight: widget.minHeight),
-          color: bgColor,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Center(
-            child: IconTheme(
-              data: IconThemeData(
-                color: resolvedFg,
-                size: AdwMetrics.iconSizeSmall,
+    final Widget rowSurface = AnimatedContainer(
+      duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+      curve: AdwCurves.standard,
+      constraints: BoxConstraints(minHeight: widget.minHeight),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: rowRadius,
+      ),
+      foregroundDecoration: (_isFocused && !useOuterOffsetRing)
+          ? BoxDecoration(
+              borderRadius: rowRadius,
+              border: Border.all(
+                color: focusColor,
+                width: 2.0,
               ),
-              child: DefaultTextStyle(
-                style: theme.typography.heading.copyWith(
-                  fontSize: 14.0,
-                  color: resolvedFg,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.startIcon != null) ...[
-                      widget.startIcon!,
-                      const SizedBox(width: 8),
-                    ],
-                    widget.title,
-                    if (widget.endIcon != null) ...[
-                      const SizedBox(width: 8),
-                      widget.endIcon!,
-                    ],
-                  ],
-                ),
-              ),
+            )
+          : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Center(
+        child: IconTheme(
+          data: IconThemeData(
+            color: resolvedFg,
+            size: AdwMetrics.iconSizeSmall,
+          ),
+          child: DefaultTextStyle(
+            style: theme.typography.heading.copyWith(
+              fontSize: 14.0,
+              color: resolvedFg,
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.startIcon != null) ...[
+                  widget.startIcon!,
+                  const SizedBox(width: 8),
+                ],
+                widget.title,
+                if (widget.endIcon != null) ...[
+                  const SizedBox(width: 8),
+                  widget.endIcon!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      onTap: isEnabled ? widget.onPressed : null,
+      child: FocusableActionDetector(
+        focusNode: _focusNode,
+        enabled: isEnabled,
+        mouseCursor:
+            isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (isEnabled && _isHovered != hovered) {
+            setState(() {
+              _isHovered = hovered;
+              if (!hovered) _isPressed = false;
+            });
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onPressed?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            if (isEnabled) setState(() => _isPressed = true);
+          },
+          onTapUp: (_) {
+            if (isEnabled) setState(() => _isPressed = false);
+          },
+          onTapCancel: () {
+            if (isEnabled) setState(() => _isPressed = false);
+          },
+          onTap: isEnabled
+              ? () {
+                  _focusNode.requestFocus();
+                  widget.onPressed?.call();
+                }
+              : null,
+          child: Stack(
+            fit: StackFit.passthrough,
+            clipBehavior: Clip.none,
+            children: [
+              rowSurface,
+              if (useOuterOffsetRing)
+                Positioned(
+                  left: -3.5,
+                  right: -3.5,
+                  top: -3.5,
+                  bottom: -3.5,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.only(
+                          topLeft: rowRadius.topLeft + const Radius.circular(3.5),
+                          topRight:
+                              rowRadius.topRight + const Radius.circular(3.5),
+                          bottomLeft:
+                              rowRadius.bottomLeft + const Radius.circular(3.5),
+                          bottomRight:
+                              rowRadius.bottomRight + const Radius.circular(3.5),
+                        ),
+                        border: Border.all(
+                          color: focusColor,
+                          width: 2.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

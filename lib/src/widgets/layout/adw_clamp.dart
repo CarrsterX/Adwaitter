@@ -35,6 +35,7 @@ double adwLengthUnitToPx(
 class AdwClamp extends StatelessWidget {
   final double maximumSize;
   final double tighteningThreshold;
+  final double minimumSize;
   final AdwLengthUnit unit;
   final double minimumMargin;
   final double? maximumMargin;
@@ -44,6 +45,7 @@ class AdwClamp extends StatelessWidget {
     super.key,
     this.maximumSize = 600.0,
     this.tighteningThreshold = 400.0,
+    this.minimumSize = 0.0,
     this.unit = AdwLengthUnit.sp,
     this.minimumMargin = 12.0,
     this.maximumMargin,
@@ -99,13 +101,18 @@ class AdwClamp extends StatelessWidget {
           contentMaxWidth = lower + (maxVal - lower) * ease;
         }
 
+        final double clampedMaxWidth = math.max(
+          math.min(usableWidth, minimumSize),
+          contentMaxWidth,
+        );
+
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: minimumMargin),
           child: Align(
             alignment: Alignment.topCenter,
             heightFactor: 1.0,
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              constraints: BoxConstraints(maxWidth: clampedMaxWidth),
               child: child,
             ),
           ),

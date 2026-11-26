@@ -497,18 +497,27 @@ class AdwTabView extends StatelessWidget {
                   controller.selectIndex(9),
             },
             child: Focus(
-              autofocus: true,
+              skipTraversal: true,
               child: pages.isEmpty
                   ? const SizedBox.expand()
-                  : IndexedStack(
-                      index: selectedIndex.clamp(0, pages.length - 1),
-                      children: [
-                        for (final page in pages)
-                          KeyedSubtree(
-                            key: page.pageKey,
-                            child: page.child,
-                          ),
-                      ],
+                  : Builder(
+                      builder: (context) {
+                        final clampedIndex =
+                            selectedIndex.clamp(0, pages.length - 1);
+                        return IndexedStack(
+                          index: clampedIndex,
+                          children: [
+                            for (int i = 0; i < pages.length; i++)
+                              ExcludeFocus(
+                                excluding: i != clampedIndex,
+                                child: KeyedSubtree(
+                                  key: pages[i].pageKey,
+                                  child: pages[i].child,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
             ),
           ),
@@ -616,7 +625,7 @@ class _AdwTabBarState extends State<AdwTabBar> {
                   children: [
                     if (widget.startActionWidget != null)
                       Padding(
-                        padding: const EdgeInsets.only(right: 5),
+                        padding: const EdgeInsetsDirectional.only(end: 5),
                         child: widget.startActionWidget!,
                       ),
                     // Pinned tabs box
@@ -737,7 +746,7 @@ class _AdwTabBarState extends State<AdwTabBar> {
                     ),
                     if (widget.endActionWidget != null)
                       Padding(
-                        padding: const EdgeInsets.only(left: 5),
+                        padding: const EdgeInsetsDirectional.only(start: 5),
                         child: widget.endActionWidget!,
                       ),
                   ],
@@ -877,6 +886,7 @@ class _AdwTabItem extends StatefulWidget {
 class _AdwTabItemState extends State<_AdwTabItem> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -886,21 +896,22 @@ class _AdwTabItemState extends State<_AdwTabItem> {
     return ListenableBuilder(
       listenable: widget.page,
       builder: (context, _) {
+        final bool isHighlighted = _isHovered || _isFocused;
         final Color bg;
         if (widget.isSingleTab) {
-          bg = const Color(0x00000000);
+          bg = _isFocused ? fg.withValues(alpha: 0.07) : const Color(0x00000000);
         } else if (_isPressed) {
           bg = fg.withValues(alpha: widget.isSelected ? 0.19 : 0.16);
         } else if (widget.isSelected) {
-          bg = fg.withValues(alpha: _isHovered ? 0.13 : 0.10);
-        } else if (_isHovered) {
+          bg = fg.withValues(alpha: isHighlighted ? 0.13 : 0.10);
+        } else if (isHighlighted) {
           bg = fg.withValues(alpha: 0.07);
         } else {
           bg = const Color(0x00000000);
         }
 
         final showClose =
-            !widget.page.pinned && (_isHovered || widget.isSelected);
+            !widget.page.pinned && (_isHovered || _isFocused || widget.isSelected);
 
         return Listener(
           onPointerDown: (event) {
@@ -910,67 +921,95 @@ class _AdwTabItemState extends State<_AdwTabItem> {
               widget.onContextMenu?.call(event.position);
             }
           },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) {
-              setState(() => _isHovered = true);
-              widget.onHoverChanged?.call(true);
-            },
-            onExit: (_) {
-              setState(() {
-                _isHovered = false;
-                _isPressed = false;
-              });
-              widget.onHoverChanged?.call(false);
-            },
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => setState(() => _isPressed = true),
-              onTapUp: (_) => setState(() => _isPressed = false),
-              onTapCancel: () => setState(() => _isPressed = false),
-              onTap: widget.onSelect,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedContainer(
-                    duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-                    curve: AdwCurves.standard,
-                    constraints: BoxConstraints(
-                      minHeight: 34,
-                      minWidth: widget.page.pinned ? 36 : 80,
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: bg,
-                      borderRadius:
-                          BorderRadius.circular(AdwMetrics.buttonRadius),
-                      border: (theme.colors.isHighContrast &&
-                              (widget.isSelected || _isHovered))
-                          ? Border.all(
-                              color: theme.colors.borderColor,
-                              width: 1.0,
+          child: Semantics(
+            button: true,
+            selected: widget.isSelected,
+            label: widget.page.title,
+            onTap: widget.onSelect,
+            child: FocusableActionDetector(
+              mouseCursor: SystemMouseCursors.click,
+              onShowHoverHighlight: (hovered) {
+                if (_isHovered != hovered) {
+                  setState(() {
+                    _isHovered = hovered;
+                    if (!hovered) _isPressed = false;
+                  });
+                  widget.onHoverChanged?.call(hovered);
+                }
+              },
+              onShowFocusHighlight: (focused) {
+                if (_isFocused != focused) {
+                  setState(() => _isFocused = focused);
+                }
+              },
+              actions: <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onSelect();
+                    return null;
+                  },
+                ),
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (_) => setState(() => _isPressed = true),
+                onTapUp: (_) => setState(() => _isPressed = false),
+                onTapCancel: () => setState(() => _isPressed = false),
+                onTap: widget.onSelect,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration:
+                          AdwCurves.resolve(context, AdwCurves.shortDuration),
+                      curve: AdwCurves.standard,
+                      constraints: BoxConstraints(
+                        minHeight: 34,
+                        minWidth: widget.page.pinned ? 36 : 80,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius:
+                            BorderRadius.circular(AdwMetrics.buttonRadius),
+                        border: (theme.colors.isHighContrast &&
+                                (widget.isSelected || _isHovered))
+                            ? Border.all(
+                                color: theme.colors.borderColor,
+                                width: 1.0,
+                              )
+                            : null,
+                      ),
+                      foregroundDecoration: _isFocused
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                  AdwMetrics.buttonRadius),
+                              border: Border.all(
+                                color: theme.colors.focusBorderColor,
+                                width: 2.0,
+                              ),
                             )
                           : null,
+                      child: widget.page.pinned
+                          ? _buildPinnedContent(fg)
+                          : _buildUnpinnedContent(theme, fg, showClose),
                     ),
-                    child: widget.page.pinned
-                        ? _buildPinnedContent(fg)
-                        : _buildUnpinnedContent(theme, fg, showClose),
-                  ),
-                  if (widget.page.needsAttention)
-                    Positioned(
-                      left: 6,
-                      right: 6,
-                      bottom: 0,
-                      child: Container(
-                        height: 2,
-                        decoration: BoxDecoration(
-                          color:
-                              theme.colors.accentColor.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(2),
+                    if (widget.page.needsAttention)
+                      Positioned(
+                        left: 6,
+                        right: 6,
+                        bottom: 0,
+                        child: Container(
+                          height: 2,
+                          decoration: BoxDecoration(
+                            color: theme.colors.accentColor
+                                .withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

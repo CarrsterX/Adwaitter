@@ -27,15 +27,23 @@ class AdwSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdwActionRow(
-      prefix: prefix ?? leading,
-      title: title,
-      subtitle: subtitle,
-      suffix: AdwSwitch(
-        value: value,
-        onChanged: onChanged,
+    return Semantics(
+      toggled: value,
+      enabled: onChanged != null,
+      child: AdwActionRow(
+        prefix: prefix ?? leading,
+        title: title,
+        subtitle: subtitle,
+        suffix: ExcludeFocus(
+          child: ExcludeSemantics(
+            child: AdwSwitch(
+              value: value,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        onPressed: onChanged != null ? () => onChanged!(!value) : null,
       ),
-      onPressed: onChanged != null ? () => onChanged!(!value) : null,
     );
   }
 }

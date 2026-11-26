@@ -324,12 +324,17 @@ AdwPopoverHandle showAdwPopover({
   final route = _AdwPopoverRoute(
     onPopped: handle.dismiss,
     pageBuilder: (routeContext) {
-      final Widget popoverChild = GestureDetector(
-        onTap: () {},
-        child: ConstrainedBox(
-          constraints: constraints,
-          child: Builder(
-            builder: (ctx) => builder(ctx, handle),
+      final Widget popoverChild = FocusScope(
+        autofocus: true,
+        child: FocusTraversalGroup(
+          child: GestureDetector(
+            onTap: () {},
+            child: ConstrainedBox(
+              constraints: constraints,
+              child: Builder(
+                builder: (ctx) => builder(ctx, handle),
+              ),
+            ),
           ),
         ),
       );
@@ -969,6 +974,7 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
   final Object _itemToken = Object();
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -984,84 +990,115 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
     if (isEnabled) {
       if (_isPressed) {
         bg = theme.colors.activeColor;
-      } else if (_isHovered || isHighlighted) {
+      } else if (_isHovered || _isFocused || isHighlighted) {
         bg = hoverFill;
       }
     }
 
-    return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (isEnabled) {
-          setState(() => _isHovered = true);
-          menuScope?.setHighlighted(_itemToken);
-          widget.onHoverChanged?.call(true);
-        }
-      },
-      onExit: (_) {
-        if (isEnabled) {
-          setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          });
-          menuScope?.clearHighlighted(_itemToken);
-          widget.onHoverChanged?.call(false);
-        }
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
-        onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
-        onTapCancel:
-            isEnabled ? () => setState(() => _isPressed = false) : null,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          alignment: Alignment.centerLeft,
-          constraints: const BoxConstraints(minHeight: 32),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(6.0),
-          ),
-          foregroundDecoration: (theme.colors.isHighContrast &&
-                  isEnabled &&
-                  (_isHovered || _isPressed))
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(6.0),
-                  border: Border.all(
-                    color: theme.colors.borderColor,
-                    width: 1.0,
-                  ),
-                )
-              : null,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textHeightBehavior: const TextHeightBehavior(
-                    applyHeightToFirstAscent: false,
-                    applyHeightToLastDescent: false,
-                  ),
-                  style: theme.typography.body.copyWith(
-                    height: 1.0,
-                    leadingDistribution: TextLeadingDistribution.even,
-                    color: isEnabled
-                        ? theme.colors.popoverForeground
-                        : theme.colors.popoverForeground.withValues(alpha: 0.45),
+    return Semantics(
+      button: isEnabled,
+      enabled: isEnabled,
+      label: widget.label,
+      onTap: widget.onTap,
+      child: FocusableActionDetector(
+        enabled: isEnabled,
+        mouseCursor:
+            isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (!isEnabled) return;
+          if (_isHovered != hovered) {
+            setState(() {
+              _isHovered = hovered;
+              if (!hovered) _isPressed = false;
+            });
+            if (hovered) {
+              menuScope?.setHighlighted(_itemToken);
+            } else {
+              menuScope?.clearHighlighted(_itemToken);
+            }
+            widget.onHoverChanged?.call(hovered);
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onTap?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown:
+              isEnabled ? (_) => setState(() => _isPressed = true) : null,
+          onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+          onTapCancel:
+              isEnabled ? () => setState(() => _isPressed = false) : null,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            curve: AdwCurves.standard,
+            alignment: Alignment.centerLeft,
+            constraints: const BoxConstraints(minHeight: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(6.0),
+            ),
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(6.0),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : (theme.colors.isHighContrast &&
+                        isEnabled &&
+                        (_isHovered || _isPressed))
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(6.0),
+                        border: Border.all(
+                          color: theme.colors.borderColor,
+                          width: 1.0,
+                        ),
+                      )
+                    : null,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textHeightBehavior: const TextHeightBehavior(
+                      applyHeightToFirstAscent: false,
+                      applyHeightToLastDescent: false,
+                    ),
+                    style: theme.typography.body.copyWith(
+                      height: 1.0,
+                      leadingDistribution: TextLeadingDistribution.even,
+                      color: isEnabled
+                          ? theme.colors.popoverForeground
+                          : theme.colors.popoverForeground
+                              .withValues(alpha: 0.45),
+                    ),
                   ),
                 ),
-              ),
-              if (widget.trailing != null) ...[
-                const SizedBox(width: 12),
-                widget.trailing!,
+                if (widget.trailing != null) ...[
+                  const SizedBox(width: 12),
+                  widget.trailing!,
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

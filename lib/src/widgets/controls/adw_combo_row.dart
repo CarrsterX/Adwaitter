@@ -5,6 +5,7 @@ import '../../l10n/adw_localizations.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../containers/adw_preferences_group.dart';
 import '../overlays/adw_popover.dart';
 
 /// Preference row with a native GTK4/Libadwaita popover dropdown (`AdwComboRow`).
@@ -44,9 +45,12 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
   AdwPopoverHandle? _popoverHandle;
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AdwComboRow');
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _removeOverlay();
     super.dispose();
   }
@@ -155,28 +159,61 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
     Color rowBg = const Color(0x00000000);
     if (_isPressed) {
       rowBg = theme.colors.activeColor;
-    } else if (_isHovered) {
+    } else if (_isHovered || _isFocused) {
       rowBg = theme.colors.hoverBackground;
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() {
-        _isHovered = false;
-        _isPressed = false;
-      }),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: () => _showPopoverMenu(context),
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
-          color: rowBg,
+    return Semantics(
+      button: true,
+      enabled: true,
+      onTap: () => _showPopoverMenu(context),
+      child: FocusableActionDetector(
+        focusNode: _focusNode,
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: (hovered) {
+          if (_isHovered != hovered) {
+            setState(() {
+              _isHovered = hovered;
+              if (!hovered) _isPressed = false;
+            });
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _showPopoverMenu(context);
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: () {
+            _focusNode.requestFocus();
+            _showPopoverMenu(context);
+          },
+          child: AnimatedContainer(
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            curve: AdwCurves.standard,
+            constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
+            color: rowBg,
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius: AdwGroupRowShape.borderRadiusOf(context),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : null,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
@@ -237,6 +274,7 @@ class _AdwComboRowState<T> extends State<AdwComboRow<T>> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

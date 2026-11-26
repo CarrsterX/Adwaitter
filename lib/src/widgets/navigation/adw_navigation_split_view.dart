@@ -243,41 +243,54 @@ class _AdwNavigationSplitViewState extends State<AdwNavigationSplitView> {
           isCollapsed: false,
           showContentPage: () {},
           showSidebarPage: () {},
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.showSidebar)
-                Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (_) => _preferContentOnCollapse = false,
-                  child: Container(
-                    width: computedSidebarWidth +
-                        (isMobile ? MediaQuery.paddingOf(context).left : 0.0),
-                    decoration: BoxDecoration(
-                      color: effectiveSidebarBg,
-                      border: widget.showBorder
-                          ? Border(
-                              right: BorderSide(
-                                color: theme.colors.sidebarBorder,
-                                width: 1,
-                              ),
-                            )
-                          : null,
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.showSidebar)
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(1.0),
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (_) => _preferContentOnCollapse = false,
+                      child: Container(
+                        width: computedSidebarWidth +
+                            (isMobile ? MediaQuery.paddingOf(context).left : 0.0),
+                        decoration: BoxDecoration(
+                          color: effectiveSidebarBg,
+                          border: widget.showBorder
+                              ? Border(
+                                  right: BorderSide(
+                                    color: theme.colors.sidebarBorder,
+                                    width: 1,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        child: FocusTraversalGroup(
+                          child: wrapPaneSafeArea(widget.sidebar, right: false),
+                        ),
+                      ),
                     ),
-                    child: wrapPaneSafeArea(widget.sidebar, right: false),
+                  ),
+                Expanded(
+                  child: FocusTraversalOrder(
+                    order: const NumericFocusOrder(2.0),
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (_) => _preferContentOnCollapse = true,
+                      child: Container(
+                        color: theme.colors.windowBackground,
+                        child: FocusTraversalGroup(
+                          child: wrapPaneSafeArea(widget.content, left: false),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              Expanded(
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (_) => _preferContentOnCollapse = true,
-                  child: Container(
-                    color: theme.colors.windowBackground,
-                    child: wrapPaneSafeArea(widget.content, left: false),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -38,25 +39,78 @@ class AdwSpinRow extends StatefulWidget {
 }
 
 class _AdwSpinRowState extends State<AdwSpinRow> {
-  final FocusNode _focusNode = FocusNode();
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AdwSpinRow');
+  late final TextEditingController _textController;
   bool _isFocused = false;
+
+  String _formatValue(double val) {
+    return widget.decimalDigits == 0
+        ? val.round().toString()
+        : val.toStringAsFixed(widget.decimalDigits);
+  }
 
   @override
   void initState() {
     super.initState();
+    _textController = TextEditingController(text: _formatValue(widget.value));
     _focusNode.addListener(_onFocusChange);
   }
 
-  void _onFocusChange() {
-    if (mounted) {
-      setState(() => _isFocused = _focusNode.hasFocus);
+  @override
+  void didUpdateWidget(covariant AdwSpinRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value ||
+        oldWidget.decimalDigits != widget.decimalDigits) {
+      final formatted = _formatValue(widget.value);
+      if (_textController.text != formatted) {
+        _textController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      }
     }
+  }
+
+  void _commitText() {
+    final parsed = double.tryParse(_textController.text.trim());
+    if (parsed != null) {
+      final clamped = parsed.clamp(widget.min, widget.max).toDouble();
+      final formatted = _formatValue(clamped);
+      _textController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+      if (clamped != widget.value) {
+        widget.onChanged?.call(clamped);
+      }
+    } else {
+      final formatted = _formatValue(widget.value);
+      _textController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
+
+  void _onFocusChange() {
+    if (!mounted) return;
+    final hasFocus = _focusNode.hasFocus;
+    if (!hasFocus && _isFocused) {
+      _commitText();
+    } else if (hasFocus && !_isFocused) {
+      _textController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _textController.text.length,
+      );
+    }
+    setState(() => _isFocused = hasFocus);
   }
 
   @override
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
@@ -79,91 +133,145 @@ class _AdwSpinRowState extends State<AdwSpinRow> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final canDecrement = widget.value > widget.min;
-    final canIncrement = widget.value < widget.max;
+    final isEnabled = widget.onChanged != null;
+    final canDecrement = isEnabled && widget.value > widget.min;
+    final canIncrement = isEnabled && widget.value < widget.max;
+    final displayText = _formatValue(widget.value);
+    final allowDecimal = widget.decimalDigits > 0;
+    final allowNegative = widget.min < 0;
+    final allowedPattern = switch ((allowNegative, allowDecimal)) {
+      (true, true) => RegExp(r'[0-9.\-]'),
+      (true, false) => RegExp(r'[0-9\-]'),
+      (false, true) => RegExp(r'[0-9.]'),
+      (false, false) => RegExp(r'[0-9]'),
+    };
 
-    final displayText = widget.decimalDigits == 0
-        ? widget.value.toInt().toString()
-        : widget.value.toStringAsFixed(widget.decimalDigits);
+    final increasedDisplay = _formatValue(
+      (widget.value + widget.step).clamp(widget.min, widget.max).toDouble(),
+    );
+    final decreasedDisplay = _formatValue(
+      (widget.value - widget.step).clamp(widget.min, widget.max).toDouble(),
+    );
 
-    return TapRegion(
-      onTapOutside: (_) {
-        if (_focusNode.hasFocus) _focusNode.unfocus();
-      },
-      child: Focus(
-        focusNode: _focusNode,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _focusNode.requestFocus(),
-          child: AnimatedContainer(
-            duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
-            curve: AdwCurves.standard,
-            constraints:
-                const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: AdwGroupRowShape.borderRadiusOf(context),
-              border: Border.all(
-                color: _isFocused
-                    ? theme.colors.spinRowFocusBorderColor
-                    : theme.colors.spinRowFocusBorderColor
-                        .withValues(alpha: 0.0),
-                width: 2.0,
+    return Semantics(
+      textField: true,
+      enabled: isEnabled,
+      value: displayText,
+      increasedValue: canIncrement ? increasedDisplay : null,
+      decreasedValue: canDecrement ? decreasedDisplay : null,
+      onIncrease: canIncrement ? _increment : null,
+      onDecrease: canDecrement ? _decrement : null,
+      child: TapRegion(
+        onTapOutside: (_) {
+          if (_focusNode.hasFocus) _focusNode.unfocus();
+        },
+        child: CallbackShortcuts(
+          bindings: isEnabled
+              ? <ShortcutActivator, VoidCallback>{
+                  const SingleActivator(LogicalKeyboardKey.arrowUp): _increment,
+                  const SingleActivator(LogicalKeyboardKey.arrowDown):
+                      _decrement,
+                }
+              : const <ShortcutActivator, VoidCallback>{},
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: isEnabled ? () => _focusNode.requestFocus() : null,
+            child: AnimatedContainer(
+              duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
+              curve: AdwCurves.standard,
+              constraints:
+                  const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              foregroundDecoration: BoxDecoration(
+                borderRadius: AdwGroupRowShape.borderRadiusOf(context),
+                border: Border.all(
+                  color: _isFocused
+                      ? theme.colors.spinRowFocusBorderColor
+                      : theme.colors.spinRowFocusBorderColor
+                          .withValues(alpha: 0.0),
+                  width: 2.0,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                if (widget.prefix != null) ...[
-                  widget.prefix!,
+              child: Row(
+                children: [
+                  if (widget.prefix != null) ...[
+                    widget.prefix!,
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DefaultTextStyle(
+                          style: theme.typography.body,
+                          child: widget.title,
+                        ),
+                        if (widget.subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          DefaultTextStyle(
+                            style: theme.typography.caption.copyWith(
+                              color: theme.colors.secondaryForeground,
+                            ),
+                            child: widget.subtitle!,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DefaultTextStyle(
-                        style: theme.typography.body,
-                        child: widget.title,
-                      ),
-                      if (widget.subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        DefaultTextStyle(
-                          style: theme.typography.caption.copyWith(
-                            color: theme.colors.secondaryForeground,
+                      IntrinsicWidth(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            maxWidth: 96,
                           ),
-                          child: widget.subtitle!,
+                          child: EditableText(
+                            controller: _textController,
+                            focusNode: _focusNode,
+                            readOnly: !isEnabled,
+                            textAlign: TextAlign.right,
+                            keyboardType: TextInputType.numberWithOptions(
+                              decimal: allowDecimal,
+                              signed: allowNegative,
+                            ),
+                            textInputAction: TextInputAction.done,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(allowedPattern),
+                            ],
+                            style: theme.typography.body.copyWith(
+                              color: theme.colors.windowForeground,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                            cursorColor: theme.colors.accentColor,
+                            backgroundCursorColor: theme.colors.borderColor,
+                            selectionColor:
+                                theme.colors.accentColor.withValues(alpha: 0.30),
+                            onSubmitted: (_) => _commitText(),
+                          ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 15),
+                      _SpinButton(
+                        isIncrement: false,
+                        enabled: canDecrement,
+                        onPressed: _decrement,
+                      ),
+                      const SizedBox(width: 10),
+                      _SpinButton(
+                        isIncrement: true,
+                        enabled: canIncrement,
+                        onPressed: _increment,
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      displayText,
-                      textAlign: TextAlign.right,
-                      style: theme.typography.body.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    _SpinButton(
-                      isIncrement: false,
-                      enabled: canDecrement,
-                      onPressed: _decrement,
-                    ),
-                    const SizedBox(width: 10),
-                    _SpinButton(
-                      isIncrement: true,
-                      enabled: canIncrement,
-                      onPressed: _increment,
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

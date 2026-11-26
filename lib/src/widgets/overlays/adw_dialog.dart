@@ -324,19 +324,24 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
           ),
         );
 
-        final sizedSheet = ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: effectiveWidth,
-            minWidth: isBottomSheet
-                ? effectiveWidth
-                : math.min(effectiveWidth, 280.0),
-            maxHeight: effectiveHeight ?? maxAvailableHeight,
-            minHeight: effectiveHeight ?? 0.0,
-          ),
-          child: SizedBox(
-            width: effectiveWidth,
-            height: effectiveHeight,
-            child: sheet,
+        final sizedSheet = Semantics(
+          scopesRoute: true,
+          explicitChildNodes: true,
+          label: widget.title,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: effectiveWidth,
+              minWidth: isBottomSheet
+                  ? effectiveWidth
+                  : math.min(effectiveWidth, 280.0),
+              maxHeight: effectiveHeight ?? maxAvailableHeight,
+              minHeight: effectiveHeight ?? 0.0,
+            ),
+            child: SizedBox(
+              width: effectiveWidth,
+              height: effectiveHeight,
+              child: sheet,
+            ),
           ),
         );
 
@@ -626,9 +631,11 @@ Future<T?> showAdwDialog<T>({
               const SingleActivator(LogicalKeyboardKey.escape): () =>
                   Navigator.of(dialogContext).maybePop(),
           },
-          child: Focus(
+          child: FocusScope(
             autofocus: true,
-            child: builder(dialogContext),
+            child: FocusTraversalGroup(
+              child: builder(dialogContext),
+            ),
           ),
         );
 

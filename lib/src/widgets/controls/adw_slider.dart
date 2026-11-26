@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_theme.dart';
@@ -33,6 +34,7 @@ class AdwSlider extends StatefulWidget {
 class _AdwSliderState extends State<AdwSlider> {
   bool _hovered = false;
   bool _active = false;
+  bool _focused = false;
 
   double get _range => (widget.max - widget.min).abs();
 
@@ -71,11 +73,47 @@ class _AdwSliderState extends State<AdwSlider> {
 
     final clampedValue = _toNormalized(widget.value);
 
-    return MouseRegion(
-      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: LayoutBuilder(
+    void stepBy(double delta) {
+      if (!isEnabled) return;
+      final next = (clampedValue + delta).clamp(0.0, 1.0);
+      widget.onChanged!(_fromNormalized(next));
+    }
+
+    return Semantics(
+      slider: true,
+      enabled: isEnabled,
+      value: '${(clampedValue * 100).round()}%',
+      increasedValue:
+          isEnabled ? '${((clampedValue + 0.05).clamp(0.0, 1.0) * 100).round()}%' : null,
+      decreasedValue:
+          isEnabled ? '${((clampedValue - 0.05).clamp(0.0, 1.0) * 100).round()}%' : null,
+      onIncrease: isEnabled ? () => stepBy(0.05) : null,
+      onDecrease: isEnabled ? () => stepBy(-0.05) : null,
+      child: FocusableActionDetector(
+        enabled: isEnabled,
+        mouseCursor:
+            isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_hovered != hovered) setState(() => _hovered = hovered);
+        },
+        onShowFocusHighlight: (focused) {
+          if (_focused != focused) setState(() => _focused = focused);
+        },
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.arrowRight): _SliderStepIntent(0.05),
+          SingleActivator(LogicalKeyboardKey.arrowUp): _SliderStepIntent(0.05),
+          SingleActivator(LogicalKeyboardKey.arrowLeft): _SliderStepIntent(-0.05),
+          SingleActivator(LogicalKeyboardKey.arrowDown): _SliderStepIntent(-0.05),
+        },
+        actions: <Type, Action<Intent>>{
+          _SliderStepIntent: CallbackAction<_SliderStepIntent>(
+            onInvoke: (intent) {
+              stepBy(intent.delta);
+              return null;
+            },
+          ),
+        },
+        child: LayoutBuilder(
         builder: (context, constraints) {
           if (widget.orientation == Axis.vertical) {
             final height = constraints.maxHeight;
@@ -112,6 +150,7 @@ class _AdwSliderState extends State<AdwSlider> {
                 width: 30.0,
                 height: height,
                 child: Stack(
+                  clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: [
                     Container(
@@ -134,7 +173,14 @@ class _AdwSliderState extends State<AdwSlider> {
                     ),
                     Positioned(
                       bottom: (height - 18.0) * clampedValue,
-                      child: _SliderThumb(color: thumbColor),
+                      child: _SliderThumb(
+                        color: thumbColor,
+                        focusRingColor: _focused
+                            ? (widget.isOsd
+                                ? const Color(0xFF666667)
+                                : theme.colors.focusBorderColor)
+                            : null,
+                      ),
                     ),
                   ],
                 ),
@@ -176,6 +222,7 @@ class _AdwSliderState extends State<AdwSlider> {
             child: SizedBox(
               height: 30.0,
               child: Stack(
+                clipBehavior: Clip.none,
                 alignment: Alignment.centerLeft,
                 children: [
                   Container(
@@ -211,7 +258,14 @@ class _AdwSliderState extends State<AdwSlider> {
                       ),
                   Positioned(
                     left: (width - 18.0) * clampedValue,
-                    child: _SliderThumb(color: thumbColor),
+                    child: _SliderThumb(
+                      color: thumbColor,
+                      focusRingColor: _focused
+                          ? (widget.isOsd
+                              ? const Color(0xFF666667)
+                              : theme.colors.focusBorderColor)
+                          : null,
+                    ),
                   ),
                 ],
               ),
@@ -219,36 +273,70 @@ class _AdwSliderState extends State<AdwSlider> {
           );
         },
       ),
+      ),
     );
   }
 }
 
+class _SliderStepIntent extends Intent {
+  final double delta;
+  const _SliderStepIntent(this.delta);
+}
+
 class _SliderThumb extends StatelessWidget {
   final Color color;
+  final Color? focusRingColor;
 
-  const _SliderThumb({required this.color});
+  const _SliderThumb({
+    required this.color,
+    this.focusRingColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 18.0,
-      height: 18.0,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000006),
-            blurRadius: 0.0,
-            spreadRadius: 1.0,
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        if (focusRingColor != null)
+          Positioned(
+            left: -4.0,
+            right: -4.0,
+            top: -4.0,
+            bottom: -4.0,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: focusRingColor!,
+                    width: 2.0,
+                  ),
+                ),
+              ),
+            ),
           ),
-          BoxShadow(
-            color: Color(0x33000006),
-            blurRadius: 4.0,
-            offset: Offset(0, 2),
+        Container(
+          width: 18.0,
+          height: 18.0,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A000006),
+                blurRadius: 0.0,
+                spreadRadius: 1.0,
+              ),
+              BoxShadow(
+                color: Color(0x33000006),
+                blurRadius: 4.0,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

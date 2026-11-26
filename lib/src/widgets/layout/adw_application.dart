@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/adw_insets.dart';
 import '../../core/adw_scroll_behavior.dart';
 import '../../theme/adw_colors.dart';
+import '../../theme/adw_curves.dart';
 import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_style_manager.dart';
 import '../../theme/adw_theme.dart';
@@ -58,6 +59,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
   final ValueNotifier<BorderRadius> _windowBorderRadius =
       ValueNotifier<BorderRadius>(BorderRadius.zero);
   AppLifecycleState? _appLifecycleState;
+  FocusNode? _lastAutoScrolledFocus;
 
   @override
   void initState() {
@@ -65,6 +67,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     AdwSubWindowManager.ensureInitialized();
     WidgetsBinding.instance.addObserver(this);
+    FocusManager.instance.addListener(_onGlobalFocusChanged);
     AdwDesktopSettings.initialize();
     AdwStyleManager.initialize();
     AdwStyleManager.instance.addListener(_onStyleChanged);
@@ -74,12 +77,60 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onGlobalFocusChanged);
     _windowBorderRadius.dispose();
     AdwDesktopSettings.contrastLevel.removeListener(_onStyleChanged);
     AdwDesktopSettings.highTextContrast.removeListener(_onStyleChanged);
     AdwStyleManager.instance.removeListener(_onStyleChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onGlobalFocusChanged() {
+    if (FocusManager.instance.highlightMode != FocusHighlightMode.traditional) {
+      return;
+    }
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null || primary == _lastAutoScrolledFocus) return;
+    _lastAutoScrolledFocus = primary;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = primary.context;
+      if (ctx == null || !ctx.mounted) return;
+      final scrollable = Scrollable.maybeOf(ctx);
+      if (scrollable == null) return;
+      final itemBox = ctx.findRenderObject();
+      final viewportBox = scrollable.context.findRenderObject();
+      if (itemBox is! RenderBox ||
+          viewportBox is! RenderBox ||
+          !itemBox.attached ||
+          !viewportBox.attached ||
+          !itemBox.hasSize ||
+          !viewportBox.hasSize) {
+        return;
+      }
+      final topLeft =
+          itemBox.localToGlobal(Offset.zero, ancestor: viewportBox);
+      final bottomRight = itemBox.localToGlobal(
+        itemBox.size.bottomRight(Offset.zero),
+        ancestor: viewportBox,
+      );
+      const double margin = 12.0;
+      ScrollPositionAlignmentPolicy? policy;
+      if (topLeft.dy < margin) {
+        policy = ScrollPositionAlignmentPolicy.keepVisibleAtStart;
+      } else if (bottomRight.dy > viewportBox.size.height - margin) {
+        policy = ScrollPositionAlignmentPolicy.keepVisibleAtEnd;
+      }
+      if (policy != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignmentPolicy: policy,
+          duration: AdwCurves.resolve(ctx, AdwCurves.shortDuration),
+          curve: AdwCurves.standard,
+        );
+      }
+    });
   }
 
   void _onStyleChanged() {
@@ -335,7 +386,7 @@ class _AdwApplicationState extends State<AdwApplication> with WidgetsBindingObse
   }
 }
 
-class _AdwSubWindowHost extends StatelessWidget {
+class _AdwSubWindowHost extends StatefulWidget {
   final AdwSubWindowHandle handle;
   final AdwThemeData theme;
   final AdwAnimationSettings animSettings;
@@ -351,10 +402,55 @@ class _AdwSubWindowHost extends StatelessWidget {
   });
 
   @override
+  State<_AdwSubWindowHost> createState() => _AdwSubWindowHostState();
+}
+
+class _AdwSubWindowHostState extends State<_AdwSubWindowHost> {
+  final FocusScopeNode _windowFocusScope = FocusScopeNode(
+    debugLabel: 'AdwSubWindow',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    widget.handle.adwController.activeListenable?.addListener(_onActiveChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _windowFocusScope.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdwSubWindowHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.handle != widget.handle) {
+      oldWidget.handle.adwController.activeListenable
+          ?.removeListener(_onActiveChanged);
+      widget.handle.adwController.activeListenable
+          ?.addListener(_onActiveChanged);
+    }
+  }
+
+  void _onActiveChanged() {
+    if (mounted && widget.handle.adwController.isActive) {
+      _windowFocusScope.requestFocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.handle.adwController.activeListenable
+        ?.removeListener(_onActiveChanged);
+    _windowFocusScope.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return WidgetsApp(
-      title: handle.title,
-      color: accentColor,
+      title: widget.handle.title,
+      color: widget.accentColor,
       debugShowCheckedModeBanner: false,
       pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) {
         return AdwNavigationPageRoute<T>(
@@ -362,23 +458,27 @@ class _AdwSubWindowHost extends StatelessWidget {
           builder: builder,
         );
       },
-      home: Builder(
-        builder: (innerContext) => AdwBottomInsetConsumer(
-          // Secondary/modal windows are not edge-to-edge with the system
-          // navbar, so they must not reserve its inset.
-          child: AdwWindow(
-            controller: handle.adwController,
-            child: handle.builder(innerContext, handle),
+      home: FocusScope(
+        node: _windowFocusScope,
+        autofocus: true,
+        child: Builder(
+          builder: (innerContext) => AdwBottomInsetConsumer(
+            // Secondary/modal windows are not edge-to-edge with the system
+            // navbar, so they must not reserve its inset.
+            child: AdwWindow(
+              controller: widget.handle.adwController,
+              child: widget.handle.builder(innerContext, widget.handle),
+            ),
           ),
         ),
       ),
       builder: (context, child) {
         final clippedNavigator = ValueListenableBuilder<BorderRadius>(
-          valueListenable: handle.borderRadiusNotifier,
+          valueListenable: widget.handle.borderRadiusNotifier,
           builder: (context, radius, navChild) {
             return _AdwWindowShadowFrame(
               radius: radius,
-              isDark: theme.colors.isDark,
+              isDark: widget.theme.colors.isDark,
               child: navChild ?? const SizedBox.shrink(),
             );
           },
@@ -386,18 +486,18 @@ class _AdwSubWindowHost extends StatelessWidget {
         );
 
         final content = DefaultTextStyle(
-          style: theme.typography.body,
+          style: widget.theme.typography.body,
           child: clippedNavigator,
         );
 
         return AdwTheme(
-          data: theme,
+          data: widget.theme,
           child: AdwAnimationScope(
-            settings: animSettings,
+            settings: widget.animSettings,
             child: AdwWindowShapeScope(
-              borderRadiusNotifier: handle.borderRadiusNotifier,
+              borderRadiusNotifier: widget.handle.borderRadiusNotifier,
               child: ScrollConfiguration(
-                behavior: scrollBehavior,
+                behavior: widget.scrollBehavior,
                 child: Listener(
                   behavior: HitTestBehavior.translucent,
                   onPointerDown: (_) =>
@@ -440,14 +540,22 @@ class _AdwPopupWindowHost extends StatelessWidget {
             behavior: scrollBehavior,
             child: DefaultTextStyle(
               style: theme.typography.body,
-              child: CallbackShortcuts(
-                bindings: <ShortcutActivator, VoidCallback>{
-                  const SingleActivator(LogicalKeyboardKey.escape):
-                      entry.onDismiss,
-                },
-                child: FocusScope(
-                  autofocus: true,
-                  child: entry.child,
+              child: Shortcuts(
+                shortcuts: WidgetsApp.defaultShortcuts,
+                child: Actions(
+                  actions: WidgetsApp.defaultActions,
+                  child: CallbackShortcuts(
+                    bindings: <ShortcutActivator, VoidCallback>{
+                      const SingleActivator(LogicalKeyboardKey.escape):
+                          entry.onDismiss,
+                    },
+                    child: FocusScope(
+                      autofocus: true,
+                      child: FocusTraversalGroup(
+                        child: entry.child,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

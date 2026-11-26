@@ -67,8 +67,10 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
   AdwPopoverHandle? _popoverHandle;
   bool _primaryHovered = false;
   bool _primaryPressed = false;
+  bool _primaryFocused = false;
   bool _dropdownHovered = false;
   bool _dropdownPressed = false;
+  bool _dropdownFocused = false;
   bool _isMenuOpen = false;
 
   @override
@@ -224,44 +226,77 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
         child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _primaryHovered = true),
-            onExit: (_) => setState(() {
-              _primaryHovered = false;
-              _primaryPressed = false;
-            }),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => setState(() => _primaryPressed = true),
-              onTapUp: (_) => setState(() => _primaryPressed = false),
-              onTapCancel: () => setState(() => _primaryPressed = false),
-              onTap: widget.onPressed,
-              child: AnimatedContainer(
-                duration: duration,
-                height: widget.height,
-                padding: EdgeInsets.symmetric(
-                  horizontal: primaryHorizontalPadding,
+          Semantics(
+            button: true,
+            enabled: widget.onPressed != null,
+            onTap: widget.onPressed,
+            child: FocusableActionDetector(
+              enabled: widget.onPressed != null,
+              mouseCursor: SystemMouseCursors.click,
+              onShowHoverHighlight: (hovered) {
+                if (_primaryHovered != hovered) {
+                  setState(() {
+                    _primaryHovered = hovered;
+                    if (!hovered) _primaryPressed = false;
+                  });
+                }
+              },
+              onShowFocusHighlight: (focused) {
+                if (_primaryFocused != focused) {
+                  setState(() => _primaryFocused = focused);
+                }
+              },
+              actions: widget.onPressed != null
+                  ? <Type, Action<Intent>>{
+                      ActivateIntent: CallbackAction<ActivateIntent>(
+                        onInvoke: (_) {
+                          widget.onPressed?.call();
+                          return null;
+                        },
+                      ),
+                    }
+                  : const <Type, Action<Intent>>{},
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (_) => setState(() => _primaryPressed = true),
+                onTapUp: (_) => setState(() => _primaryPressed = false),
+                onTapCancel: () => setState(() => _primaryPressed = false),
+                onTap: widget.onPressed,
+                child: AnimatedContainer(
+                  duration: duration,
+                  height: widget.height,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: primaryHorizontalPadding,
+                  ),
+                  decoration: BoxDecoration(
+                    color: primaryBg,
+                    borderRadius: widget.isFlat
+                        ? BorderRadius.circular(AdwMetrics.buttonRadius)
+                        : null,
+                  ),
+                  foregroundDecoration: _primaryFocused
+                      ? BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AdwMetrics.buttonRadius),
+                          border: Border.all(
+                            color: theme.colors.focusBorderColor,
+                            width: 2.0,
+                          ),
+                        )
+                      : (widget.isFlat &&
+                              theme.colors.isHighContrast &&
+                              (_primaryHovered || _primaryPressed))
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                  AdwMetrics.buttonRadius),
+                              border: Border.all(
+                                color: theme.colors.borderColor,
+                                width: 1.0,
+                              ),
+                            )
+                          : null,
+                  child: Center(child: primaryContent),
                 ),
-                decoration: BoxDecoration(
-                  color: primaryBg,
-                  borderRadius: widget.isFlat
-                      ? BorderRadius.circular(AdwMetrics.buttonRadius)
-                      : null,
-                ),
-                foregroundDecoration: (widget.isFlat &&
-                        theme.colors.isHighContrast &&
-                        (_primaryHovered || _primaryPressed))
-                    ? BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(AdwMetrics.buttonRadius),
-                        border: Border.all(
-                          color: theme.colors.borderColor,
-                          width: 1.0,
-                        ),
-                      )
-                    : null,
-                child: Center(child: primaryContent),
               ),
             ),
           ),
@@ -289,46 +324,78 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
                           : const Color(0x22000000))),
             ),
           ),
-          MouseRegion(
-            key: _dropdownKey,
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _dropdownHovered = true),
-            onExit: (_) => setState(() {
-              _dropdownHovered = false;
-              _dropdownPressed = false;
-            }),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => setState(() => _dropdownPressed = true),
-              onTapUp: (_) => setState(() => _dropdownPressed = false),
-              onTapCancel: () => setState(() => _dropdownPressed = false),
-              onTap: () => _toggleMenu(context),
-              child: AnimatedContainer(
-                duration: duration,
-                height: widget.height,
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                decoration: BoxDecoration(
-                  color: dropdownBg,
-                  borderRadius: widget.isFlat
-                      ? BorderRadius.circular(AdwMetrics.buttonRadius)
-                      : null,
+          Semantics(
+            button: true,
+            onTap: () => _toggleMenu(context),
+            child: FocusableActionDetector(
+              mouseCursor: SystemMouseCursors.click,
+              onShowHoverHighlight: (hovered) {
+                if (_dropdownHovered != hovered) {
+                  setState(() {
+                    _dropdownHovered = hovered;
+                    if (!hovered) _dropdownPressed = false;
+                  });
+                }
+              },
+              onShowFocusHighlight: (focused) {
+                if (_dropdownFocused != focused) {
+                  setState(() => _dropdownFocused = focused);
+                }
+              },
+              actions: <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _toggleMenu(context);
+                    return null;
+                  },
                 ),
-                foregroundDecoration: (widget.isFlat &&
-                        theme.colors.isHighContrast &&
-                        (_dropdownHovered || _dropdownPressed || _isMenuOpen))
-                    ? BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(AdwMetrics.buttonRadius),
-                        border: Border.all(
-                          color: theme.colors.borderColor,
-                          width: 1.0,
-                        ),
-                      )
-                    : null,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size(14, 14),
-                    painter: _SplitArrowPainter(color: theme.colors.foreground),
+              },
+              child: GestureDetector(
+                key: _dropdownKey,
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (_) => setState(() => _dropdownPressed = true),
+                onTapUp: (_) => setState(() => _dropdownPressed = false),
+                onTapCancel: () => setState(() => _dropdownPressed = false),
+                onTap: () => _toggleMenu(context),
+                child: AnimatedContainer(
+                  duration: duration,
+                  height: widget.height,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: dropdownBg,
+                    borderRadius: widget.isFlat
+                        ? BorderRadius.circular(AdwMetrics.buttonRadius)
+                        : null,
+                  ),
+                  foregroundDecoration: _dropdownFocused
+                      ? BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AdwMetrics.buttonRadius),
+                          border: Border.all(
+                            color: theme.colors.focusBorderColor,
+                            width: 2.0,
+                          ),
+                        )
+                      : (widget.isFlat &&
+                              theme.colors.isHighContrast &&
+                              (_dropdownHovered ||
+                                  _dropdownPressed ||
+                                  _isMenuOpen))
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                  AdwMetrics.buttonRadius),
+                              border: Border.all(
+                                color: theme.colors.borderColor,
+                                width: 1.0,
+                              ),
+                            )
+                          : null,
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(14, 14),
+                      painter:
+                          _SplitArrowPainter(color: theme.colors.foreground),
+                    ),
                   ),
                 ),
               ),

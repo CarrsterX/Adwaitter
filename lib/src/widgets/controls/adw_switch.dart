@@ -34,6 +34,7 @@ class AdwSwitch extends StatefulWidget {
 class _AdwSwitchState extends State<AdwSwitch> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
   double? _dragProgress;
   bool _hapticTriggeredThisGesture = false;
 
@@ -148,22 +149,41 @@ class _AdwSwitchState extends State<AdwSwitch> {
 
     final Duration duration = AdwCurves.switchDuration;
 
-    return MouseRegion(
-      cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_isEnabled) setState(() => _isHovered = true);
-      },
-      onExit: (_) {
-        if (_isEnabled) {
-          setState(() {
-            _isHovered = false;
-            if (_dragProgress == null) {
-              _isPressed = false;
-            }
-          });
-        }
-      },
-      child: GestureDetector(
+    return Semantics(
+      toggled: widget.value,
+      enabled: _isEnabled,
+      onTap: _isEnabled ? _handleTap : null,
+      child: FocusableActionDetector(
+        enabled: _isEnabled,
+        mouseCursor:
+            _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (!_isEnabled) return;
+          if (_isHovered != hovered) {
+            setState(() {
+              _isHovered = hovered;
+              if (!hovered && _dragProgress == null) {
+                _isPressed = false;
+              }
+            });
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: _isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _handleTap();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
         // Exclude PointerDeviceKind.trackpad: native GtkSwitch supports
         // touch swipe and mouse click-and-hold drag, but never two-finger
         // touchpad scroll gestures.
@@ -245,6 +265,15 @@ class _AdwSwitchState extends State<AdwSwitch> {
             color: trackColor,
             borderRadius: BorderRadius.circular(switchHeight / 2),
           ),
+          foregroundDecoration: _isFocused
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(switchHeight / 2),
+                  border: Border.all(
+                    color: theme.colors.focusBorderColor,
+                    width: 2.0,
+                  ),
+                )
+              : null,
           child: ValueListenableBuilder<bool>(
             valueListenable: AdwDesktopSettings.showStatusShapes,
             builder: (context, showShapes, sliderChild) {
@@ -326,6 +355,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

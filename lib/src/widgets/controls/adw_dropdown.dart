@@ -37,6 +37,7 @@ class _AdwDropdownState<T> extends State<AdwDropdown<T>> {
   final GlobalKey _buttonKey = GlobalKey();
   bool _isHovered = false;
   bool _isOpen = false;
+  bool _isFocused = false;
 
   bool get _isEnabled => widget.onChanged != null && widget.items.isNotEmpty;
 
@@ -121,47 +122,80 @@ class _AdwDropdownState<T> extends State<AdwDropdown<T>> {
 
     final effectiveFg = _isEnabled ? fg : fg.withValues(alpha: 0.4);
 
-    return MouseRegion(
-      cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_isEnabled) setState(() => _isHovered = true);
-      },
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _isEnabled ? _openMenu : null,
-        child: AnimatedContainer(
-          key: _buttonKey,
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          width: widget.width,
-          constraints: const BoxConstraints(
-            minHeight: AdwMetrics.buttonMinHeight,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
-          ),
-          child: Row(
-            mainAxisSize:
-                widget.width != null ? MainAxisSize.max : MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  widget.itemLabelBuilder(widget.value),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.typography.heading.copyWith(color: effectiveFg),
+    return Semantics(
+      button: true,
+      enabled: _isEnabled,
+      onTap: _isEnabled ? _openMenu : null,
+      child: FocusableActionDetector(
+        enabled: _isEnabled,
+        mouseCursor:
+            _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isEnabled && _isHovered != hovered) {
+            setState(() => _isHovered = hovered);
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: _isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _openMenu();
+                    return null;
+                  },
                 ),
-              ),
-              const SizedBox(width: 8.0),
-              CustomPaint(
-                size: const Size(12, 12),
-                painter: _DropdownChevronPainter(color: effectiveFg),
-              ),
-            ],
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _isEnabled ? _openMenu : null,
+          child: AnimatedContainer(
+            key: _buttonKey,
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            curve: AdwCurves.standard,
+            width: widget.width,
+            constraints: const BoxConstraints(
+              minHeight: AdwMetrics.buttonMinHeight,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+            ),
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(AdwMetrics.buttonRadius),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : null,
+            child: Row(
+              mainAxisSize:
+                  widget.width != null ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    widget.itemLabelBuilder(widget.value),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.heading.copyWith(color: effectiveFg),
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                CustomPaint(
+                  size: const Size(12, 12),
+                  painter: _DropdownChevronPainter(color: effectiveFg),
+                ),
+              ],
+            ),
           ),
         ),
       ),

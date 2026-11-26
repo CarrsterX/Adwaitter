@@ -237,6 +237,7 @@ class _AdwToggleSegment<T> extends StatefulWidget {
 class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
 
   bool get _isClickable => widget.item.enabled && widget.onSelected != null;
 
@@ -263,7 +264,7 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
     } else if (_isClickable) {
       if (_isPressed) {
         bg = selectedBg.withValues(alpha: 0.55);
-      } else if (_isHovered) {
+      } else if (_isHovered || _isFocused) {
         bg = selectedBg.withValues(alpha: 0.30);
       }
     }
@@ -301,48 +302,74 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
       );
     }
 
-    return MouseRegion(
-      cursor: _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_isClickable) setState(() => _isHovered = true);
-      },
-      onExit: (_) {
-        if (_isClickable) {
-          setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          });
-        }
-      },
-      child: GestureDetector(
-        onTapDown: (_) {
-          if (_isClickable) setState(() => _isPressed = true);
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      enabled: _isClickable,
+      onTap: _isClickable ? widget.onSelected : null,
+      child: FocusableActionDetector(
+        enabled: _isClickable,
+        mouseCursor:
+            _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isClickable && _isHovered != hovered) {
+            setState(() {
+              _isHovered = hovered;
+              if (!hovered) _isPressed = false;
+            });
+          }
         },
-        onTapUp: (_) {
-          if (_isClickable) setState(() => _isPressed = false);
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) setState(() => _isFocused = focused);
         },
-        onTapCancel: () {
-          if (_isClickable) setState(() => _isPressed = false);
-        },
-        onTap: widget.onSelected,
-        child: AnimatedContainer(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-          constraints: BoxConstraints(
-            minWidth: widget.minWidth,
-            minHeight: widget.minHeight,
-          ),
-          padding: widget.padding,
-          foregroundDecoration: (theme.colors.isHighContrast &&
-                  (widget.isSelected || _isHovered || _isPressed))
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(widget.borderRadius),
-                  border: Border.all(
-                    color: theme.colors.borderColor,
-                    width: 1.0,
-                  ),
-                )
-              : null,
+        actions: _isClickable
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onSelected?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          onTapDown: (_) {
+            if (_isClickable) setState(() => _isPressed = true);
+          },
+          onTapUp: (_) {
+            if (_isClickable) setState(() => _isPressed = false);
+          },
+          onTapCancel: () {
+            if (_isClickable) setState(() => _isPressed = false);
+          },
+          onTap: widget.onSelected,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            constraints: BoxConstraints(
+              minWidth: widget.minWidth,
+              minHeight: widget.minHeight,
+            ),
+            padding: widget.padding,
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : (theme.colors.isHighContrast &&
+                        (widget.isSelected || _isHovered || _isPressed))
+                    ? BoxDecoration(
+                        borderRadius:
+                            BorderRadius.circular(widget.borderRadius),
+                        border: Border.all(
+                          color: theme.colors.borderColor,
+                          width: 1.0,
+                        ),
+                      )
+                    : null,
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -368,6 +395,7 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

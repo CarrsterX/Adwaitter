@@ -58,7 +58,9 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
   Timer? _timer;
   bool _isDismissing = false;
   bool _isToastHovered = false;
+  bool _isToastFocused = false;
   bool _isCloseHovered = false;
+  bool _isCloseFocused = false;
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnimation;
@@ -195,110 +197,173 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
 
-    return Stack(
-      children: [
-        widget.child,
-        if (_currentToast != null)
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 22 + adwBottomSystemInset(context),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: FadeTransition(
-                opacity: _isDismissing
-                    ? _fadeAnimation
-                    : const AlwaysStoppedAnimation(1.0),
-                child: ScaleTransition(
-                  scale: _isDismissing
-                      ? _scaleAnimation
-                      : const AlwaysStoppedAnimation(1.0),
-                  child: SlideTransition(
-                    position: _isDismissing
-                        ? const AlwaysStoppedAnimation(Offset.zero)
-                        : _slideAnimation,
-                    child: MouseRegion(
-                      onEnter: (_) {
-                        _isToastHovered = true;
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: Stack(
+        children: [
+          FocusTraversalOrder(
+            order: const NumericFocusOrder(1.0),
+            child: widget.child,
+          ),
+          if (_currentToast != null)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 22 + adwBottomSystemInset(context),
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(2.0),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Focus(
+                    skipTraversal: true,
+                    onFocusChange: (hasFocus) {
+                      _isToastFocused = hasFocus;
+                      if (hasFocus) {
                         _timer?.cancel();
-                      },
-                      onExit: (_) {
-                        _isToastHovered = false;
-                        if (_currentToast != null && !_isDismissing) {
-                          _timer?.cancel();
-                          _timer = Timer(_currentToast!.timeout, () {
-                            _dismissCurrentToast();
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(18, 7, 8, 7),
-                        decoration: BoxDecoration(
-                          color: theme.colors.isDark
-                              ? const Color(0xFF505053)
-                              : const Color(0xFF2E2E32),
-                          borderRadius:
-                              BorderRadius.circular(AdwMetrics.pillRadius),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x38000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: DefaultTextStyle(
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.typography.body.copyWith(
-                                  color: const Color(0xFFFFFFFF),
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.0,
+                      } else if (!_isToastHovered &&
+                          _currentToast != null &&
+                          !_isDismissing) {
+                        _timer?.cancel();
+                        _timer = Timer(_currentToast!.timeout, () {
+                          _dismissCurrentToast();
+                        });
+                      }
+                    },
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: FadeTransition(
+                        opacity: _isDismissing
+                            ? _fadeAnimation
+                            : const AlwaysStoppedAnimation(1.0),
+                        child: ScaleTransition(
+                          scale: _isDismissing
+                              ? _scaleAnimation
+                              : const AlwaysStoppedAnimation(1.0),
+                          child: SlideTransition(
+                            position: _isDismissing
+                                ? const AlwaysStoppedAnimation(Offset.zero)
+                                : _slideAnimation,
+                            child: MouseRegion(
+                              onEnter: (_) {
+                                _isToastHovered = true;
+                                _timer?.cancel();
+                              },
+                              onExit: (_) {
+                                _isToastHovered = false;
+                                if (!_isToastFocused &&
+                                    _currentToast != null &&
+                                    !_isDismissing) {
+                                  _timer?.cancel();
+                                  _timer = Timer(_currentToast!.timeout, () {
+                                    _dismissCurrentToast();
+                                  });
+                                }
+                              },
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.fromLTRB(18, 7, 8, 7),
+                                decoration: BoxDecoration(
+                                  color: theme.colors.isDark
+                                      ? const Color(0xFF505053)
+                                      : const Color(0xFF2E2E32),
+                                  borderRadius: BorderRadius.circular(
+                                      AdwMetrics.pillRadius),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x38000000),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: _currentToast!.title,
-                              ),
-                            ),
-                            if (_currentToast!.action != null) ...[
-                              const SizedBox(width: 64),
-                              _currentToast!.action!,
-                            ],
-                            SizedBox(
-                              width: _currentToast!.action != null ? 6 : 12,
-                            ),
-                            MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              onEnter: (_) =>
-                                  setState(() => _isCloseHovered = true),
-                              onExit: (_) =>
-                                  setState(() => _isCloseHovered = false),
-                              child: GestureDetector(
-                                onTap: _dismissCurrentToast,
-                                behavior: HitTestBehavior.opaque,
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _isCloseHovered
-                                        ? const Color(0x24FFFFFF)
-                                        : const Color(0x00000000),
-                                  ),
-                                  child: const Center(
-                                    child: CustomPaint(
-                                      size: Size(8, 8),
-                                      painter: _ToastCloseIconPainter(
-                                        color: Color(0xFFFFFFFF),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: DefaultTextStyle(
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.typography.body.copyWith(
+                                          color: const Color(0xFFFFFFFF),
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.0,
+                                        ),
+                                        child: _currentToast!.title,
                                       ),
                                     ),
-                                  ),
+                                    if (_currentToast!.action != null) ...[
+                                      const SizedBox(width: 64),
+                                      _currentToast!.action!,
+                                    ],
+                                    SizedBox(
+                                      width:
+                                          _currentToast!.action != null ? 6 : 12,
+                                    ),
+                                    Semantics(
+                                      button: true,
+                                      label: 'Close',
+                                      onTap: _dismissCurrentToast,
+                                      child: FocusableActionDetector(
+                                        mouseCursor: SystemMouseCursors.click,
+                                        onShowHoverHighlight: (hovered) {
+                                          if (_isCloseHovered != hovered) {
+                                            setState(
+                                                () => _isCloseHovered = hovered);
+                                          }
+                                        },
+                                        onShowFocusHighlight: (focused) {
+                                          if (_isCloseFocused != focused) {
+                                            setState(
+                                                () => _isCloseFocused = focused);
+                                          }
+                                        },
+                                        actions: <Type, Action<Intent>>{
+                                          ActivateIntent:
+                                              CallbackAction<ActivateIntent>(
+                                            onInvoke: (_) {
+                                              _dismissCurrentToast();
+                                              return null;
+                                            },
+                                          ),
+                                        },
+                                        child: GestureDetector(
+                                          onTap: _dismissCurrentToast,
+                                          behavior: HitTestBehavior.opaque,
+                                          child: Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: (_isCloseHovered ||
+                                                      _isCloseFocused)
+                                                  ? const Color(0x24FFFFFF)
+                                                  : const Color(0x00000000),
+                                              border: _isCloseFocused
+                                                  ? Border.all(
+                                                      color: theme.colors
+                                                          .focusBorderColor,
+                                                      width: 2.0,
+                                                    )
+                                                  : null,
+                                            ),
+                                            child: const Center(
+                                              child: CustomPaint(
+                                                size: Size(8, 8),
+                                                painter:
+                                                    _ToastCloseIconPainter(
+                                                  color: Color(0xFFFFFFFF),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -306,8 +371,8 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

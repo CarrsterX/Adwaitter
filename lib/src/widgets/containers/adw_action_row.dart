@@ -4,6 +4,7 @@ import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import 'adw_preferences_group.dart';
 
 /// Standard Libadwaita action row (`AdwActionRow`).
 ///
@@ -63,6 +64,8 @@ class AdwActionRow extends StatefulWidget {
 class _AdwActionRowState extends State<AdwActionRow> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
+  final FocusNode _rowFocusNode = FocusNode(debugLabel: 'AdwActionRow');
   FocusNode? _propertySelectionFocusNode;
 
   FocusNode _getPropertySelectionFocusNode() {
@@ -73,6 +76,7 @@ class _AdwActionRowState extends State<AdwActionRow> {
 
   @override
   void dispose() {
+    _rowFocusNode.dispose();
     _propertySelectionFocusNode?.dispose();
     super.dispose();
   }
@@ -89,7 +93,7 @@ class _AdwActionRowState extends State<AdwActionRow> {
     if (_isClickable) {
       if (_isPressed) {
         rowColor = theme.colors.activeColor;
-      } else if (_isHovered) {
+      } else if (_isHovered || _isFocused) {
         rowColor = theme.colors.hoverColor;
       }
     }
@@ -156,33 +160,73 @@ class _AdwActionRowState extends State<AdwActionRow> {
       ),
     );
 
-    return MouseRegion(
-      cursor:
-          _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_isClickable) setState(() => _isHovered = true);
-      },
-      onExit: (_) {
-        if (_isClickable) {
-          setState(() => _isHovered = false);
-        }
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) {
-          if (_isClickable) setState(() => _isPressed = true);
+    return Semantics(
+      button: _isClickable,
+      enabled: true,
+      onTap: _isClickable ? widget.onPressed : null,
+      child: FocusableActionDetector(
+        focusNode: _rowFocusNode,
+        enabled: true,
+        mouseCursor:
+            _isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isClickable && _isHovered != hovered) {
+            setState(() => _isHovered = hovered);
+          }
         },
-        onTapUp: (_) {
-          if (_isClickable) setState(() => _isPressed = false);
+        onShowFocusHighlight: (focused) {
+          final next = focused && _rowFocusNode.hasPrimaryFocus;
+          if (_isFocused != next) {
+            setState(() => _isFocused = next);
+          }
         },
-        onTapCancel: () {
-          if (_isClickable) setState(() => _isPressed = false);
+        onFocusChange: (_) {
+          final next = _rowFocusNode.hasPrimaryFocus &&
+              FocusManager.instance.highlightMode ==
+                  FocusHighlightMode.traditional;
+          if (_isFocused != next) {
+            setState(() => _isFocused = next);
+          }
         },
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          color: rowColor,
-          child: content,
+        actions: _isClickable
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onPressed?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            if (_isClickable) setState(() => _isPressed = true);
+          },
+          onTapUp: (_) {
+            if (_isClickable) setState(() => _isPressed = false);
+          },
+          onTapCancel: () {
+            if (_isClickable) setState(() => _isPressed = false);
+          },
+          onTap: () {
+            _rowFocusNode.requestFocus();
+            if (_isClickable) widget.onPressed?.call();
+          },
+          child: AnimatedContainer(
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            color: rowColor,
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius: AdwGroupRowShape.borderRadiusOf(context),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : null,
+            child: content,
+          ),
         ),
       ),
     );

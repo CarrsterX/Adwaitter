@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import 'adw_preferences_group.dart';
 import '../controls/adw_switch.dart';
 
 /// An expandable preference row with collapsible nested children (`AdwExpanderRow`).
@@ -90,6 +91,8 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
   late bool _isExpanded;
   late bool _isEnabled;
   bool _isHovered = false;
+  bool _isFocused = false;
+  final FocusNode _rowFocusNode = FocusNode(debugLabel: 'AdwExpanderRow');
 
   late final AnimationController _animController;
   late final Animation<double> _expandAnimation;
@@ -142,6 +145,7 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
 
   @override
   void dispose() {
+    _rowFocusNode.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -183,21 +187,70 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Interactive Expander Header Row
-        MouseRegion(
-          cursor:
-              canExpand ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
+        Semantics(
+          button: canExpand,
+          expanded: _isExpanded,
+          enabled: true,
+          onTap: canExpand ? _toggleExpanded : null,
+          child: FocusableActionDetector(
+            focusNode: _rowFocusNode,
+            enabled: true,
+            mouseCursor:
+                canExpand ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            onShowHoverHighlight: (hovered) {
+              if (_isHovered != hovered) setState(() => _isHovered = hovered);
+            },
+            onShowFocusHighlight: (focused) {
+              final next = focused && _rowFocusNode.hasPrimaryFocus;
+              if (_isFocused != next) setState(() => _isFocused = next);
+            },
+            onFocusChange: (_) {
+              final next = _rowFocusNode.hasPrimaryFocus &&
+                  FocusManager.instance.highlightMode ==
+                      FocusHighlightMode.traditional;
+              if (_isFocused != next) setState(() => _isFocused = next);
+            },
+            actions: canExpand
+                ? <Type, Action<Intent>>{
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) {
+                        _toggleExpanded();
+                        return null;
+                      },
+                    ),
+                  }
+                : const <Type, Action<Intent>>{},
+            child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _toggleExpanded,
+            onTap: () {
+              _rowFocusNode.requestFocus();
+              _toggleExpanded();
+            },
             child: AnimatedContainer(
               duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
               curve: AdwCurves.standard,
               constraints: const BoxConstraints(minHeight: AdwMetrics.rowMinHeight),
-              color: _isHovered && canExpand
+              color: (_isHovered || _isFocused) && canExpand
                   ? theme.colors.hoverBackground
                   : const Color(0x00000000),
+              foregroundDecoration: _isFocused
+                  ? BoxDecoration(
+                      borderRadius: () {
+                        final rowRadius =
+                            AdwGroupRowShape.borderRadiusOf(context);
+                        return _isExpanded
+                            ? BorderRadius.only(
+                                topLeft: rowRadius.topLeft,
+                                topRight: rowRadius.topRight,
+                              )
+                            : rowRadius;
+                      }(),
+                      border: Border.all(
+                        color: theme.colors.focusBorderColor,
+                        width: 2.0,
+                      ),
+                    )
+                  : null,
               padding: widget.padding,
               child: Row(
                 children: [
@@ -275,6 +328,7 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
               ),
             ),
           ),
+        ),
         ),
 
         // Collapsible nested children container

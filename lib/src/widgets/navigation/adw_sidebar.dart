@@ -1,8 +1,10 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_insets.dart';
 import '../../core/adw_scrollbar.dart';
 import '../../theme/adw_theme.dart';
+import 'adw_navigation_split_view.dart';
 
 /// A declarative section of items inside an [AdwSidebar], matching GNOME
 /// Libadwaita 1.9+'s `AdwSidebarSection`.
@@ -35,6 +37,132 @@ class AdwSidebar extends StatefulWidget {
 
   @override
   State<AdwSidebar> createState() => _AdwSidebarState();
+}
+
+/// Keyboard focus group for navigation sidebars (`GtkListBox` roving focus).
+///
+/// Treats the entire sidebar list as a single `Tab` stop: pressing `Tab` exits
+/// to the content pane, `Shift+Tab` returns to headerbar controls, and
+/// `ArrowUp` / `ArrowDown` navigate between sidebar items with auto-scroll.
+class AdwSidebarFocusGroup extends StatefulWidget {
+  final Widget child;
+
+  const AdwSidebarFocusGroup({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  State<AdwSidebarFocusGroup> createState() => _AdwSidebarFocusGroupState();
+}
+
+class _AdwSidebarFocusGroupState extends State<AdwSidebarFocusGroup> {
+  final FocusNode _sidebarFocusNode = FocusNode(debugLabel: 'AdwSidebar');
+  FocusNode? _lastFocusedNode;
+
+  @override
+  void dispose() {
+    _sidebarFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _moveFocusBy(int delta) {
+    final nodes = _sidebarFocusNode.traversalDescendants
+        .where((n) => n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
+        .toList(growable: false);
+    if (nodes.isEmpty) return;
+    final currentIndex = nodes.indexWhere((n) => n.hasPrimaryFocus);
+    final nextIndex = currentIndex < 0
+        ? (delta > 0 ? 0 : nodes.length - 1)
+        : (currentIndex + delta).clamp(0, nodes.length - 1);
+    final target = nodes[nextIndex];
+    _lastFocusedNode = target;
+    target.requestFocus();
+    if (target.context != null) {
+      Scrollable.ensureVisible(
+        target.context!,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        duration: const Duration(milliseconds: 120),
+      );
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _moveFocusBy(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _moveFocusBy(-1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isCollapsed =
+        AdwNavigationSplitViewScope.maybeOf(context)?.isCollapsed ?? false;
+
+    final focusWrapper = Focus(
+      focusNode: _sidebarFocusNode,
+      skipTraversal: true,
+      onFocusChange: (hasFocus) {
+        if (hasFocus) {
+          final primary = FocusManager.instance.primaryFocus;
+          if (primary != null &&
+              primary.ancestors.contains(_sidebarFocusNode)) {
+            _lastFocusedNode = primary;
+          }
+        }
+      },
+      onKeyEvent: _handleKeyEvent,
+      child: widget.child,
+    );
+
+    if (isCollapsed) {
+      return focusWrapper;
+    }
+
+    return FocusTraversalGroup(
+      policy: _AdwSidebarTraversalPolicy(
+        getPreferredNode: () => _lastFocusedNode,
+      ),
+      child: focusWrapper,
+    );
+  }
+}
+
+/// Roving-tabindex [FocusTraversalPolicy] for [AdwSidebarFocusGroup].
+///
+/// Exposes only a single entry (the currently focused or last-focused sidebar
+/// item) to outer `Tab` / `Shift+Tab` traversal so the entire sidebar acts as
+/// one Tab stop, while `ArrowUp` / `ArrowDown` navigate between items.
+class _AdwSidebarTraversalPolicy extends FocusTraversalPolicy
+    with DirectionalFocusTraversalPolicyMixin {
+  final FocusNode? Function() getPreferredNode;
+
+  _AdwSidebarTraversalPolicy({required this.getPreferredNode});
+
+  @override
+  Iterable<FocusNode> sortDescendants(
+    Iterable<FocusNode> descendants,
+    FocusNode currentNode,
+  ) {
+    final list = descendants.toList(growable: false);
+    if (list.isEmpty) return const <FocusNode>[];
+    if (list.contains(currentNode)) {
+      return <FocusNode>[currentNode];
+    }
+    final preferred = getPreferredNode();
+    if (preferred != null && list.contains(preferred)) {
+      return <FocusNode>[preferred];
+    }
+    return <FocusNode>[list.first];
+  }
 }
 
 class _AdwSidebarState extends State<AdwSidebar> {
@@ -87,13 +215,15 @@ class _AdwSidebarState extends State<AdwSidebar> {
       children.addAll(section.items);
     }
 
-    return AdwScrollbar(
-      axisDirection: AxisDirection.down,
-      controller: _controller,
-      child: ListView(
+    return AdwSidebarFocusGroup(
+      child: AdwScrollbar(
+        axisDirection: AxisDirection.down,
         controller: _controller,
-        padding: resolvedPadding,
-        children: children,
+        child: ListView(
+          controller: _controller,
+          padding: resolvedPadding,
+          children: children,
+        ),
       ),
     );
   }

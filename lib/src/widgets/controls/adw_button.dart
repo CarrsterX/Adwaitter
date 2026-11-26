@@ -133,8 +133,16 @@ class AdwButton extends StatefulWidget {
 class _AdwButtonState extends State<AdwButton> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AdwButton');
 
   bool get _isEnabled => widget.onPressed != null;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +153,8 @@ class _AdwButtonState extends State<AdwButton> {
     Color foregroundColor;
     Color borderColor = const Color(0x00000000);
 
+    final bool isHighlighted = _isHovered || _isFocused;
+
     switch (widget.style) {
       case AdwButtonStyle.suggested:
         backgroundColor = theme.colors.accentColor;
@@ -152,7 +162,7 @@ class _AdwButtonState extends State<AdwButton> {
         if (_isPressed) {
           backgroundColor =
               Color.lerp(backgroundColor, const Color(0xFF000000), 0.15)!;
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           backgroundColor =
               Color.lerp(backgroundColor, const Color(0xFFFFFFFF), 0.12)!;
         }
@@ -167,9 +177,9 @@ class _AdwButtonState extends State<AdwButton> {
               : theme.colors.destructiveButtonActiveBackground;
         } else if (widget.isChecked) {
           backgroundColor = foregroundColor.withValues(
-            alpha: _isHovered ? 0.40 : 0.35,
+            alpha: isHighlighted ? 0.40 : 0.35,
           );
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           backgroundColor = theme.colors.destructiveButtonHoverBackground;
         } else {
           backgroundColor = theme.colors.destructiveButtonBackground;
@@ -184,9 +194,9 @@ class _AdwButtonState extends State<AdwButton> {
               : theme.colors.activeColor;
         } else if (widget.isChecked) {
           backgroundColor = foregroundColor.withValues(
-            alpha: (_isHovered && _isEnabled) ? 0.13 : 0.10,
+            alpha: (isHighlighted && _isEnabled) ? 0.13 : 0.10,
           );
-        } else if (_isHovered && _isEnabled) {
+        } else if (isHighlighted && _isEnabled) {
           backgroundColor = theme.colors.hoverColor;
         } else {
           backgroundColor = const Color(0x00000000);
@@ -201,9 +211,9 @@ class _AdwButtonState extends State<AdwButton> {
           );
         } else if (widget.isChecked) {
           backgroundColor = foregroundColor.withValues(
-            alpha: _isHovered ? 0.35 : 0.30,
+            alpha: isHighlighted ? 0.35 : 0.30,
           );
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           backgroundColor = foregroundColor.withValues(alpha: 0.15);
         } else {
           backgroundColor = foregroundColor.withValues(
@@ -216,7 +226,7 @@ class _AdwButtonState extends State<AdwButton> {
         foregroundColor = theme.colors.osdForeground;
         if (_isPressed) {
           backgroundColor = theme.colors.osdActiveBackground;
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           backgroundColor = theme.colors.osdHoverBackground;
         } else {
           backgroundColor = theme.colors.osdBackground;
@@ -227,7 +237,7 @@ class _AdwButtonState extends State<AdwButton> {
         foregroundColor = theme.colors.osdForeground;
         if (_isPressed) {
           backgroundColor = const Color(0x29FFFFFF);
-        } else if (_isHovered) {
+        } else if (isHighlighted) {
           backgroundColor = const Color(0x12FFFFFF);
         } else {
           backgroundColor = const Color(0x00000000);
@@ -270,17 +280,37 @@ class _AdwButtonState extends State<AdwButton> {
       ),
     );
 
-    return MouseRegion(
-      cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_isEnabled) setState(() => _isHovered = true);
-      },
-      onExit: (_) {
-        if (_isEnabled) {
-          setState(() => _isHovered = false);
-        }
-      },
-      child: GestureDetector(
+    return Semantics(
+      button: true,
+      enabled: _isEnabled,
+      toggled: widget.isChecked ? true : null,
+      onTap: _isEnabled ? widget.onPressed : null,
+      child: FocusableActionDetector(
+        focusNode: _focusNode,
+        enabled: _isEnabled,
+        mouseCursor:
+            _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_isEnabled && _isHovered != hovered) {
+            setState(() => _isHovered = hovered);
+          }
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) {
+            setState(() => _isFocused = focused);
+          }
+        },
+        actions: _isEnabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onPressed?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) {
           if (_isEnabled) setState(() => _isPressed = true);
@@ -291,36 +321,91 @@ class _AdwButtonState extends State<AdwButton> {
         onTapCancel: () {
           if (_isEnabled) setState(() => _isPressed = false);
         },
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          constraints: BoxConstraints(
-            minWidth: widget.width ?? 0.0,
-            maxWidth: widget.width ?? double.infinity,
-            minHeight: widget.height ??
-                (widget.isCircular ? 0.0 : AdwMetrics.buttonMinHeight),
-            maxHeight: widget.height ?? double.infinity,
-          ),
-          padding: widget.padding ?? defaultPadding,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: widget.borderRadius ?? borderRadius,
-            border: Border.all(
-              color: (theme.colors.isHighContrast &&
-                      borderColor == const Color(0x00000000) &&
-                      (widget.style != AdwButtonStyle.flat ||
-                          _isHovered ||
-                          _isPressed))
-                  ? (widget.style == AdwButtonStyle.destructive
-                      ? theme.colors.destructiveBorderColor
-                      : theme.colors.borderColor)
-                  : borderColor,
-              width: 1,
+        onTap: _isEnabled
+            ? () {
+                _focusNode.requestFocus();
+                widget.onPressed?.call();
+              }
+            : null,
+        child: Stack(
+          fit: StackFit.passthrough,
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+              curve: AdwCurves.standard,
+              constraints: BoxConstraints(
+                minWidth: widget.width ?? 0.0,
+                maxWidth: widget.width ?? double.infinity,
+                minHeight: widget.height ??
+                    (widget.isCircular ? 0.0 : AdwMetrics.buttonMinHeight),
+                maxHeight: widget.height ?? double.infinity,
+              ),
+              padding: widget.padding ?? defaultPadding,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: widget.borderRadius ?? borderRadius,
+                border: Border.all(
+                  color: (theme.colors.isHighContrast &&
+                          borderColor == const Color(0x00000000) &&
+                          (widget.style != AdwButtonStyle.flat ||
+                              _isHovered ||
+                              _isPressed))
+                      ? (widget.style == AdwButtonStyle.destructive
+                          ? theme.colors.destructiveBorderColor
+                          : theme.colors.borderColor)
+                      : borderColor,
+                  width: 1,
+                ),
+              ),
+              foregroundDecoration:
+                  (_isFocused && widget.style != AdwButtonStyle.suggested)
+                      ? BoxDecoration(
+                          borderRadius: widget.borderRadius ?? borderRadius,
+                          border: Border.all(
+                            color: widget.style == AdwButtonStyle.destructive
+                                ? theme.colors.standaloneErrorColor
+                                    .withValues(alpha: 0.70)
+                                : (widget.style == AdwButtonStyle.osd ||
+                                        widget.style == AdwButtonStyle.osdFlat)
+                                    ? const Color(0xFF666667)
+                                    : theme.colors.focusBorderColor,
+                            width: 2.0,
+                          ),
+                        )
+                      : null,
+              child: buttonContent,
             ),
-          ),
-          child: buttonContent,
+            if (_isFocused && widget.style == AdwButtonStyle.suggested)
+              Positioned(
+                left: -3.5,
+                right: -3.5,
+                top: -3.5,
+                bottom: -3.5,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: () {
+                        final r = widget.borderRadius ?? borderRadius;
+                        return BorderRadius.only(
+                          topLeft: r.topLeft + const Radius.circular(3.5),
+                          topRight: r.topRight + const Radius.circular(3.5),
+                          bottomLeft: r.bottomLeft + const Radius.circular(3.5),
+                          bottomRight:
+                              r.bottomRight + const Radius.circular(3.5),
+                        );
+                      }(),
+                      border: Border.all(
+                        color: theme.colors.focusBorderColor,
+                        width: 2.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
+      ),
       ),
     );
   }

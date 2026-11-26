@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/adw_curves.dart';
@@ -198,6 +199,7 @@ class _AdwCarouselState extends State<AdwCarousel> {
   late AdwCarouselController _controller;
   bool _isLocalController = false;
   bool _isHovered = false;
+  bool _isFocused = false;
   DateTime _lastWheelStep = DateTime.fromMillisecondsSinceEpoch(0);
   double _wheelAccumulator = 0.0;
   final _CarouselDragSession _dragSession = _CarouselDragSession();
@@ -406,77 +408,140 @@ class _AdwCarouselState extends State<AdwCarousel> {
       ),
     );
 
-    if (!widget.showNavigationButtons || count <= 1) {
-      return pageView;
+    Widget carouselContent = pageView;
+    if (widget.showNavigationButtons && count > 1) {
+      final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
+
+      carouselContent = MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            pageView,
+            // Previous button overlay
+            Positioned(
+              left: 12,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  final canGoBack = _controller.currentPage > 0;
+                  final isVisible = (_isHovered || _isFocused) && canGoBack;
+
+                  return AnimatedOpacity(
+                    opacity: isVisible ? 1.0 : 0.0,
+                    duration: duration,
+                    curve: AdwCurves.standard,
+                    child: IgnorePointer(
+                      ignoring: !isVisible,
+                      child: _CarouselNavButton(
+                        direction: _NavDirection.previous,
+                        onPressed: () => _controller.previousPage(
+                          duration: AdwCurves.resolve(
+                              context, AdwCurves.normalDuration),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Next button overlay
+            Positioned(
+              right: 12,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  final canGoForward = _controller.currentPage < count - 1;
+                  final isVisible = (_isHovered || _isFocused) && canGoForward;
+
+                  return AnimatedOpacity(
+                    opacity: isVisible ? 1.0 : 0.0,
+                    duration: duration,
+                    curve: AdwCurves.standard,
+                    child: IgnorePointer(
+                      ignoring: !isVisible,
+                      child: _CarouselNavButton(
+                        direction: _NavDirection.next,
+                        onPressed: () => _controller.nextPage(
+                          duration: AdwCurves.resolve(
+                              context, AdwCurves.normalDuration),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
-    final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final canNavigate = widget.interactive && count > 1;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          pageView,
-          // Previous button overlay
-          Positioned(
-            left: 12,
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                final canGoBack = _controller.currentPage > 0;
-                final isVisible = _isHovered && canGoBack;
+    void stepNext() {
+      if (!canNavigate) return;
+      _controller.nextPage(
+        duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
+      );
+    }
 
-                return AnimatedOpacity(
-                  opacity: isVisible ? 1.0 : 0.0,
-                  duration: duration,
-                  curve: AdwCurves.standard,
-                  child: IgnorePointer(
-                    ignoring: !isVisible,
-                    child: _CarouselNavButton(
-                      direction: _NavDirection.previous,
-                      onPressed: () => _controller.previousPage(
-                        duration: AdwCurves.resolve(
-                            context, AdwCurves.normalDuration),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Next button overlay
-          Positioned(
-            right: 12,
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                final canGoForward = _controller.currentPage < count - 1;
-                final isVisible = _isHovered && canGoForward;
+    void stepPrevious() {
+      if (!canNavigate) return;
+      _controller.previousPage(
+        duration: AdwCurves.resolve(context, AdwCurves.normalDuration),
+      );
+    }
 
-                return AnimatedOpacity(
-                  opacity: isVisible ? 1.0 : 0.0,
-                  duration: duration,
-                  curve: AdwCurves.standard,
-                  child: IgnorePointer(
-                    ignoring: !isVisible,
-                    child: _CarouselNavButton(
-                      direction: _NavDirection.next,
-                      onPressed: () => _controller.nextPage(
-                        duration: AdwCurves.resolve(
-                            context, AdwCurves.normalDuration),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+    final shortcuts = widget.scrollDirection == Axis.horizontal
+        ? <ShortcutActivator, Intent>{
+            const SingleActivator(LogicalKeyboardKey.arrowRight):
+                _CarouselStepIntent(isRtl ? -1 : 1),
+            const SingleActivator(LogicalKeyboardKey.arrowLeft):
+                _CarouselStepIntent(isRtl ? 1 : -1),
+          }
+        : const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.arrowDown):
+                _CarouselStepIntent(1),
+            SingleActivator(LogicalKeyboardKey.arrowUp):
+                _CarouselStepIntent(-1),
+          };
+
+    return Semantics(
+      container: true,
+      onScrollLeft: canNavigate ? stepNext : null,
+      onScrollRight: canNavigate ? stepPrevious : null,
+      child: FocusableActionDetector(
+        enabled: canNavigate,
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) setState(() => _isFocused = focused);
+        },
+        shortcuts: canNavigate ? shortcuts : const <ShortcutActivator, Intent>{},
+        actions: canNavigate
+            ? <Type, Action<Intent>>{
+                _CarouselStepIntent: CallbackAction<_CarouselStepIntent>(
+                  onInvoke: (intent) {
+                    if (intent.delta > 0) {
+                      stepNext();
+                    } else {
+                      stepPrevious();
+                    }
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: carouselContent,
       ),
     );
   }
+}
+
+class _CarouselStepIntent extends Intent {
+  final int delta;
+  const _CarouselStepIntent(this.delta);
 }
 
 enum _NavDirection { previous, next }

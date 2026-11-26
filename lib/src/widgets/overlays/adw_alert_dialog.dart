@@ -147,12 +147,16 @@ Future<T?> showAdwAlertDialog<T>({
           reduceMotion ? AdwCurves.normalDuration : AdwCurves.mediumDuration,
       reverseTransitionDuration: AdwCurves.normalDuration,
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        Widget dialog = AdwAlertDialog(
-          heading: heading,
-          body: body,
-          content: content,
-          actions: actions,
-          onStartDrag: windowController?.startDragging,
+        Widget dialog = Semantics(
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: AdwAlertDialog(
+            heading: heading,
+            body: body,
+            content: content,
+            actions: actions,
+            onStartDrag: windowController?.startDragging,
+          ),
         );
         if (AdwTheme.maybeOf(dialogContext) == null && themeData != null) {
           dialog = AdwTheme(data: themeData, child: dialog);

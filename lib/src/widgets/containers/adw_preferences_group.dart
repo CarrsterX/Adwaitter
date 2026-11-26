@@ -241,7 +241,9 @@ class AdwPreferencesGroup extends StatelessWidget {
                           ),
                         )
                       : null,
-                  clipBehavior: Clip.antiAlias,
+                  clipBehavior: children[i] is AdwButtonRow
+                      ? Clip.none
+                      : Clip.antiAlias,
                   child: children[i],
                 ),
               ),

@@ -159,6 +159,7 @@ class _ViewSwitcherTab extends StatefulWidget {
 class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -170,8 +171,9 @@ class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
     if (_isPressed) {
       backgroundColor = fg.withValues(alpha: widget.isSelected ? 0.19 : 0.16);
     } else if (widget.isSelected) {
-      backgroundColor = fg.withValues(alpha: _isHovered ? 0.13 : 0.10);
-    } else if (_isHovered) {
+      backgroundColor =
+          fg.withValues(alpha: (_isHovered || _isFocused) ? 0.13 : 0.10);
+    } else if (_isHovered || _isFocused) {
       backgroundColor = fg.withValues(alpha: 0.07);
     } else {
       backgroundColor = const Color(0x00000000);
@@ -246,24 +248,50 @@ class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
 
     final isWide = widget.policy == AdwViewSwitcherPolicy.wide;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          constraints: BoxConstraints(minHeight: isWide ? 34 : 36),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      onTap: widget.onTap,
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: (hovered) {
+          if (_isHovered != hovered) setState(() => _isHovered = hovered);
+        },
+        onShowFocusHighlight: (focused) {
+          if (_isFocused != focused) setState(() => _isFocused = focused);
+        },
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
           ),
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            curve: AdwCurves.standard,
+            constraints: BoxConstraints(minHeight: isWide ? 34 : 36),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+            ),
+            foregroundDecoration: _isFocused
+                ? BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(AdwMetrics.buttonRadius),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : null,
           padding: isWide
               ? const EdgeInsets.symmetric(horizontal: 12, vertical: 2)
               : const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -308,6 +336,7 @@ class _ViewSwitcherTabState extends State<_ViewSwitcherTab> {
                   ],
                 ),
         ),
+      ),
       ),
     );
   }

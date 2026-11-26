@@ -8,6 +8,7 @@ import '../../core/adw_text_selection.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
+import '../containers/adw_preferences_group.dart';
 import 'adw_button.dart';
 
 /// Preference row containing an editable text field (`AdwEntryRow`).
@@ -208,11 +209,11 @@ class _AdwEntryRowState extends State<AdwEntryRow>
                       ? theme.colors.hoverColor
                       : const Color(0x00000000)),
               borderRadius:
-                  hasTitle ? BorderRadius.circular(AdwMetrics.cardRadius) : null,
+                  hasTitle ? AdwGroupRowShape.borderRadiusOf(context) : null,
             ),
             foregroundDecoration: hasTitle
                 ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(AdwMetrics.cardRadius),
+                    borderRadius: AdwGroupRowShape.borderRadiusOf(context),
                     border: _isFocused
                         ? Border.all(
                             color: theme.colors.accentColor

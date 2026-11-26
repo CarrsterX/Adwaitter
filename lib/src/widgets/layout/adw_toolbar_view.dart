@@ -253,19 +253,33 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
     }
 
     // Paint topBar last (VerticalDirection.up) so raised headerbar shadows
-    // cast cleanly onto the content area below it.
-    return Column(
-      verticalDirection: VerticalDirection.up,
-      children: [
-        if (resolvedBottomBar != null)
-          _BottomInsetPadding(child: resolvedBottomBar),
-        Expanded(
-          child: (widget.bottomBar == null && widget.bottomSafeArea)
-              ? _BottomInsetPadding(child: body)
-              : body,
-        ),
-        if (resolvedTopBar != null) resolvedTopBar,
-      ],
+    // cast cleanly onto the content area below it, while preserving logical
+    // top -> content -> bottom keyboard Tab order.
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: Column(
+        verticalDirection: VerticalDirection.up,
+        children: [
+          if (resolvedBottomBar != null)
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(3.0),
+              child: _BottomInsetPadding(child: resolvedBottomBar),
+            ),
+          Expanded(
+            child: FocusTraversalOrder(
+              order: const NumericFocusOrder(2.0),
+              child: (widget.bottomBar == null && widget.bottomSafeArea)
+                  ? _BottomInsetPadding(child: body)
+                  : body,
+            ),
+          ),
+          if (resolvedTopBar != null)
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(1.0),
+              child: resolvedTopBar,
+            ),
+        ],
+      ),
     );
   }
 }

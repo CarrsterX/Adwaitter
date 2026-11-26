@@ -72,8 +72,12 @@ class _AdwBannerState extends State<AdwBanner>
     final theme = AdwTheme.of(context);
     final isWindowActive = AdwWindowScope.maybeOf(context)?.isActive ?? true;
 
-    return SizeTransition(
-      sizeFactor: _expandAnimation,
+    return ExcludeFocus(
+      excluding: !widget.revealed,
+      child: ExcludeSemantics(
+        excluding: !widget.revealed,
+        child: SizeTransition(
+          sizeFactor: _expandAnimation,
       child: AnimatedContainer(
         duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
         curve: AdwCurves.standard,
@@ -165,7 +169,7 @@ class _AdwBannerState extends State<AdwBanner>
                       ),
                     ),
                     Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: buildButton(),
                     ),
                   ],
@@ -212,6 +216,8 @@ class _AdwBannerState extends State<AdwBanner>
         ),
       ),
       alignment: AlignmentDirectional(-1.0, 1.0),
+        ),
+      ),
     );
   }
 }
@@ -232,6 +238,7 @@ class _AdwBannerButton extends StatefulWidget {
 class _AdwBannerButtonState extends State<_AdwBannerButton> {
   bool _hovered = false;
   bool _pressed = false;
+  bool _focused = false;
 
   bool get _enabled => widget.onPressed != null;
 
@@ -241,7 +248,7 @@ class _AdwBannerButtonState extends State<_AdwBannerButton> {
     Color bg;
     if (_pressed && _enabled) {
       bg = theme.colors.bannerButtonActiveBackground;
-    } else if (_hovered && _enabled) {
+    } else if ((_hovered || _focused) && _enabled) {
       bg = theme.colors.bannerButtonHoverBackground;
     } else {
       bg = theme.colors.bannerButtonBackground;
@@ -253,43 +260,77 @@ class _AdwBannerButtonState extends State<_AdwBannerButton> {
         ? theme.colors.windowForeground
         : theme.colors.windowForeground.withValues(alpha: 0.4);
 
-    return MouseRegion(
-      cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (_enabled) setState(() => _hovered = true);
-      },
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) {
-          if (_enabled) setState(() => _pressed = true);
+    return Semantics(
+      button: true,
+      enabled: _enabled,
+      onTap: _enabled ? widget.onPressed : null,
+      child: FocusableActionDetector(
+        enabled: _enabled,
+        mouseCursor:
+            _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (hovered) {
+          if (_enabled && _hovered != hovered) {
+            setState(() {
+              _hovered = hovered;
+              if (!hovered) _pressed = false;
+            });
+          }
         },
-        onTapUp: (_) {
-          if (_enabled) setState(() => _pressed = false);
+        onShowFocusHighlight: (focused) {
+          if (_focused != focused) setState(() => _focused = focused);
         },
-        onTapCancel: () {
-          if (_enabled) setState(() => _pressed = false);
-        },
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
-          curve: AdwCurves.standard,
-          constraints: const BoxConstraints(
-            minHeight: AdwMetrics.buttonMinHeight,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
-          ),
-          child: Center(
-            widthFactor: 1.0,
-            heightFactor: 1.0,
-            child: Text(
-              widget.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.typography.heading.copyWith(color: fg),
+        actions: _enabled
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    widget.onPressed?.call();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            if (_enabled) setState(() => _pressed = true);
+          },
+          onTapUp: (_) {
+            if (_enabled) setState(() => _pressed = false);
+          },
+          onTapCancel: () {
+            if (_enabled) setState(() => _pressed = false);
+          },
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
+            curve: AdwCurves.standard,
+            constraints: const BoxConstraints(
+              minHeight: AdwMetrics.buttonMinHeight,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
+            ),
+            foregroundDecoration: _focused
+                ? BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(AdwMetrics.buttonRadius),
+                    border: Border.all(
+                      color: theme.colors.focusBorderColor,
+                      width: 2.0,
+                    ),
+                  )
+                : null,
+            child: Center(
+              widthFactor: 1.0,
+              heightFactor: 1.0,
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.typography.heading.copyWith(color: fg),
+              ),
             ),
           ),
         ),
