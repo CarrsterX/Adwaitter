@@ -12,8 +12,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_web_plugins:
-    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -22,22 +20,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: false
-  plugin:
-    platforms:
-      android:
-        package: com.carrster.adwaitter
-        pluginClass: AdwaitterPlugin
-      ios:
-        dartPluginClass: AdwaitterDartPlugin
-      linux:
-        dartPluginClass: AdwaitterDartPlugin
-      macos:
-        dartPluginClass: AdwaitterDartPlugin
-      windows:
-        dartPluginClass: AdwaitterDartPlugin
-      web:
-        pluginClass: AdwaitterDartPlugin
-        fileName: adwaitter.dart
 
   fonts:
     - family: AdwaitaSans
