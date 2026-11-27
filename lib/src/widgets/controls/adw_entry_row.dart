@@ -14,30 +14,79 @@ import 'adw_button.dart';
 /// Preference row containing an editable text field (`AdwEntryRow`).
 ///
 /// Follows GNOME Libadwaita specifications:
-/// - Floating title that sits centered when empty/unfocused and rises when focused or filled.
-/// - Pure Dart text entry built directly on [EditableText].
-/// - Optional edit indicator icon (`showEditIcon`).
-/// - Optional quick clear button (`showClearButton`).
-/// - Optional apply confirmation button (`showApplyButton`) with [onApply] callback.
-/// - Optional [prefix] and [suffix] slot widgets.
+/// * Floating [title] that sits centered when empty/unfocused and rises when
+///   focused or filled.
+/// * Pure Dart text entry built directly on [EditableText].
+/// * Optional edit indicator icon ([showEditIcon]), quick clear button
+///   ([showClearButton]), and apply confirmation button ([showApplyButton]).
+/// * Optional [prefix] and [suffix] slot widgets.
+///
+/// ```dart
+/// AdwEntryRow(
+///   title: const Text('Server Address'),
+///   showApplyButton: true,
+///   onApply: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPasswordEntryRow], for masked password inputs with a reveal toggle.
+/// * [AdwEntry], for standalone text fields outside preference groups.
+///
+/// {@category Controls}
 class AdwEntryRow extends StatefulWidget {
+  /// Floating label widget describing the field.
   final Widget? title;
+
+  /// Optional external controller for reading or modifying the text value.
   final TextEditingController? controller;
+
+  /// Initial text value when [controller] is not provided.
   final String? initialValue;
+
+  /// Optional placeholder hint shown when the field is focused and empty.
   final String? placeholder;
+
+  /// Whether to obscure the entered characters. Defaults to `false`.
   final bool obscureText;
+
+  /// Whether to show a trailing clear button when text is non-empty.
+  /// Defaults to `false`.
   final bool showClearButton;
+
+  /// Whether to show an apply confirmation button when edits are pending.
+  /// Defaults to `false`.
   final bool showApplyButton;
+
+  /// Whether to show the subtle trailing edit pencil icon. Defaults to `true`.
   final bool showEditIcon;
+
+  /// Optional custom widget replacing the default edit pencil icon.
   final Widget? editIcon;
+
+  /// Called whenever the entered text changes.
   final ValueChanged<String>? onChanged;
+
+  /// Called when the user submits the text via keyboard.
   final ValueChanged<String>? onSubmitted;
+
+  /// Called when the user taps the apply button (when [showApplyButton] is `true`).
   final ValueChanged<String>? onApply;
+
+  /// Optional leading widget placed before the text field.
   final Widget? prefix;
+
+  /// Optional trailing widget placed after the text field.
   final Widget? suffix;
+
+  /// Optional soft keyboard type.
   final TextInputType? keyboardType;
+
+  /// Optional input formatters applied to user edits.
   final List<TextInputFormatter>? inputFormatters;
 
+  /// Creates a Libadwaita editable text preference row.
   const AdwEntryRow({
     super.key,
     this.title,
@@ -387,17 +436,51 @@ class _AdwEntryRowState extends State<AdwEntryRow>
 }
 
 /// Password entry row with integrated visibility toggle (`AdwPasswordEntryRow`).
+///
+/// Wraps [AdwEntryRow] with masked text by default and a trailing reveal/conceal
+/// eye button.
+///
+/// ```dart
+/// AdwPasswordEntryRow(
+///   title: const Text('Password'),
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwEntryRow], for standard unmasked text entry rows.
+///
+/// {@category Controls}
 class AdwPasswordEntryRow extends StatefulWidget {
+  /// Floating label widget describing the password field.
   final Widget? title;
+
+  /// Optional external controller for reading or modifying the password text.
   final TextEditingController? controller;
+
+  /// Optional placeholder hint shown when focused and empty.
   final String? placeholder;
+
+  /// Called whenever the entered password changes.
   final ValueChanged<String>? onChanged;
+
+  /// Called when the user submits the password via keyboard.
   final ValueChanged<String>? onSubmitted;
+
+  /// Optional leading widget placed before the input.
   final Widget? prefix;
+
+  /// Optional custom edit indicator widget.
   final Widget? editIcon;
+
+  /// Optional custom icon shown when the password is hidden (tap to reveal).
   final Widget? revealIcon;
+
+  /// Optional custom icon shown when the password is visible (tap to conceal).
   final Widget? concealIcon;
 
+  /// Creates a Libadwaita password entry preference row.
   const AdwPasswordEntryRow({
     super.key,
     this.title,

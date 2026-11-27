@@ -1,21 +1,51 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
-import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../layout/adw_window.dart';
 
 /// Modern Libadwaita alert dialog (`AdwAlertDialog`).
 ///
-/// Replaces legacy GTK dialogs with a clean, centered layout,
-/// 14px rounded corners ([AdwMetrics.dialogRadius]), and styled response action buttons.
+/// Replaces legacy GTK dialogs with a clean, centered layout, rounded corners,
+/// and styled response action buttons. Present with [showAdwAlertDialog].
+///
+/// ```dart
+/// showAdwAlertDialog(
+///   context: context,
+///   builder: (ctx) => AdwAlertDialog(
+///     heading: const Text('Save Changes?'),
+///     body: const Text('Unsaved changes will be lost.'),
+///     actions: [
+///       AdwButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+///       AdwButton.destructive(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Discard')),
+///     ],
+///   ),
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [AdwDialog], for general adaptive content dialogs.
+///
+/// {@category Overlays}
 class AdwAlertDialog extends StatelessWidget {
+  /// Optional bold title widget displayed at the top of the alert.
   final Widget? heading;
+
+  /// Optional descriptive body widget displayed below [heading].
   final Widget? body;
+
+  /// Optional extra custom widget placed between [body] and [actions].
   final Widget? content;
+
+  /// Response buttons laid out along the bottom of the dialog.
   final List<Widget> actions;
+
+  /// Optional callback invoked when dragging the dialog surface on desktop.
   final VoidCallback? onStartDrag;
 
+  /// Creates a Libadwaita alert dialog.
   const AdwAlertDialog({
     super.key,
     this.heading,
@@ -42,18 +72,11 @@ class AdwAlertDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             border: theme.colors.isDark
                 ? Border.all(
-                    color: const Color(0x14FFFFFF),
+                    color: theme.colors.alertDialogBorderColor,
                     width: 1,
                   )
                 : null,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x4D000000),
-                blurRadius: 24,
-                spreadRadius: 2,
-                offset: Offset(0, 8),
-              ),
-            ],
+            boxShadow: theme.colors.alertDialogShadows,
           ),
           clipBehavior: Clip.antiAlias,
           child: GestureDetector(
@@ -142,7 +165,8 @@ Future<T?> showAdwAlertDialog<T>({
     PageRouteBuilder<T>(
       opaque: false,
       barrierDismissible: barrierDismissible,
-      barrierColor: themeData?.colors.dimmingColor ?? const Color(0x29000006),
+      barrierColor:
+          themeData?.colors.dimmingColor ?? AdwColors.fallbackDimmingLight,
       transitionDuration:
           reduceMotion ? AdwCurves.normalDuration : AdwCurves.mediumDuration,
       reverseTransitionDuration: AdwCurves.normalDuration,

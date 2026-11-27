@@ -6,10 +6,16 @@ import '../../theme/adw_theme.dart';
 import '../overlays/adw_popover.dart';
 
 /// Descriptor for an entry inside an [AdwSplitButton] dropdown menu.
+///
+/// {@category Controls}
 class AdwSplitButtonMenuItem {
+  /// Display label for this menu entry.
   final String label;
+
+  /// Callback invoked when the menu entry is selected.
   final VoidCallback? onPressed;
 
+  /// Creates a menu item descriptor for [AdwSplitButton].
   const AdwSplitButtonMenuItem({
     required this.label,
     this.onPressed,
@@ -20,6 +26,24 @@ class AdwSplitButtonMenuItem {
 ///
 /// Combines a primary action button on the left with a linked dropdown arrow
 /// button on the right that opens an anchored [AdwPopoverSurface] menu.
+///
+/// ```dart
+/// AdwSplitButton(
+///   label: const Text('Open'),
+///   onPressed: () {},
+///   menuItems: [
+///     AdwSplitButtonMenuItem(label: 'Open Recent', onPressed: () {}),
+///     AdwSplitButtonMenuItem(label: 'Open Folder', onPressed: () {}),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwButton], for single-action buttons.
+/// * [AdwDropdown], for selecting a single value from a list.
+///
+/// {@category Controls}
 class AdwSplitButton extends StatefulWidget {
   /// Optional leading icon for the primary action side.
   final Widget? icon;
@@ -46,6 +70,7 @@ class AdwSplitButton extends StatefulWidget {
   /// Minimum height of the split button (defaults to [AdwMetrics.buttonMinHeight]).
   final double height;
 
+  /// Creates a Libadwaita split button.
   const AdwSplitButton({
     super.key,
     this.icon,
@@ -153,9 +178,7 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
     final fg = theme.colors.windowForeground;
     final baseBg = widget.isFlat
         ? theme.colors.splitButtonFlatSiblingColor.withValues(alpha: 0.0)
-        : (theme.colors.isDark
-            ? const Color(0xFF38383B)
-            : const Color(0xFFE6E6E7));
+        : theme.colors.splitButtonBackground;
     final bool isAnyActive = _primaryHovered ||
         _primaryPressed ||
         _dropdownHovered ||
@@ -316,12 +339,8 @@ class _AdwSplitButtonState extends State<AdwSplitButton> {
               color: theme.colors.isHighContrast
                   ? theme.colors.splitButtonDividerHighContrastColor
                   : (widget.isFlat
-                      ? (theme.colors.isDark
-                          ? const Color(0xFF646467)
-                          : const Color(0xFFBEBEC0))
-                      : (theme.colors.isDark
-                          ? const Color(0x28FFFFFF)
-                          : const Color(0x22000000))),
+                      ? theme.colors.splitButtonFlatDividerColor
+                      : theme.colors.splitButtonDividerColor),
             ),
           ),
           Semantics(

@@ -69,16 +69,33 @@ double _normalizeAngle(double angle) {
 
 /// A modern GNOME Libadwaita spinner (`AdwSpinner` / `AdwSpinnerPaintable`).
 ///
-/// The drawn circle is capped at 64×64 (radius 32) and centered inside the
-/// available [size], exactly like the native paintable.
+/// Ported 1:1 from `adw-spinner-paintable.c`, the drawn circle is capped at
+/// `64×64` (radius `32`) and centered inside the available [size].
+///
+/// ```dart
+/// const AdwSpinner(size: 32)
+/// ```
+///
+/// See also:
+///
+/// * [AdwProgressBar], for linear determinate or indeterminate progress.
+///
+/// {@category Display}
 class AdwSpinner extends StatefulWidget {
+  /// Creates an indeterminate Libadwaita loading spinner.
   const AdwSpinner({
     super.key,
     this.size = 32,
     this.color,
   });
 
+  /// Outer box width and height in logical pixels. Defaults to `32`.
   final double size;
+
+  /// Optional stroke color override.
+  ///
+  /// Defaults to `IconTheme.of(context).color` or
+  /// [AdwColorScheme.windowForeground].
   final Color? color;
 
   @override

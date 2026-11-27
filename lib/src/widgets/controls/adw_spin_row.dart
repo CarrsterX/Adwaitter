@@ -8,19 +8,55 @@ import '../containers/adw_preferences_group.dart';
 
 /// Preference row with numeric increment/decrement spin control (`AdwSpinRow`).
 ///
-/// Enables users to adjust numeric values within bounded ranges using
-/// dedicated stepper buttons `[-]` and `[+]`.
+/// Enables users to adjust numeric values within `[min, max]` using direct
+/// keyboard entry or dedicated `[-]` and `[+]` stepper buttons.
+///
+/// ```dart
+/// AdwSpinRow(
+///   title: const Text('Font Size'),
+///   value: 11,
+///   min: 6,
+///   max: 32,
+///   step: 1,
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwEntryRow], for free-form text input rows.
+/// * [AdwSlider], for continuous range selection.
+///
+/// {@category Controls}
 class AdwSpinRow extends StatefulWidget {
+  /// Primary label widget for the row.
   final Widget title;
+
+  /// Optional secondary description displayed below [title].
   final Widget? subtitle;
+
+  /// Optional leading widget placed before [title].
   final Widget? prefix;
+
+  /// Current numeric value clamped between [min] and [max].
   final double value;
+
+  /// Lower bound of allowed values. Defaults to `0.0`.
   final double min;
+
+  /// Upper bound of allowed values. Defaults to `100.0`.
   final double max;
+
+  /// Amount added or subtracted when tapping `+` or `-`. Defaults to `1.0`.
   final double step;
+
+  /// Number of fractional digits formatted in the numeric field. Defaults to `0`.
   final int decimalDigits;
+
+  /// Called whenever the numeric value changes. When `null`, the row is disabled.
   final ValueChanged<double>? onChanged;
 
+  /// Creates a Libadwaita numeric spin preference row.
   const AdwSpinRow({
     super.key,
     required this.title,

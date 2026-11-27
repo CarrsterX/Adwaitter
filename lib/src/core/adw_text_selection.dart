@@ -17,9 +17,13 @@ import '../widgets/overlays/adw_popover.dart';
 /// Marker widget wrapping an input container (e.g. [AdwEntry], [AdwEntryRow],
 /// [AdwSearchBar]) so the touch magnifier aligns with the outer input border
 /// rather than the inner text line.
+///
+/// {@category Core}
 class AdwInputBounds extends StatelessWidget {
+  /// Input widget subtree whose outer bounds are exposed to the magnifier.
   final Widget child;
 
+  /// Creates an input-bounds marker wrapping [child].
   const AdwInputBounds({super.key, required this.child});
 
   static const Object _marker = Object();

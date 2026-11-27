@@ -1,21 +1,54 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_theme.dart';
 
 /// Libadwaita scale/slider control (`GtkScale` / `AdwSlider`).
 ///
-/// Supports both horizontal and vertical orientations as well as the `.osd`
-/// style class via [isOsd].
+/// Supports both horizontal and vertical orientations, optional tick [marks],
+/// keyboard arrow stepping, and the `.osd` style class via [isOsd].
+///
+/// ```dart
+/// AdwSlider(
+///   value: volume,
+///   min: 0.0,
+///   max: 1.0,
+///   onChanged: (v) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwProgressBar], for read-only progress display.
+/// * [AdwSpinRow], for precise numeric entry inside preference lists.
+///
+/// {@category Controls}
 class AdwSlider extends StatefulWidget {
+  /// Current slider value between [min] and [max].
   final double value;
+
+  /// Minimum selectable value. Defaults to `0.0`.
   final double min;
+
+  /// Maximum selectable value. Defaults to `1.0`.
   final double max;
+
+  /// Optional list of tick mark positions along the track (in `[min, max]`).
   final List<double>? marks;
+
+  /// Axis along which the slider moves. Defaults to [Axis.horizontal].
   final Axis orientation;
+
+  /// Called continuously as the user drags or adjusts the slider. When `null`,
+  /// the slider is disabled.
   final ValueChanged<double>? onChanged;
+
+  /// Whether to use translucent dark `.osd` styling (e.g. inside an
+  /// [AdwOsdSurface] media bar). Defaults to `false`.
   final bool isOsd;
 
+  /// Creates a Libadwaita scale/slider control.
   const AdwSlider({
     super.key,
     required this.value,
@@ -58,17 +91,20 @@ class _AdwSliderState extends State<AdwSlider> {
     final Color thumbColor;
 
     if (widget.isOsd) {
-      troughColor = isLit ? const Color(0x33FFFFFF) : const Color(0x26FFFFFF);
-      highlightColor =
-          isLit ? const Color(0xD9FFFFFF) : const Color(0xBFFFFFFF);
-      thumbColor = isLit ? const Color(0xFFFFFFFF) : const Color(0xFFD2D2D3);
+      troughColor = isLit
+          ? theme.colors.osdSliderTroughLitColor
+          : theme.colors.osdSliderTroughColor;
+      highlightColor = isLit
+          ? theme.colors.osdSliderHighlightLitColor
+          : theme.colors.osdSliderHighlightColor;
+      thumbColor = isLit ? AdwColors.light1 : theme.colors.osdSliderThumbColor;
     } else {
       final fg = theme.colors.windowForeground;
       troughColor = fg.withValues(alpha: isLit ? 0.20 : 0.15);
       highlightColor = isLit
-          ? Color.lerp(theme.colors.accentColor, const Color(0xFFFFFFFF), 0.10)!
+          ? Color.lerp(theme.colors.accentColor, AdwColors.light1, 0.10)!
           : theme.colors.accentColor;
-      thumbColor = const Color(0xFFFFFFFF);
+      thumbColor = theme.colors.sliderThumbColor;
     }
 
     final clampedValue = _toNormalized(widget.value);
@@ -177,7 +213,7 @@ class _AdwSliderState extends State<AdwSlider> {
                         color: thumbColor,
                         focusRingColor: _focused
                             ? (widget.isOsd
-                                ? const Color(0xFF666667)
+                                ? theme.colors.osdFocusBorderColor
                                 : theme.colors.focusBorderColor)
                             : null,
                       ),
@@ -262,7 +298,7 @@ class _AdwSliderState extends State<AdwSlider> {
                       color: thumbColor,
                       focusRingColor: _focused
                           ? (widget.isOsd
-                              ? const Color(0xFF666667)
+                              ? theme.colors.osdFocusBorderColor
                               : theme.colors.focusBorderColor)
                           : null,
                     ),
@@ -322,18 +358,7 @@ class _SliderThumb extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1A000006),
-                blurRadius: 0.0,
-                spreadRadius: 1.0,
-              ),
-              BoxShadow(
-                color: Color(0x33000006),
-                blurRadius: 4.0,
-                offset: Offset(0, 2),
-              ),
-            ],
+            boxShadow: AdwTheme.of(context).colors.sliderThumbShadows,
           ),
         ),
       ],

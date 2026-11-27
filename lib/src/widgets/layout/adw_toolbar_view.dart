@@ -6,6 +6,8 @@ import '../../theme/adw_theme.dart';
 import '../navigation/adw_carousel.dart';
 
 /// Visual style for top/bottom bars in [AdwToolbarView] (`AdwToolbarStyle`).
+///
+/// {@category Layout}
 enum AdwToolbarStyle {
   /// Flat bar with no background or border.
   flat,
@@ -22,13 +24,45 @@ enum AdwToolbarStyle {
 /// Coordinates top bars (such as [AdwHeaderBar]), central scrollable content,
 /// and optional bottom action bars in alignment with the Libadwaita 1.4+
 /// architecture, including automatic scroll-under (`undershoot`) shadows.
+///
+/// ```dart
+/// const AdwToolbarView(
+///   topBar: AdwHeaderBar(
+///     titleWidget: AdwWindowTitle(title: 'Inbox'),
+///   ),
+///   content: AdwStatusPage(title: Text('No messages')),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwHeaderBar], typically passed as [topBar].
+/// * [AdwToolbarStyle], controlling flat vs raised bar styling.
+///
+/// {@category Layout}
 class AdwToolbarView extends StatefulWidget {
+  /// Optional top bar widget (commonly [AdwHeaderBar] or a column containing
+  /// [AdwHeaderBar] + [AdwSearchBar] / [AdwBanner]).
   final Widget? topBar;
+
+  /// Main body content displayed between [topBar] and [bottomBar].
   final Widget content;
+
+  /// Optional bottom bar widget (e.g. [AdwViewSwitcherBar] or an action bar).
   final Widget? bottomBar;
+
+  /// Visual style applied to [topBar]. Defaults to [AdwToolbarStyle.flat].
   final AdwToolbarStyle topBarStyle;
+
+  /// Visual style applied to [bottomBar]. Defaults to [AdwToolbarStyle.flat].
   final AdwToolbarStyle bottomBarStyle;
+
+  /// Whether to render a scroll-undershoot shadow below [topBar] when content
+  /// is scrolled past the top edge. Defaults to `true`.
   final bool topBarScrollShadow;
+
+  /// Whether to render a scroll-undershoot shadow above [bottomBar] when
+  /// content extends past the bottom edge. Defaults to `false`.
   final bool bottomBarScrollShadow;
 
   /// Whether [content] reserves bottom safe-area padding for the system navbar
@@ -36,6 +70,7 @@ class AdwToolbarView extends StatefulWidget {
   /// should scroll edge-to-edge behind a transparent system navigation bar.
   final bool bottomSafeArea;
 
+  /// Creates a Libadwaita toolbar-and-content view.
   const AdwToolbarView({
     super.key,
     this.topBar,
@@ -90,10 +125,8 @@ class _AdwToolbarViewState extends State<AdwToolbarView> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final Color shadeColor = theme.colors.isDark
-        ? const Color(0x45000006) // RGB(0 0 6 / 36%) * 75%
-        : const Color(0x17000006); // RGB(0 0 6 / 12%) * 75%
-    final Color shadeTransparent = const Color(0x00000006);
+    final Color shadeColor = theme.colors.toolbarShadeColor;
+    final Color shadeTransparent = theme.colors.shadeTransparent;
 
     Widget body = NotificationListener<ScrollNotification>(
       onNotification: (notification) {

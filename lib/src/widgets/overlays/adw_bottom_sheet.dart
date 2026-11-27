@@ -14,9 +14,9 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import 'adw_dialog.dart';
 
-/// Inherited scope provided by [AdwBottomSheet] to its [sheet] subtree so
-/// descendant [AdwHeaderBar]s suppress their title when a drag handle is shown
-/// and display a close button wired to the sheet.
+/// Inherited scope provided by [AdwBottomSheet] to its [AdwBottomSheet.sheet]
+/// subtree so descendant [AdwHeaderBar]s suppress their title when a drag
+/// handle is shown and display a close button wired to the sheet.
 class AdwBottomSheetScope extends InheritedWidget {
   final bool hideTitle;
   final bool canClose;
@@ -48,6 +48,22 @@ class AdwBottomSheetScope extends InheritedWidget {
 /// Displays [content] persistently, [bottomBar] along the bottom edge when
 /// closed, and [sheet] above [content] when opened via tap, vertical drag
 /// (mouse click-and-drag or touch), or [open].
+///
+/// ```dart
+/// AdwBottomSheet(
+///   open: isSheetOpen,
+///   onOpenChanged: (open) {},
+///   content: const AdwStatusPage(title: Text('Main View')),
+///   sheet: const AdwStatusPage(title: Text('Sheet Content')),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwDialog], which automatically switches to bottom-sheet presentation on
+///   narrow viewports.
+///
+/// {@category Overlays}
 class AdwBottomSheet extends StatefulWidget {
   /// Persistent background content.
   final Widget content;
@@ -512,21 +528,13 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                           ((_isOpen && widget.canClose) ||
                               (!_isOpen && widget.canOpen));
 
-                  final topShadeColor = theme.colors.isDark
-                      ? const Color(0xFF18181C)
-                      : const Color(0x14000000);
-                  final topBorderColor = theme.colors.isDark
-                      ? const Color(0xFF323235)
-                      : theme.colors.windowOutline;
+                  final topShadeColor = theme.colors.bottomSheetTopShadeColor;
+                  final topBorderColor = theme.colors.bottomSheetTopBorderColor;
 
                   final double topGradientHeight = showSheet ? 22.0 : 14.0;
-                  final Color topGradientStart = theme.colors.isDark
-                      ? (showSheet
-                          ? const Color(0x30000000)
-                          : const Color(0x22000000))
-                      : (showSheet
-                          ? const Color(0x14000006)
-                          : const Color(0x0E000006));
+                  final Color topGradientStart = showSheet
+                      ? theme.colors.bottomSheetOpenGradientColor
+                      : theme.colors.bottomSheetClosedGradientColor;
 
                   return Positioned(
                     left: sheetX,
@@ -606,22 +614,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                                         spreadRadius: 0.0,
                                         offset: const Offset(0, -1),
                                       ),
-                                      BoxShadow(
-                                        color: theme.colors.isDark
-                                            ? const Color(0x33000000)
-                                            : const Color(0x14000006),
-                                        blurRadius: 24.0,
-                                        spreadRadius: -4.0,
-                                        offset: const Offset(0, -6),
-                                      ),
-                                      BoxShadow(
-                                        color: theme.colors.isDark
-                                            ? const Color(0x26000000)
-                                            : const Color(0x0D000006),
-                                        blurRadius: 8.0,
-                                        spreadRadius: -2.0,
-                                        offset: const Offset(0, -2),
-                                      ),
+                                      ...theme.colors.bottomSheetOpenShadows,
                                     ]
                                   : [
                                       BoxShadow(
@@ -630,22 +623,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
                                         spreadRadius: 0.0,
                                         offset: const Offset(0, -1),
                                       ),
-                                      BoxShadow(
-                                        color: theme.colors.isDark
-                                            ? const Color(0x26000000)
-                                            : const Color(0x12000006),
-                                        blurRadius: 16.0,
-                                        spreadRadius: -4.0,
-                                        offset: const Offset(0, -4),
-                                      ),
-                                      BoxShadow(
-                                        color: theme.colors.isDark
-                                            ? const Color(0x1A000000)
-                                            : const Color(0x0A000006),
-                                        blurRadius: 6.0,
-                                        spreadRadius: -2.0,
-                                        offset: const Offset(0, -1),
-                                      ),
+                                      ...theme.colors.bottomSheetBarShadows,
                                     ]),
                         ),
                         child: ClipRRect(

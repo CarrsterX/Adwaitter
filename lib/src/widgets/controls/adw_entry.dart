@@ -7,10 +7,19 @@ import '../../theme/adw_theme.dart';
 
 /// Semantic style variants for [AdwEntry], matching GTK4/Libadwaita
 /// `.success`, `.warning`, and `.error` entry style classes.
+///
+/// {@category Controls}
 enum AdwEntryStyle {
+  /// Default neutral text entry appearance.
   standard,
+
+  /// Positive validation state tinted with [AdwColorScheme.standaloneSuccessColor].
   success,
+
+  /// Caution validation state tinted with [AdwColorScheme.standaloneWarningColor].
   warning,
+
+  /// Error validation state tinted with [AdwColorScheme.standaloneErrorColor].
   error,
 }
 
@@ -19,20 +28,58 @@ enum AdwEntryStyle {
 /// Supports placeholder text, optional [prefix]/[suffix] widgets, semantic
 /// style classes ([AdwEntryStyle]), and custom [borderRadius] for `.linked`
 /// control groups.
+///
+/// ```dart
+/// AdwEntry(
+///   placeholder: 'Enter username…',
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwEntryRow], for text input rows inside an [AdwPreferencesGroup].
+/// * [AdwSearchBar], for collapsible search headers.
+///
+/// {@category Controls}
 class AdwEntry extends StatefulWidget {
+  /// Optional controller for reading or mutating the text value.
   final TextEditingController? controller;
+
+  /// Optional focus node managing keyboard focus for this entry.
   final FocusNode? focusNode;
+
+  /// Hint text displayed when the entry is empty.
   final String? placeholder;
+
+  /// Semantic validation style. Defaults to [AdwEntryStyle.standard].
   final AdwEntryStyle style;
+
+  /// Optional leading widget inside the entry box (e.g. a search icon).
   final Widget? prefix;
+
+  /// Optional trailing widget inside the entry box (e.g. a clear button).
   final Widget? suffix;
+
+  /// Optional corner radius override (useful inside [AdwLinkedBox]).
   final BorderRadius? borderRadius;
+
+  /// Height of the entry container in logical pixels. Defaults to `34.0`.
   final double height;
+
+  /// Called whenever the user edits the text.
   final ValueChanged<String>? onChanged;
+
+  /// Called when the user submits the text (e.g. pressing Enter).
   final ValueChanged<String>? onSubmitted;
+
+  /// Whether to mask the entered text (e.g. for passwords). Defaults to `false`.
   final bool obscureText;
+
+  /// Whether the text field is read-only. Defaults to `false`.
   final bool readOnly;
 
+  /// Creates a standalone Libadwaita text entry.
   const AdwEntry({
     super.key,
     this.controller,

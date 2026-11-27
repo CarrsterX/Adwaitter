@@ -9,19 +9,29 @@ import '../theme/adw_theme.dart';
 
 /// Libadwaita / GTK4 overlay scrollbar indicator (`AdwScrollbar`).
 ///
-/// Mirrors GTK4 `scrollbar.overlay-indicator`:
-/// - Reserves zero layout space (overlays the trailing edge of the scrollable).
-/// - Appears as a thin `3px` capsule-rounded pill whenever the pointer hovers
-///   over the scrollable view or while scrolling is active.
-/// - Smoothly expands to `7px` with higher contrast when hovering or dragging
-///   the scrollbar hit area directly.
-/// - Works automatically for all scrollables even when no explicit [ScrollController]
-///   is provided.
+/// Mirrors GTK4 `scrollbar.overlay-indicator`, reserving zero layout space,
+/// appearing as a `3px` pill on hover/scroll, and expanding smoothly to `7px`
+/// when hovered or dragged directly.
+///
+/// ```dart
+/// AdwScrollbar(
+///   axisDirection: AxisDirection.down,
+///   child: ListView(children: const []),
+/// )
+/// ```
+///
+/// {@category Core}
 class AdwScrollbar extends StatefulWidget {
+  /// Scroll direction of the wrapped scrollable widget.
   final AxisDirection axisDirection;
+
+  /// Optional [ScrollController] attached to the wrapped scrollable.
   final ScrollController? controller;
+
+  /// Scrollable subtree overlaid with the Adwaita scrollbar indicator.
   final Widget child;
 
+  /// Creates a Libadwaita overlay scrollbar.
   const AdwScrollbar({
     super.key,
     required this.axisDirection,

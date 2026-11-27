@@ -2,14 +2,11 @@ import 'package:flutter/painting.dart';
 
 /// Official typographic scale adhering to GNOME HIG and GTK4 Libadwaita specifications.
 ///
-/// Follows upstream Libadwaita typography tokens and CSS classes:
-/// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/...`
-/// - CSS classes: `.large-title`, `.title-1`, `.title-2`, `.title-3`, `.title-4`,
-///   `.heading`, `.body`, `.caption`, `.caption-heading`, `.monospace`.
-///
-/// Uses the bundled variable font [AdwaitaSans] (`assets/fonts/AdwaitaSans-Regular.ttf`)
+/// Uses the bundled variable font `AdwaitaSans` (`assets/fonts/AdwaitaSans-Regular.ttf`)
 /// supporting continuous optical sizes (`opsz` 14..32) and weights (`wght` 100..900),
 /// with fallback to native Linux desktop fonts (`Adwaita Sans`, `Cantarell`, `Inter`).
+///
+/// {@category Theming & Localization}
 class AdwTypography {
   static const String sansFamily = 'AdwaitaSans';
   static const String monoFamily = 'AdwaitaMono';

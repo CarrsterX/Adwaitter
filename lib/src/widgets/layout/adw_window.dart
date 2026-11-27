@@ -11,18 +11,37 @@ import '../navigation/adw_navigation_split_view.dart';
 import 'adw_application.dart';
 
 /// Window edge identifiers for native border resize operations.
+///
+/// {@category Layout}
 enum AdwWindowEdge {
+  /// Top window edge.
   top,
+
+  /// Bottom window edge.
   bottom,
+
+  /// Left window edge.
   left,
+
+  /// Right window edge.
   right,
+
+  /// Top-left window corner.
   topLeft,
+
+  /// Top-right window corner.
   topRight,
+
+  /// Bottom-left window corner.
   bottomLeft,
+
+  /// Bottom-right window corner.
   bottomRight,
 }
 
 /// Decoupled interface for native Client-Side Decorations (CSD) / frameless window control.
+///
+/// {@category Layout}
 abstract class AdwWindowController {
   bool get isMaximized;
   bool get isFullscreen => false;
@@ -320,26 +339,64 @@ class AdwWindowScope extends InheritedWidget {
 /// Top-level application window container (`AdwWindow` / `AdwApplicationWindow`).
 ///
 /// Implements GNOME Client-Side Decorations (CSD):
-/// - 15px corner radius ([AdwMetrics.windowRadius]) when floating.
-/// - Transitions automatically to square corners (0px) and removes shadows when maximized.
-/// - Subtle Mutter-style window drop shadow.
-/// - 1px adaptive hairline border.
-/// - Transparent edge/corner hit test zones enabling native Mutter/Wayland window resizing.
+/// * 15px corner radius ([AdwMetrics.windowRadius]) when floating, transitioning
+///   automatically to square corners (`0px`) and removing shadows when maximized.
+/// * Subtle Mutter-style window drop shadow and 1px adaptive hairline border.
+/// * Transparent edge/corner resize hit zones for desktop CSD windows.
+/// * Edge-to-edge mobile safe-area delegation when hosting
+///   [AdwNavigationSplitView].
+///
+/// ```dart
+/// const AdwWindow(
+///   headerBar: AdwHeaderBar(
+///     titleWidget: AdwWindowTitle(title: 'My App'),
+///   ),
+///   child: Center(child: Text('Window content')),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwApplication], the root app widget hosting [AdwWindow].
+/// * [AdwHeaderBar], the standard titlebar passed to [headerBar].
+///
+/// {@category Layout}
 class AdwWindow extends StatefulWidget {
   /// Global reactive toggle for the `.devel` window style class (`window.devel`).
   static final ValueNotifier<bool> develMode = ValueNotifier<bool>(false);
 
+  /// Optional controller managing native CSD window actions and state.
   final AdwWindowController? controller;
+
+  /// Optional override for the window's maximized state.
   final bool? isMaximized;
+
+  /// Whether to render the `.devel` cogwheel headerbar pattern. Defaults to `false`.
   final bool isDevel;
+
+  /// Optional header bar pinned above [child].
   final Widget? headerBar;
+
+  /// Main content body of the window.
   final Widget child;
+
+  /// Whether to draw floating window elevation shadows on desktop. Defaults to `true`.
   final bool showShadow;
+
+  /// Whether to draw the 1px window outline border. Defaults to `true`.
   final bool showBorder;
+
+  /// Whether the window pads its bottom inset when the virtual keyboard opens.
+  /// Defaults to `true`.
   final bool resizeToAvoidBottomInset;
+
+  /// Whether the window itself reserves bottom safe-area padding. Defaults to `false`.
   final bool bottomSafeArea;
+
+  /// Whether top/cutout safe areas are delegated to [child]. Defaults to `false`.
   final bool delegateSafeAreaToChild;
 
+  /// Creates a GNOME Libadwaita application window.
   const AdwWindow({
     super.key,
     this.controller,
@@ -475,28 +532,8 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
     final List<BoxShadow> shadows =
         (shapeScope == null && !isSquareCorners && widget.showShadow)
         ? (effectiveIsActive
-            ? [
-                const BoxShadow(
-                  color: Color(0x38000000),
-                  blurRadius: 18,
-                  spreadRadius: 0,
-                  offset: Offset(0, 6),
-                ),
-                const BoxShadow(
-                  color: Color(0x18000000),
-                  blurRadius: 4,
-                  spreadRadius: 0,
-                  offset: Offset(0, 1),
-                ),
-              ]
-            : [
-                const BoxShadow(
-                  color: Color(0x20000000),
-                  blurRadius: 12,
-                  spreadRadius: 0,
-                  offset: Offset(0, 3),
-                ),
-              ])
+            ? theme.colors.windowActiveShadows
+            : theme.colors.windowBackdropShadows)
         : const [];
 
     Widget windowContent = Column(
@@ -616,9 +653,7 @@ class _AdwWindowState extends State<AdwWindow> with WidgetsBindingObserver {
                     duration: AdwCurves.resolve(context, AdwCurves.shortDuration),
                     color: effectiveIsActive
                         ? const Color(0x00000000)
-                        : (theme.colors.isDark
-                            ? const Color(0x14000000)
-                            : const Color(0x0AFFFFFF)),
+                        : theme.colors.windowBackdropOverlayColor,
                   ),
                 ),
               ),

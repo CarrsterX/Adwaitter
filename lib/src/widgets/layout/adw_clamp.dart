@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-/// Length unit for [AdwClamp] (`AdwLengthUnit`).
+/// Length unit for [AdwClamp] and [AdwBreakpoint] (`AdwLengthUnit`).
+///
+/// {@category Layout}
 enum AdwLengthUnit {
   /// Pixels (`px`), unaffected by text scale factor.
   px,
@@ -15,6 +17,8 @@ enum AdwLengthUnit {
 }
 
 /// Converts [value] from [unit] to logical pixels using [textScale].
+///
+/// {@category Layout}
 double adwLengthUnitToPx(
   AdwLengthUnit unit,
   double value, {
@@ -29,18 +33,47 @@ double adwLengthUnitToPx(
 
 /// Adaptive width-constraining container (`AdwClamp`).
 ///
-/// Constrains the maximum width of its child according to GNOME HIG guidelines,
+/// Constrains the maximum width of [child] according to GNOME HIG guidelines,
 /// easing out growth between [tighteningThreshold] and [maximumSize] while
 /// keeping it centered horizontally with a guaranteed [minimumMargin].
+///
+/// ```dart
+/// const AdwClamp(
+///   maximumSize: 600,
+///   child: AdwPreferencesGroup(children: []),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwClampScrollable], for clamped scrollable views with outer scrollbars.
+///
+/// {@category Layout}
 class AdwClamp extends StatelessWidget {
+  /// Maximum width of [child] in [unit]. Defaults to `600.0`.
   final double maximumSize;
+
+  /// Width in [unit] above which growth eases smoothly toward [maximumSize].
+  /// Defaults to `400.0`.
   final double tighteningThreshold;
+
+  /// Minimum width of [child] in [unit]. Defaults to `0.0`.
   final double minimumSize;
+
+  /// Length unit for [maximumSize], [tighteningThreshold], and [minimumSize].
+  /// Defaults to [AdwLengthUnit.sp].
   final AdwLengthUnit unit;
+
+  /// Guaranteed horizontal margin on each side in logical pixels. Defaults to `12.0`.
   final double minimumMargin;
+
+  /// Optional upper cap on horizontal margin in logical pixels.
   final double? maximumMargin;
+
+  /// Content widget centered and width-constrained by this clamp.
   final Widget child;
 
+  /// Creates an adaptive Libadwaita width clamp.
   const AdwClamp({
     super.key,
     this.maximumSize = 600.0,

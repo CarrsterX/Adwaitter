@@ -1,31 +1,86 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 
+/// Visual style variants for [AdwButton], matching Libadwaita button classes.
+///
+/// {@category Controls}
 enum AdwButtonStyle {
+  /// Default raised button appearance (`10%` of `currentColor`).
   standard,
+
+  /// Transparent until hovered, focused, or pressed (`.flat`).
   flat,
+
+  /// Primary call-to-action styled with the active accent color (`.suggested-action`).
   suggested,
+
+  /// High-emphasis alert action styled with the destructive color (`.destructive-action`).
   destructive,
+
+  /// Translucent dark on-screen display button (`.osd`).
   osd,
+
+  /// Flat transparent button inside an `.osd` surface (`.osd.flat`).
   osdFlat,
 }
 
 /// Official button widget adhering to Libadwaita metrics and visual states.
+///
+/// Supports standard, flat, suggested, destructive, pill, circular, and OSD
+/// variants through dedicated named constructors.
+///
+/// ```dart
+/// AdwButton.suggested(
+///   onPressed: () {},
+///   child: const Text('Save'),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwButtonContent], for pairing an icon and label inside an [AdwButton].
+/// * [AdwSplitButton], for combining a primary action with a dropdown menu.
+/// * [AdwToggleGroup], for mutually exclusive segmented buttons.
+///
+/// {@category Controls}
 class AdwButton extends StatefulWidget {
+  /// Content displayed inside the button (typically [Text], [Icon], or
+  /// [AdwButtonContent]).
   final Widget child;
+
+  /// Callback invoked when the button is activated. When `null`, the button
+  /// is rendered disabled.
   final VoidCallback? onPressed;
+
+  /// Visual style variant of the button. Defaults to [AdwButtonStyle.standard].
   final AdwButtonStyle style;
+
+  /// Whether to use fully rounded capsule corners (`.pill`). Defaults to `false`.
   final bool isPill;
+
+  /// Whether to render as a circular icon button (`.circular`). Defaults to `false`.
   final bool isCircular;
+
+  /// Whether the button is in a toggled/checked state. Defaults to `false`.
   final bool isChecked;
+
+  /// Optional internal padding override.
   final EdgeInsetsGeometry? padding;
+
+  /// Optional explicit width in logical pixels.
   final double? width;
+
+  /// Optional explicit height in logical pixels.
   final double? height;
+
+  /// Optional corner radius override.
   final BorderRadius? borderRadius;
 
+  /// Creates a standard Libadwaita button.
   const AdwButton({
     super.key,
     required this.child,
@@ -161,10 +216,10 @@ class _AdwButtonState extends State<AdwButton> {
         foregroundColor = theme.colors.accentForeground;
         if (_isPressed) {
           backgroundColor =
-              Color.lerp(backgroundColor, const Color(0xFF000000), 0.15)!;
+              Color.lerp(backgroundColor, AdwColors.dark5, 0.15)!;
         } else if (isHighlighted) {
           backgroundColor =
-              Color.lerp(backgroundColor, const Color(0xFFFFFFFF), 0.12)!;
+              Color.lerp(backgroundColor, AdwColors.light1, 0.12)!;
         }
         break;
 
@@ -236,9 +291,9 @@ class _AdwButtonState extends State<AdwButton> {
       case AdwButtonStyle.osdFlat:
         foregroundColor = theme.colors.osdForeground;
         if (_isPressed) {
-          backgroundColor = const Color(0x29FFFFFF);
+          backgroundColor = theme.colors.osdFlatActiveBackground;
         } else if (isHighlighted) {
-          backgroundColor = const Color(0x12FFFFFF);
+          backgroundColor = theme.colors.osdFlatHoverBackground;
         } else {
           backgroundColor = const Color(0x00000000);
         }
@@ -368,7 +423,7 @@ class _AdwButtonState extends State<AdwButton> {
                                     .withValues(alpha: 0.70)
                                 : (widget.style == AdwButtonStyle.osd ||
                                         widget.style == AdwButtonStyle.osdFlat)
-                                    ? const Color(0xFF666667)
+                                    ? theme.colors.osdFocusBorderColor
                                     : theme.colors.focusBorderColor,
                             width: 2.0,
                           ),

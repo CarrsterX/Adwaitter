@@ -8,12 +8,19 @@ import 'adw_carousel.dart';
 
 /// Paginated dot indicator widget for [AdwCarousel] (`AdwCarouselIndicatorDots`).
 ///
-/// Implements upstream GNOME Libadwaita specifications (`adw-carousel-indicator-dots.c`):
-/// - Inactive dot: `6×6 px` circle (`radius: 3.0`) at `30%` foreground opacity.
-/// - Active dot: `8×8 px` circle (`radius: 4.0`) at `90%` foreground opacity.
-/// - Spacing: `7.0 px` between dots, `6.0 px` outer margin.
-/// - Supports both [Axis.horizontal] and [Axis.vertical] orientations and
-///   continuous interpolation synced with [AdwCarouselController.page].
+/// Syncs continuously with [AdwCarouselController.page] and supports both
+/// [Axis.horizontal] and [Axis.vertical] orientations.
+///
+/// ```dart
+/// AdwCarouselIndicatorDots(controller: carouselController)
+/// ```
+///
+/// See also:
+///
+/// * [AdwCarousel], the carousel widget driven by [controller].
+/// * [AdwCarouselIndicatorLines], the line-segment indicator alternative.
+///
+/// {@category Navigation}
 class AdwCarouselIndicatorDots extends StatelessWidget {
   /// Optional carousel controller driving continuous position and page count.
   final AdwCarouselController? controller;

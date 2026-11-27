@@ -6,14 +6,37 @@ import '../../theme/adw_theme.dart';
 /// Native Libadwaita / GTK4 radio indicator (`AdwRadio`).
 ///
 /// Renders an 18px circular radio button matching GNOME HIG:
-/// - Selected: solid accent fill with a crisp white center dot.
-/// - Unselected: transparent fill with a subtle 1.5px border.
+/// * Selected: solid accent fill with a crisp white center dot.
+/// * Unselected: transparent fill with a subtle 1.5px border.
+///
+/// ```dart
+/// AdwRadio<String>(
+///   value: 'light',
+///   groupValue: selectedTheme,
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwCheckbox], for multi-select check buttons.
+///
+/// {@category Controls}
 class AdwRadio<T> extends StatefulWidget {
+  /// The value represented by this radio button.
   final T value;
+
+  /// The currently selected value for the radio group.
   final T? groupValue;
+
+  /// Called when the user selects this radio button. When `null`, the control
+  /// is disabled.
   final ValueChanged<T?>? onChanged;
+
+  /// Diameter of the circular indicator in logical pixels. Defaults to `18.0`.
   final double size;
 
+  /// Creates a Libadwaita radio button.
   const AdwRadio({
     super.key,
     required this.value,
@@ -126,15 +149,41 @@ class _AdwRadioState<T> extends State<AdwRadio<T>> {
 
 /// Native Libadwaita / GTK4 checkbox indicator (`AdwCheckbox`).
 ///
-/// Renders an 18px rounded-square check button for multi-item selection:
-/// - Checked: solid accent fill with a crisp white checkmark.
-/// - Unchecked: transparent fill with a subtle 1.5px border.
+/// Renders an 18px rounded-square check button (or a 28px `.selection-mode`
+/// circular check button when [selectionMode] is `true`):
+/// * Checked: solid accent fill with a crisp white checkmark.
+/// * Unchecked: transparent fill with a subtle 1.5px border.
+///
+/// ```dart
+/// AdwCheckbox(
+///   value: isChecked,
+///   onChanged: (checked) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwRadio], for mutually exclusive single-choice indicators.
+/// * [AdwSwitch], for binary settings toggles.
+///
+/// {@category Controls}
 class AdwCheckbox extends StatefulWidget {
+  /// Whether this checkbox is currently checked.
   final bool value;
+
+  /// Called when the user toggles the checkbox. When `null`, the control is
+  /// disabled.
   final ValueChanged<bool>? onChanged;
+
+  /// Optional width and height override in logical pixels.
+  /// Defaults to `28.0` when [selectionMode] is `true`, or `18.0` otherwise.
   final double? size;
+
+  /// Whether to render using Libadwaita's larger circular `.selection-mode`
+  /// check style. Defaults to `false`.
   final bool selectionMode;
 
+  /// Creates a Libadwaita check button.
   const AdwCheckbox({
     super.key,
     required this.value,

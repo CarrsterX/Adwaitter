@@ -9,20 +9,63 @@ import 'adw_preferences_group.dart';
 /// Standard Libadwaita action row (`AdwActionRow`).
 ///
 /// Designed to be used inside an [AdwPreferencesGroup] or standalone.
-/// Accepts either [prefix] / [leading] on the left and [suffix] / [trailing] on the right.
+/// Accepts either [prefix] / [leading] on the left and [suffix] / [trailing]
+/// on the right. Use [AdwActionRow.property] for the `.property` style where
+/// [title] is rendered as a muted caption above a prominent [subtitle] value.
+///
+/// ```dart
+/// AdwActionRow(
+///   title: const Text('Appearance'),
+///   subtitle: const Text('Configure light or dark mode'),
+///   onPressed: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPreferencesGroup], which groups action rows into boxed lists.
+/// * [AdwExpanderRow], for collapsible rows with nested children.
+/// * [AdwSwitchRow], [AdwComboRow], [AdwEntryRow], and [AdwSpinRow], for
+///   specialized preference rows.
+///
+/// {@category Containers}
 class AdwActionRow extends StatefulWidget {
+  /// Alias for [prefix] placed at the start of the row.
   final Widget? leading;
+
+  /// Optional widget placed before [title] (e.g. a symbolic icon or avatar).
   final Widget? prefix;
+
+  /// Primary label widget for the row.
   final Widget title;
+
+  /// Optional secondary description displayed below [title].
   final Widget? subtitle;
+
+  /// Alias for [suffix] placed at the end of the row.
   final Widget? trailing;
+
+  /// Optional widget placed at the end of the row (e.g. a button or chevron).
   final Widget? suffix;
+
+  /// Callback invoked when the row is activated.
   final VoidCallback? onPressed;
+
+  /// Internal padding around the row's content.
   final EdgeInsetsGeometry padding;
+
+  /// Minimum height of the row. Defaults to [AdwMetrics.rowMinHeight].
   final double minHeight;
+
+  /// Whether the row responds to hover/press interaction when [onPressed] is
+  /// provided. Defaults to `true`.
   final bool isActivatable;
+
+  /// Whether to render using Libadwaita's `.property` style (muted caption
+  /// [title] above a selectable [subtitle] value). Defaults to `false`.
   final bool isProperty;
 
+  /// Creates a standard Libadwaita action row.
   const AdwActionRow({
     super.key,
     this.leading,
@@ -54,7 +97,10 @@ class AdwActionRow extends StatefulWidget {
     this.isActivatable = true,
   }) : isProperty = true;
 
+  /// Resolves the start slot widget, preferring [prefix] over [leading].
   Widget? get effectivePrefix => prefix ?? leading;
+
+  /// Resolves the end slot widget, preferring [suffix] over [trailing].
   Widget? get effectiveSuffix => suffix ?? trailing;
 
   @override

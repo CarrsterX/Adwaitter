@@ -6,17 +6,50 @@ import '../../theme/adw_theme.dart';
 /// Libadwaita level indicator (`GtkLevelBar`).
 ///
 /// Renders either a continuous bar (`segments == null`) or a discrete segmented
-/// bar (`segments != null`, e.g. password strength or disk usage).
+/// bar (`segments != null`, e.g. password strength or disk usage). When [color]
+/// is omitted, the fill color automatically adapts to warning (≤ 25%), accent,
+/// or success (100%).
+///
+/// ```dart
+/// const AdwLevelBar(
+///   value: 0.75,
+///   segments: 5,
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwProgressBar], for determinate or indeterminate task progress.
+///
+/// {@category Display}
 class AdwLevelBar extends StatelessWidget {
+  /// Current level value between [minValue] and [maxValue].
   final double value;
+
+  /// Minimum bound of the bar range. Defaults to `0.0`.
   final double minValue;
+
+  /// Maximum bound of the bar range. Defaults to `1.0`.
   final double maxValue;
+
+  /// Optional number of discrete segments. When `null` or `<= 1`, renders a
+  /// continuous bar.
   final int? segments;
+
+  /// Height of the bar in logical pixels. Defaults to `6.0`.
   final double height;
+
+  /// Optional override for the filled bar color.
   final Color? color;
+
+  /// Optional override for the unfilled track color.
   final Color? trackColor;
+
+  /// Horizontal gap between discrete segments when [segments] is set.
+  /// Defaults to `3.0`.
   final double segmentSpacing;
 
+  /// Creates a Libadwaita level indicator bar.
   const AdwLevelBar({
     super.key,
     required this.value,

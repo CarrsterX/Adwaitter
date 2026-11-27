@@ -1,29 +1,64 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 import '../containers/adw_preferences_group.dart';
 
+/// Visual style variants for [AdwButtonRow].
+///
+/// {@category Controls}
 enum AdwButtonRowStyle {
+  /// Default card-styled button row.
   standard,
+
+  /// Accent-colored primary action row (`.suggested-action`).
   suggested,
+
+  /// Alert-colored destructive action row (`.destructive-action`).
   destructive,
 }
 
 /// Native Libadwaita button row (`AdwButtonRow`).
 ///
-/// Designed to be placed inside a separated [AdwPreferencesGroup] (or standalone)
-/// to present prominent centered action rows such as `Add Input Source`,
-/// `Delete Event`, or `Search`.
+/// Designed to be placed inside a separated [AdwPreferencesGroup] (or
+/// standalone) to present prominent centered action rows such as
+/// `Add Input Source`, `Delete Event`, or `Search`.
+///
+/// ```dart
+/// AdwButtonRow.destructive(
+///   title: const Text('Delete Account'),
+///   onPressed: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPreferencesGroup], the standard container for button rows.
+/// * [AdwActionRow], for standard title/subtitle preference rows.
+///
+/// {@category Controls}
 class AdwButtonRow extends StatefulWidget {
+  /// Centered label widget for the button row.
   final Widget title;
+
+  /// Optional icon placed at the leading edge of the row.
   final Widget? startIcon;
+
+  /// Optional icon placed at the trailing edge of the row.
   final Widget? endIcon;
+
+  /// Visual style variant. Defaults to [AdwButtonRowStyle.standard].
   final AdwButtonRowStyle style;
+
+  /// Callback invoked when the row is pressed. When `null`, the row is disabled.
   final VoidCallback? onPressed;
+
+  /// Minimum height of the row in logical pixels. Defaults to `44.0`.
   final double minHeight;
 
+  /// Creates a standard Libadwaita button row.
   const AdwButtonRow({
     super.key,
     required this.title,
@@ -114,9 +149,9 @@ class _AdwButtonRowState extends State<AdwButtonRow> {
         if (!isEnabled) {
           bgColor = base.withValues(alpha: 0.5);
         } else if (_isPressed) {
-          bgColor = Color.lerp(base, const Color(0xFF000000), 0.15)!;
+          bgColor = Color.lerp(base, AdwColors.dark5, 0.15)!;
         } else if (isHighlighted) {
-          bgColor = Color.lerp(base, const Color(0xFFFFFFFF), 0.08)!;
+          bgColor = Color.lerp(base, AdwColors.light1, 0.08)!;
         } else {
           bgColor = base;
         }

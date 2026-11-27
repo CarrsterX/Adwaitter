@@ -26,20 +26,63 @@ import 'adw_window.dart';
 ///
 /// Sets up the widget tree, navigation, dual theme switching (light/dark),
 /// brightness observer, desktop environment animation settings sync,
-/// transversal [AdwScrollBehavior], and Adwaita typography.
+/// transversal [AdwScrollBehavior], and Adwaita typography without depending
+/// on `material.dart`.
+///
+/// ```dart
+/// const AdwApplication(
+///   title: 'My Adwaita App',
+///   home: AdwWindow(
+///     headerBar: AdwHeaderBar(
+///       titleWidget: AdwWindowTitle(title: 'My Adwaita App'),
+///     ),
+///     child: Center(child: Text('Hello')),
+///   ),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwWindow], the standard root window placed in [home].
+/// * [AdwStyleManager], for runtime light/dark and accent control.
+///
+/// {@category Layout}
 class AdwApplication extends StatefulWidget {
+  /// Application title shown by the OS task switcher and browser tab.
   final String title;
+
+  /// Default route widget displayed when the application starts.
   final Widget? home;
+
+  /// Top-level named route table.
   final Map<String, WidgetBuilder> routes;
+
+  /// Name of the initial route to display when [home] is omitted.
   final String? initialRoute;
+
+  /// Route generator callback invoked for named routes not found in [routes].
   final RouteFactory? onGenerateRoute;
+
+  /// Optional wrapper inserted above the navigator (e.g. for [AdwToastOverlay]).
   final TransitionBuilder? builder;
+
+  /// Optional light [AdwThemeData] override.
   final AdwThemeData? theme;
+
+  /// Optional dark [AdwThemeData] override.
   final AdwThemeData? darkTheme;
+
+  /// Active color scheme preference (`system`, `light`, or `dark`).
+  /// Defaults to [AdwThemeMode.system].
   final AdwThemeMode themeMode;
+
+  /// Optional initial GNOME accent color override.
   final AdwAccentColor? accentColor;
+
+  /// Optional custom [ScrollBehavior]. Defaults to [AdwScrollBehavior].
   final ScrollBehavior? scrollBehavior;
 
+  /// Creates the root Libadwaitter application widget.
   const AdwApplication({
     super.key,
     this.title = '',
@@ -662,41 +705,9 @@ class _AdwNineSliceShadowCache {
 
   static final Map<String, ui.Image> _cache = <String, ui.Image>{};
 
-  static const List<BoxShadow> _darkShadows = [
-    BoxShadow(
-      color: Color(0x52000000),
-      blurRadius: 24.0,
-      spreadRadius: 0.0,
-      offset: Offset(0, 6),
-    ),
-    BoxShadow(
-      color: Color(0x30000000),
-      blurRadius: 8.0,
-      spreadRadius: 0.0,
-      offset: Offset(0, 2),
-    ),
-  ];
+  static const List<BoxShadow> _darkShadows = AdwColorScheme.subWindowDarkShadows;
 
-  static const List<BoxShadow> _lightShadows = [
-    BoxShadow(
-      color: Color(0x2E000006),
-      blurRadius: 24.0,
-      spreadRadius: 0.0,
-      offset: Offset(0, 6),
-    ),
-    BoxShadow(
-      color: Color(0x1A000006),
-      blurRadius: 6.0,
-      spreadRadius: 0.0,
-      offset: Offset(0, 2),
-    ),
-    BoxShadow(
-      color: Color(0x14000006),
-      blurRadius: 1.0,
-      spreadRadius: 0.5,
-      offset: Offset.zero,
-    ),
-  ];
+  static const List<BoxShadow> _lightShadows = AdwColorScheme.subWindowLightShadows;
 
   static ui.Image getOrCreate({
     required BorderRadius radius,

@@ -286,14 +286,12 @@ class _Keycap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final isDark = theme.colors.isDark;
     // Matches Libadwaita _shortcuts-dialog.scss `.keycap`:
     // background: color-mix(in srgb, currentColor 10%, transparent);
     // box-shadow: inset 0 -2px var(--card-shade-color);
     // border-radius: 6px; padding: 4px 6px; min-width: 20px (total ~32px).
     final bgColor = theme.colors.foreground.withValues(alpha: 0.10);
-    final shadeColor =
-        isDark ? const Color(0x52000000) : const Color(0x1F000000);
+    final shadeColor = theme.colors.shortcutKeycapShadeColor;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -340,7 +338,29 @@ class _Keycap extends StatelessWidget {
 /// A dialog that displays application keyboard shortcuts grouped by section
 /// with live search filtering.
 ///
-/// Mirrors Libadwaita 1.8's `AdwShortcutsDialog`.
+/// Mirrors Libadwaita 1.8's `AdwShortcutsDialog`. Present with
+/// [showAdwShortcutsDialog].
+///
+/// ```dart
+/// showAdwShortcutsDialog(
+///   context: context,
+///   sections: const [
+///     AdwShortcutsSection(
+///       title: 'General',
+///       items: [
+///         AdwShortcutsItem(title: 'Quit', accelerator: '<Control>q'),
+///       ],
+///     ),
+///   ],
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [AdwShortcutsSection] and [AdwShortcutsItem], defining sections and items.
+/// * [AdwShortcutLabel], rendering GTK accelerator strings as keycaps.
+///
+/// {@category Overlays}
 class AdwShortcutsDialog extends StatefulWidget {
   /// Creates an [AdwShortcutsDialog].
   const AdwShortcutsDialog({
@@ -548,9 +568,7 @@ class _AdwShortcutsDialogState extends State<AdwShortcutsDialog> {
                   horizontal: _searchFocused ? 9.0 : 10.0,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.colors.isDark
-                      ? const Color(0xFF3E3E42)
-                      : const Color(0xFFFFFFFF),
+                  color: theme.colors.dialogSearchBackground,
                   borderRadius: BorderRadius.circular(AdwMetrics.buttonRadius),
                   border: Border.all(
                     color: _searchFocused

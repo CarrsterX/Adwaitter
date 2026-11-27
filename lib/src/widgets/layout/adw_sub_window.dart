@@ -29,6 +29,8 @@ typedef AdwSubWindowBuilder = Widget Function(
 
 /// Active handle to a secondary window (native on Linux, or an additional
 /// pushed screen on non-Linux platforms) managed by [AdwSubWindowManager].
+///
+/// {@category Layout}
 class AdwSubWindowHandle {
   final WindowController? windowController;
   final AdwWindowController adwController;
@@ -207,12 +209,16 @@ class _ScreenWindowController implements AdwWindowController {
 /// Manages native secondary desktop windows and popup windows on Linux using
 /// Flutter's multi-window engine (`WindowController` / `PopupWindowController`
 /// / `ViewCollection`), and automatically falls back to additional in-app
-/// screens (`AdwNavigationPageRoute`) on non-Linux platforms.
+/// screens ([AdwNavigationPageRoute]) on non-Linux platforms.
+///
+/// {@category Layout}
 class AdwSubWindowManager extends ChangeNotifier {
   AdwSubWindowManager._();
 
+  /// Shared singleton manager instance.
   static final AdwSubWindowManager instance = AdwSubWindowManager._();
 
+  /// Root navigator key used for fallback in-app screens on non-Linux platforms.
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   final List<AdwSubWindowHandle> _windows = <AdwSubWindowHandle>[];
   final List<AdwPopupWindowEntry> _popups = <AdwPopupWindowEntry>[];
@@ -470,7 +476,7 @@ class AdwSubWindowManager extends ChangeNotifier {
     );
   }
 
-  /// Builds the [PopupWindow] view widget for a [popup] entry to be placed
+  /// Builds the [PopupWindow] view widget for a popup [entry] to be placed
   /// inside a [ViewCollection].
   static Widget buildPopupView({
     required AdwPopupWindowEntry entry,

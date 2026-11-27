@@ -1,7 +1,29 @@
 import 'package:flutter/widgets.dart';
 
-/// A user avatar widget with generated initials and fallback (`AdwAvatar`).
+import '../../theme/adw_colors.dart';
+
+/// A circular user or entity avatar matching GNOME Libadwaita's `AdwAvatar`.
+///
+/// Displays a [customImage] when provided, or falls back to a deterministic
+/// gradient from [AdwColors.avatarPalette] (hashed from [text]) with optional
+/// initials when [showInitials] is `true`, or a neutral person silhouette when
+/// [text] is empty.
+///
+/// ```dart
+/// const AdwAvatar(
+///   size: 64,
+///   text: 'Ada Lovelace',
+///   showInitials: true,
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwColors.avatarPalette], the 14-color palette used for generated avatars.
+///
+/// {@category Display}
 class AdwAvatar extends StatelessWidget {
+  /// Creates a circular Libadwaita avatar with the given [size].
   const AdwAvatar({
     super.key,
     required this.size,
@@ -10,27 +32,21 @@ class AdwAvatar extends StatelessWidget {
     this.customImage,
   });
 
+  /// Diameter of the circular avatar in logical pixels.
   final double size;
+
+  /// Optional display name used to pick a deterministic background color and
+  /// derive initials when [showInitials] is `true`.
   final String? text;
+
+  /// Whether to render up to two uppercase initials extracted from [text]
+  /// when [customImage] is `null`. Defaults to `false`.
   final bool showInitials;
+
+  /// Optional image displayed inside the circular avatar frame.
   final ImageProvider? customImage;
 
-  static const _palette = [
-    Color(0xFF62A0EA),
-    Color(0xFF57E389),
-    Color(0xFFF5C211),
-    Color(0xFFFFA348),
-    Color(0xFFED333B),
-    Color(0xFFC061CB),
-    Color(0xFF9141AC),
-    Color(0xFF3584E4),
-    Color(0xFF33D17A),
-    Color(0xFFE5A50A),
-    Color(0xFFFF7800),
-    Color(0xFFE01B24),
-    Color(0xFFB5835A),
-    Color(0xFF77767B),
-  ];
+  static const _palette = AdwColors.avatarPalette;
 
   String _extractInitials(String raw) {
     final parts =
@@ -53,14 +69,14 @@ class AdwAvatar extends StatelessWidget {
     final trimmed = text?.trim() ?? '';
     final initials = showInitials ? _extractInitials(trimmed) : '';
     final baseColor = (trimmed.isEmpty && customImage == null)
-        ? const Color(0xFF8E8E93)
+        ? AdwColors.avatarFallbackBase
         : _palette[_glibStrHash(trimmed) % _palette.length];
     final topColor = (trimmed.isEmpty && customImage == null)
-        ? const Color(0xFFD4D4D8)
-        : Color.lerp(baseColor, const Color(0xFFFFFFFF), 0.22)!;
+        ? AdwColors.avatarFallbackTop
+        : Color.lerp(baseColor, AdwColors.light1, 0.22)!;
     final bottomColor = (trimmed.isEmpty && customImage == null)
-        ? const Color(0xFF5E5E64)
-        : Color.lerp(baseColor, const Color(0xFF000000), 0.22)!;
+        ? AdwColors.avatarFallbackBottom
+        : Color.lerp(baseColor, AdwColors.dark5, 0.22)!;
 
     return Container(
       width: size,
@@ -89,7 +105,7 @@ class AdwAvatar extends StatelessWidget {
                     ),
                     style: TextStyle(
                       color: Color.lerp(
-                        const Color(0xFFFFFFFF),
+                        AdwColors.light1,
                         baseColor,
                         0.18,
                       ),
@@ -103,7 +119,7 @@ class AdwAvatar extends StatelessWidget {
                   size: Size.square(size * 0.48),
                   painter: _AvatarFallbackPainter(
                     color: Color.lerp(
-                      const Color(0xFFFFFFFF),
+                      AdwColors.light1,
                       baseColor,
                       0.18,
                     )!,

@@ -11,16 +11,47 @@ import '../../theme/adw_theme.dart';
 /// Slides down smoothly via an internal revealer when [revealed] is `true`,
 /// includes a magnifying glass prefix, placeholder text, clear button, and
 /// Escape-to-close handling.
+///
+/// ```dart
+/// AdwSearchBar(
+///   revealed: isSearching,
+///   onChanged: (query) {},
+///   onClose: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwEntry], for standalone non-collapsible text fields.
+/// * [AdwToolbarView], where search bars are typically placed in `topBars`.
+///
+/// {@category Controls}
 class AdwSearchBar extends StatefulWidget {
+  /// Whether the search bar is currently expanded and visible.
   final bool revealed;
+
+  /// Optional controller for reading or clearing the search query.
   final TextEditingController? controller;
+
+  /// Optional focus node receiving focus automatically when [revealed] turns `true`.
   final FocusNode? focusNode;
+
+  /// Hint text shown when the search field is empty. Defaults to `'Search'`.
   final String placeholder;
+
+  /// Maximum width of the centered search entry. Defaults to `400.0`.
   final double maxWidth;
+
+  /// Outer padding around the search entry inside the revealer.
   final EdgeInsetsGeometry padding;
+
+  /// Called whenever the search query changes.
   final ValueChanged<String>? onChanged;
+
+  /// Called when the user presses Escape to dismiss the search bar.
   final VoidCallback? onClose;
 
+  /// Creates a collapsible Libadwaita search bar.
   const AdwSearchBar({
     super.key,
     required this.revealed,

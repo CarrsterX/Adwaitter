@@ -10,18 +10,60 @@ import 'adw_page_header.dart';
 ///
 /// Lays out [children] (typically [AdwPreferencesGroup] widgets) inside a
 /// clamped scrollable column with uniform inter-group spacing ([groupSpacing])
-/// and optional header metadata ([icon], [title], [description]).
+/// and optional header metadata ([icon], [title], [description]). Automatically
+/// appends bottom system safe-area insets for edge-to-edge mobile scrolling.
+///
+/// ```dart
+/// const AdwPreferencesPage(
+///   title: Text('Preferences'),
+///   children: [
+///     AdwPreferencesGroup(
+///       title: Text('General'),
+///       children: [
+///         AdwActionRow(title: Text('Startup')),
+///       ],
+///     ),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPreferencesGroup], for individual boxed-list sections.
+/// * [AdwPreferencesDialog], for presenting tabbed preferences in a dialog.
+///
+/// {@category Containers}
 class AdwPreferencesPage extends StatelessWidget {
+  /// Optional hero icon displayed at the top of the page.
   final Widget? icon;
+
+  /// Optional large title displayed at the top of the page.
   final Widget? title;
+
+  /// Optional descriptive subtitle displayed below [title].
   final Widget? description;
+
+  /// Optional [AdwBanner] pinned above the scrollable content.
   final Widget? banner;
+
+  /// Vertically stacked sections (typically [AdwPreferencesGroup] widgets).
   final List<Widget> children;
+
+  /// Optional scroll padding override.
   final EdgeInsetsGeometry? padding;
+
+  /// Maximum width of the clamped content column.
+  /// Defaults to [AdwMetrics.preferencesPageMaxWidth].
   final double maxWidth;
+
+  /// Minimum horizontal margin on narrow viewports. Defaults to `12.0`.
   final double minimumMargin;
+
+  /// Vertical spacing inserted between consecutive [children].
+  /// Defaults to [AdwMetrics.preferencesGroupSpacing].
   final double groupSpacing;
 
+  /// Creates a scrollable Libadwaita preferences page.
   const AdwPreferencesPage({
     super.key,
     this.icon,

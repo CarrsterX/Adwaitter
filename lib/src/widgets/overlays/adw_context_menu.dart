@@ -6,15 +6,46 @@ import 'adw_popover.dart';
 ///
 /// Opens an [AdwPopoverSurface] anchored at the pointer position using
 /// [showAdwPopover].
+///
+/// ```dart
+/// AdwContextMenu(
+///   itemsBuilder: (context, handle) => [
+///     AdwPopoverMenuItem(label: 'Copy', onTap: handle.dismiss),
+///     AdwPopoverMenuItem(label: 'Paste', onTap: handle.dismiss),
+///   ],
+///   child: const AdwCard(child: Text('Right-click me')),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [showAdwPopover], the underlying popover presentation API.
+/// * [AdwPopoverMenuItem], standard menu rows for [itemsBuilder].
+///
+/// {@category Overlays}
 class AdwContextMenu extends StatelessWidget {
+  /// Target widget that triggers the context menu on secondary click or long press.
   final Widget child;
+
+  /// Builder returning menu widgets (typically [AdwPopoverMenuItem] and
+  /// [AdwPopoverDivider]).
   final List<Widget> Function(BuildContext context, AdwPopoverHandle handle)
       itemsBuilder;
+
+  /// Whether long-press gestures also open the context menu (recommended for
+  /// touchscreens). Defaults to `true`.
   final bool enableLongPress;
+
+  /// Minimum width of the menu popover in logical pixels. Defaults to `160.0`.
   final double minWidth;
+
+  /// Maximum width of the menu popover in logical pixels. Defaults to `260.0`.
   final double maxWidth;
+
+  /// Whether to render the popover with `.osd` dark styling. Defaults to `false`.
   final bool isOsd;
 
+  /// Creates a right-click / long-press context menu wrapper.
   const AdwContextMenu({
     super.key,
     required this.child,

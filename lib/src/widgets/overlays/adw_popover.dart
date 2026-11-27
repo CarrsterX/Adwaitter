@@ -640,22 +640,67 @@ class _OverlayPopoverLayoutDelegate extends SingleChildLayoutDelegate {
 }
 
 /// Which edge of an [AdwPopoverSurface] displays the pointer triangle.
+///
+/// {@category Overlays}
 enum AdwPopoverArrowSide {
+  /// Renders a plain rounded popover without a pointer triangle.
   none,
+
+  /// Renders the pointer triangle on the top edge (pointing upward to the anchor).
   top,
+
+  /// Renders the pointer triangle on the bottom edge (pointing downward to the anchor).
   bottom,
 }
 
 /// Styled Libadwaita popover container (`popover.background > contents`).
+///
+/// Usually returned from [showAdwPopover]'s `builder` to host
+/// [AdwPopoverMenuItem] and [AdwPopoverDivider] children or custom controls.
+///
+/// ```dart
+/// AdwPopoverSurface(
+///   arrowSide: AdwPopoverArrowSide.top,
+///   child: Column(
+///     mainAxisSize: MainAxisSize.min,
+///     children: [
+///       AdwPopoverMenuItem(label: 'Preferences', onTap: () {}),
+///       AdwPopoverMenuItem(label: 'About', onTap: () {}),
+///     ],
+///   ),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [showAdwPopover], function that positions and displays a popover.
+/// * [AdwContextMenu], for right-click / long-press context menus.
+///
+/// {@category Overlays}
 class AdwPopoverSurface extends StatelessWidget {
+  /// Content displayed inside the popover surface.
   final Widget child;
+
+  /// Internal padding around [child]. Defaults to `EdgeInsets.all(6)`.
   final EdgeInsetsGeometry padding;
+
+  /// Edge on which the pointer arrow triangle is drawn.
+  /// Defaults to [AdwPopoverArrowSide.none].
   final AdwPopoverArrowSide arrowSide;
+
+  /// Base width of the pointer triangle in logical pixels. Defaults to `18.0`.
   final double arrowWidth;
+
+  /// Height of the pointer triangle in logical pixels. Defaults to `9.0`.
   final double arrowHeight;
+
+  /// Optional explicit horizontal center offset for the arrow triangle.
   final double? arrowOffset;
+
+  /// Whether to render with translucent dark `.osd` styling. Defaults to `false`.
   final bool isOsd;
 
+  /// Creates a styled Libadwaita popover surface.
   const AdwPopoverSurface({
     super.key,
     required this.child,
@@ -693,25 +738,7 @@ class AdwPopoverSurface extends StatelessWidget {
           border: theme.colors.isHighContrast
               ? Border.all(color: theme.colors.borderColor, width: 1.0)
               : null,
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 0,
-              spreadRadius: 1,
-            ),
-            BoxShadow(
-              color: Color(0x17000000),
-              blurRadius: 5,
-              spreadRadius: 1,
-              offset: Offset(0, 1),
-            ),
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 14,
-              spreadRadius: 3,
-              offset: Offset(0, 2),
-            ),
-          ],
+          boxShadow: theme.colors.popoverShadows,
         ),
         child: content,
       );
@@ -731,7 +758,9 @@ class AdwPopoverSurface extends StatelessWidget {
           backgroundColor: effectiveBg,
           borderColor: theme.colors.isHighContrast
               ? theme.colors.borderColor
-              : (isOsd ? const Color(0x1AFFFFFF) : null),
+              : (isOsd ? theme.colors.osdBorderColor : null),
+          shadowAmbientColor: theme.colors.popoverShadowAmbientColor,
+          shadowKeyColor: theme.colors.popoverShadowKeyColor,
           radius: AdwMetrics.cardRadius,
           arrowSide: effectiveArrowSide,
           arrowWidth: arrowWidth,
@@ -765,6 +794,8 @@ class AdwPopoverSurface extends StatelessWidget {
 class _AdwPopoverSurfacePainter extends CustomPainter {
   final Color backgroundColor;
   final Color? borderColor;
+  final Color shadowAmbientColor;
+  final Color shadowKeyColor;
   final double radius;
   final AdwPopoverArrowSide arrowSide;
   final double arrowWidth;
@@ -775,6 +806,8 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
   _AdwPopoverSurfacePainter({
     required this.backgroundColor,
     this.borderColor,
+    required this.shadowAmbientColor,
+    required this.shadowKeyColor,
     required this.radius,
     required this.arrowSide,
     required this.arrowWidth,
@@ -831,7 +864,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     canvas.drawPath(
       path.shift(const Offset(0, 2)),
       Paint()
-        ..color = const Color(0x0D000000)
+        ..color = shadowAmbientColor
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
     );
 
@@ -839,7 +872,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     canvas.drawPath(
       path.shift(const Offset(0, 1)),
       Paint()
-        ..color = const Color(0x17000000)
+        ..color = shadowKeyColor
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
     );
 
@@ -847,7 +880,7 @@ class _AdwPopoverSurfacePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0x0D000000)
+        ..color = shadowAmbientColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -982,9 +1015,7 @@ class _AdwPopoverMenuItemState extends State<AdwPopoverMenuItem> {
     final menuScope = _AdwPopoverMenuScope.maybeOf(context);
     final isEnabled = widget.onTap != null;
     final isHighlighted = widget.isHighlighted;
-    final hoverFill = theme.colors.isDark
-        ? const Color(0xFF4A4A4D)
-        : const Color(0xFFEBEBEB);
+    final hoverFill = theme.colors.popoverItemHoverColor;
 
     Color bg = hoverFill.withValues(alpha: 0.0);
     if (isEnabled) {

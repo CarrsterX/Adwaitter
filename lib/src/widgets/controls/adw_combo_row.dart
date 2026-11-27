@@ -11,18 +11,55 @@ import '../overlays/adw_popover.dart';
 /// Preference row with a native GTK4/Libadwaita popover dropdown (`AdwComboRow`).
 ///
 /// Displays the currently selected value next to a trailing dropdown indicator
-/// and opens an anchored popover menu below (or above) the chevron when activated.
+/// and opens an anchored popover menu below (or above) the chevron when
+/// activated. Set [enableSearch] to `true` to include a live filter field.
+///
+/// ```dart
+/// AdwComboRow<String>(
+///   title: const Text('Color Scheme'),
+///   items: const ['System', 'Light', 'Dark'],
+///   selectedItem: 'System',
+///   onSelected: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwDropdown], for a standalone dropdown button outside preference lists.
+/// * [AdwPreferencesGroup], which hosts combo rows.
+///
+/// {@category Controls}
 class AdwComboRow<T> extends StatefulWidget {
+  /// Primary label widget for the row.
   final Widget title;
+
+  /// Optional secondary description displayed below [title].
   final Widget? subtitle;
+
+  /// Optional leading widget placed before [title].
   final Widget? prefix;
+
+  /// Selectable options displayed in the popover menu.
   final List<T> items;
+
+  /// Currently selected option from [items].
   final T selectedItem;
+
+  /// Optional formatter converting an item to its display string.
+  /// Defaults to `item.toString()`.
   final String Function(T item)? itemTitleBuilder;
+
+  /// Called when the user selects a new item from the popover.
   final ValueChanged<T>? onSelected;
+
+  /// Whether to show a search input at the top of the popover menu.
+  /// Defaults to `false`.
   final bool enableSearch;
+
+  /// Optional placeholder text for the search input when [enableSearch] is `true`.
   final String? searchPlaceholder;
 
+  /// Creates a Libadwaita combo preference row.
   const AdwComboRow({
     super.key,
     required this.title,
@@ -345,9 +382,7 @@ class _AdwComboPopoverState<T> extends State<_AdwComboPopover<T>> {
                 .contains(_query.toLowerCase()))
             .toList(growable: false);
 
-    final searchBg = theme.colors.isDark
-        ? const Color(0xFF47474B)
-        : const Color(0xFFE6E6EA);
+    final searchBg = theme.colors.comboSearchBackground;
 
     return AdwPopoverSurface(
       arrowSide: AdwPopoverArrowSide.top,

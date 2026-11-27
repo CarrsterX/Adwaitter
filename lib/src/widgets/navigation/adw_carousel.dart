@@ -4,13 +4,15 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_theme.dart';
 
 /// Controller coordinating page transitions and position tracking for [AdwCarousel].
 ///
-/// Follows upstream Libadwaita `AdwCarousel` API:
-/// https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/adw-carousel.c
+/// Follows upstream Libadwaita `AdwCarousel` API.
+///
+/// {@category Navigation}
 class AdwCarouselController extends ChangeNotifier {
   late final PageController _pageController;
   final bool _ownsController;
@@ -119,12 +121,26 @@ class AdwCarouselController extends ChangeNotifier {
 
 /// Libadwaita paginated carousel widget (`AdwCarousel`).
 ///
-/// Implements upstream GNOME Libadwaita specifications:
-/// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/adw-carousel.c`
-/// - CSS selector: `carousel`
+/// Supports interactive swiping, mouse drag, scroll-wheel navigation, keyboard
+/// traversal, spring-physics snapping, and optional overlay previous/next arrow
+/// buttons.
 ///
-/// Supports interactive swiping, mouse drag, keyboard traversal, and optional overlay
-/// previous/next navigation arrow buttons.
+/// ```dart
+/// const AdwCarousel(
+///   children: [
+///     AdwStatusPage(title: Text('Page 1')),
+///     AdwStatusPage(title: Text('Page 2')),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwCarouselController], for programmatic page control and position sync.
+/// * [AdwCarouselIndicatorDots] and [AdwCarouselIndicatorLines], for page
+///   indicators.
+///
+/// {@category Navigation}
 class AdwCarousel extends StatefulWidget {
   /// The list of widgets to display in sequential pages.
   final List<Widget> children;
@@ -568,9 +584,9 @@ class _CarouselNavButtonState extends State<_CarouselNavButton> {
     final theme = AdwTheme.of(context);
     final duration = AdwCurves.resolve(context, AdwCurves.shortDuration);
 
-    Color bg = const Color(0x80000000);
+    Color bg = theme.colors.carouselButtonBackground;
     if (_isPressed) {
-      bg = const Color(0xCC000000);
+      bg = theme.colors.carouselButtonActiveBackground;
     } else if (_isHovered) {
       bg = theme.colors.osdBackground;
     }
@@ -593,20 +609,14 @@ class _CarouselNavButtonState extends State<_CarouselNavButton> {
           decoration: BoxDecoration(
             color: bg,
             shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
+            boxShadow: theme.colors.carouselButtonShadows,
           ),
           child: Center(
             child: CustomPaint(
               size: const Size(12, 12),
               painter: _ChevronPainter(
                 direction: widget.direction,
-                color: const Color(0xFFFFFFFF),
+                color: AdwColors.light1,
               ),
             ),
           ),

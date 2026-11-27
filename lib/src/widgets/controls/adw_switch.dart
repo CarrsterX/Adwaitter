@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart' show HapticFeedback, MethodChannel;
 import 'package:flutter/widgets.dart';
 
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_metrics.dart';
@@ -11,16 +12,32 @@ import '../../theme/adw_theme.dart';
 
 /// Libadwaita toggle switch widget (`AdwSwitch`).
 ///
-/// Follows upstream Libadwaita specifications:
-/// - Track: 46x26px pill (`border-radius: 14px; padding: 3px;`)
-/// - Slider: 20x20px circle (`min-width: 20px; min-height: 20px; border-radius: 50%;`)
-/// - Perfectly vertically centered with uniform 3px margins on top, bottom, and travel limits
-/// - Upstream Libadwaita shadow: `box-shadow: 0 2px 4px RGB(0 0 6/20%)`
-/// - Accent colored when checked, subtle monochrome surface tint when unchecked
+/// Follows upstream Libadwaita specifications (`46×26px` pill track, `20×20px`
+/// circular thumb, optional `I`/`O` status shapes, drag gesture support, and
+/// native haptic feedback on Android/iOS).
+///
+/// ```dart
+/// AdwSwitch(
+///   value: isEnabled,
+///   onChanged: (next) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwSwitchRow], which pairs an [AdwSwitch] with a preference row.
+/// * [AdwCheckbox], for multi-select check buttons.
+///
+/// {@category Controls}
 class AdwSwitch extends StatefulWidget {
+  /// Whether the switch is currently turned on.
   final bool value;
+
+  /// Called when the user toggles the switch. When `null`, the switch is
+  /// rendered disabled.
   final ValueChanged<bool>? onChanged;
 
+  /// Creates a Libadwaita binary toggle switch.
   const AdwSwitch({
     super.key,
     required this.value,
@@ -95,16 +112,16 @@ class _AdwSwitchState extends State<AdwSwitch> {
     if (effectiveChecked) {
       trackColor = theme.colors.accentColor;
       if (_isPressed && _isEnabled) {
-        trackColor = Color.lerp(trackColor, const Color(0xFF000000), 0.15)!;
+        trackColor = Color.lerp(trackColor, AdwColors.dark5, 0.15)!;
       } else if (_isHovered && _isEnabled) {
-        trackColor = Color.lerp(trackColor, const Color(0xFFFFFFFF), 0.12)!;
+        trackColor = Color.lerp(trackColor, AdwColors.light1, 0.12)!;
       }
     } else {
       final baseOff = theme.colors.switchOffTrackColor;
       if (_isPressed && _isEnabled) {
         trackColor = Color.lerp(
           baseOff,
-          isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
+          isDark ? AdwColors.light1 : AdwColors.dark5,
           0.16,
         )!;
       } else if (_isHovered && _isEnabled) {
@@ -124,10 +141,10 @@ class _AdwSwitchState extends State<AdwSwitch> {
         _isHovered ||
         _isPressed ||
         !isDark) {
-      sliderColor = const Color(0xFFFFFFFF);
+      sliderColor = AdwColors.light1;
     } else {
       // 80% white + 20% view-bg-color (#1D1D20)
-      sliderColor = const Color(0xFFD2D2D4);
+      sliderColor = theme.colors.switchThumbIdleDarkColor;
     }
 
     if (!_isEnabled) {
@@ -294,7 +311,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
                             width: 2.5,
                             height: 10.0,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFFFFF),
+                              color: AdwColors.light1,
                               borderRadius: BorderRadius.circular(1.25),
                             ),
                           ),
@@ -343,13 +360,7 @@ class _AdwSwitchState extends State<AdwSwitch> {
                 decoration: BoxDecoration(
                   color: sliderColor,
                   shape: BoxShape.circle,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33000000), // 20% shadow opacity
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
+                  boxShadow: theme.colors.switchThumbShadows,
                 ),
               ),
             ),

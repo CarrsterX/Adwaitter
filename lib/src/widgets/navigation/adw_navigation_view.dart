@@ -8,6 +8,8 @@ import 'adw_navigation_transition.dart';
 /// Each page has a [title] (used by [AdwNavigationView] and [AdwHeaderBar]),
 /// an optional [tag] for programmatic pop-to-tag navigation, and a [canPop] flag
 /// controlling whether back navigation and predictive swipe-back are enabled.
+///
+/// {@category Navigation}
 class AdwNavigationPage extends StatelessWidget {
   /// Optional identifier used by [AdwNavigationViewController.popToTag].
   final String? tag;
@@ -52,11 +54,19 @@ class AdwNavigationPage extends StatelessWidget {
 
 /// Inherited scope exposed by [AdwNavigationView] to descendant widgets such as
 /// [AdwHeaderBar] and [AdwNavigationPage] children.
+///
+/// {@category Navigation}
 class AdwNavigationViewScope extends InheritedWidget {
+  /// Controller managing the enclosing [AdwNavigationView] stack.
   final AdwNavigationViewController controller;
+
+  /// Whether the top page can currently be popped.
   final bool canPop;
+
+  /// Title of the currently visible [AdwNavigationPage], if any.
   final String? visiblePageTitle;
 
+  /// Creates a navigation view scope.
   const AdwNavigationViewScope({
     super.key,
     required this.controller,
@@ -65,10 +75,12 @@ class AdwNavigationViewScope extends InheritedWidget {
     required super.child,
   });
 
+  /// Returns the nearest [AdwNavigationViewScope], or `null` if absent.
   static AdwNavigationViewScope? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<AdwNavigationViewScope>();
   }
 
+  /// Returns the nearest [AdwNavigationViewScope], asserting if absent.
   static AdwNavigationViewScope of(BuildContext context) {
     final scope = maybeOf(context);
     assert(
@@ -87,6 +99,8 @@ class AdwNavigationViewScope extends InheritedWidget {
 }
 
 /// Controller for managing the navigation stack of an [AdwNavigationView].
+///
+/// {@category Navigation}
 class AdwNavigationViewController extends ChangeNotifier {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final List<AdwNavigationPage> _stack = <AdwNavigationPage>[];
@@ -183,6 +197,23 @@ class AdwNavigationViewController extends ChangeNotifier {
 /// Provides native Libadwaita horizontal slide transitions, predictive swipe-back
 /// gestures (touch, trackpad, optional mouse drag, and system predictive back),
 /// and [AdwNavigationViewScope] for automatic header bar back-button integration.
+///
+/// ```dart
+/// const AdwNavigationView(
+///   initialPage: AdwNavigationPage(
+///     title: 'Home',
+///     child: AdwStatusPage(title: Text('Root Page')),
+///   ),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwNavigationPage], representing each page pushed onto the stack.
+/// * [AdwNavigationViewController], for pushing and popping pages.
+/// * [AdwNavigationSplitView], which uses [AdwNavigationView] when collapsed.
+///
+/// {@category Navigation}
 class AdwNavigationView extends StatefulWidget {
   /// The root page displayed at the bottom of the navigation stack.
   final AdwNavigationPage initialPage;
@@ -313,9 +344,18 @@ class _AdwNavigationViewState extends State<AdwNavigationView> {
   }
 }
 
+/// Internal [NavigatorObserver] synchronizing an [AdwNavigationViewController]
+/// with Flutter's underlying [Navigator] route stack.
+///
+/// {@category Navigation}
 class AdwNavigationViewObserver extends NavigatorObserver {
+  /// Controller notified when routes are popped.
   final AdwNavigationViewController controller;
+
+  /// Callback invoked with the popped [Route].
   final void Function(Route<dynamic> route) onPop;
+
+  /// Optional callback invoked after pop notification completes.
   final VoidCallback? onPopCompleted;
 
   AdwNavigationViewObserver({

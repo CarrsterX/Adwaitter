@@ -7,6 +7,8 @@ import 'adw_web_settings_stub.dart'
     if (dart.library.js_interop) 'adw_web_settings_web.dart';
 
 /// Configuration descriptor for desktop animation characteristics and speed factors.
+///
+/// {@category Theming & Localization}
 class AdwAnimationSettings {
   /// Whether animations are enabled globally by the host desktop environment.
   final bool enableAnimations;

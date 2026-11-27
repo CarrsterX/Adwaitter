@@ -8,10 +8,16 @@ import 'adw_navigation_split_view.dart';
 
 /// A declarative section of items inside an [AdwSidebar], matching GNOME
 /// Libadwaita 1.9+'s `AdwSidebarSection`.
+///
+/// {@category Navigation}
 class AdwSidebarSection {
+  /// Optional muted section header displayed above [items].
   final String? title;
+
+  /// Sidebar entries (typically [AdwSidebarItem] widgets) in this section.
   final List<Widget> items;
 
+  /// Creates a named or unnamed sidebar section.
   const AdwSidebarSection({
     this.title,
     required this.items,
@@ -22,12 +28,40 @@ class AdwSidebarSection {
 /// `AdwSidebar`.
 ///
 /// Renders grouped [sections] with optional section headers, subtle dividers
-/// between sections, and an integrated [AdwScrollbar].
+/// between sections, roving keyboard focus, and an integrated [AdwScrollbar].
+///
+/// ```dart
+/// const AdwSidebar(
+///   sections: [
+///     AdwSidebarSection(
+///       title: 'Library',
+///       items: [
+///         AdwSidebarItem(title: Text('Recent'), isSelected: true),
+///         AdwSidebarItem(title: Text('Starred')),
+///       ],
+///     ),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwSidebarSection], which groups related sidebar items.
+/// * [AdwSidebarItem], an individual selectable sidebar entry.
+/// * [AdwNavigationSplitView], which commonly hosts [AdwSidebar].
+///
+/// {@category Navigation}
 class AdwSidebar extends StatefulWidget {
+  /// Ordered list of sections rendered in the sidebar.
   final List<AdwSidebarSection> sections;
+
+  /// Optional external [ScrollController] for the sidebar list.
   final ScrollController? controller;
+
+  /// Vertical scroll padding around the sidebar sections.
   final EdgeInsetsGeometry padding;
 
+  /// Creates a declarative GNOME navigation sidebar.
   const AdwSidebar({
     super.key,
     required this.sections,
@@ -44,9 +78,13 @@ class AdwSidebar extends StatefulWidget {
 /// Treats the entire sidebar list as a single `Tab` stop: pressing `Tab` exits
 /// to the content pane, `Shift+Tab` returns to headerbar controls, and
 /// `ArrowUp` / `ArrowDown` navigate between sidebar items with auto-scroll.
+///
+/// {@category Navigation}
 class AdwSidebarFocusGroup extends StatefulWidget {
+  /// Sidebar subtree participating in roving arrow-key focus traversal.
   final Widget child;
 
+  /// Creates a roving-focus wrapper for navigation sidebars.
   const AdwSidebarFocusGroup({
     super.key,
     required this.child,

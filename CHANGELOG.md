@@ -1,3 +1,9 @@
+## 1.0.0-alpha.11
+
+* **Full Paginated `dartdoc` Documentation**: Added `dartdoc_options.yaml` with 8 topic categories (`Layout`, `Navigation`, `Containers`, `Controls`, `Overlays`, `Display`, `Theming & Localization`, `Core`), 8 topic guides under `doc/`, and 100% public API documentation across all 74 exported files (0 warnings, 0 errors on `dart doc --validate-links`).
+* **Libadwaita 1.6+ OKLab Color Engine & Centralization**: Implemented pure-Dart `AdwColors.colorMix`, `AdwColors.colorMixTransparent`, `AdwColors.standaloneOklab`, and `AdwColors.standaloneOklabOver` matching GTK4's extended-sRGB compositor; fixed stale accent base colors (`accentYellow`, `accentOrange`, `accentRed`, `accentSlate`) and centralized all widget colors and shadow stacks into `AdwColorScheme` / `AdwColors` (0 hardcoded colors in widgets).
+* **Focus Ring & Cleanup**: Suppressed blue `:focus-visible` ring on mouse clicks in `AdwSidebarItem` (ring now appears only on `Tab` / arrow-key navigation, matching GTK4), removed 30 dead legacy widget shim files, and aligned `flutter_lints: ^3.0.0`.
+
 ## 1.0.0-alpha.10
 
 * Fixed `README.md` screenshot and GIF URLs to use absolute `raw.githubusercontent.com` links so they render reliably on `pub.dev`.

@@ -10,11 +10,30 @@ import '../../theme/adw_theme.dart';
 ///
 /// Displays a floating dark tooltip near the pointer after [waitDuration]
 /// without depending on `material.dart`.
+///
+/// ```dart
+/// const AdwTooltip(
+///   message: 'Save changes',
+///   child: AdwButton(child: Text('Save')),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPopoverSurface], for interactive popovers and menus.
+///
+/// {@category Overlays}
 class AdwTooltip extends StatefulWidget {
+  /// Text displayed inside the floating tooltip bubble.
   final String message;
+
+  /// Target widget that triggers the tooltip on hover.
   final Widget child;
+
+  /// Hover delay before the tooltip appears. Defaults to `550ms`.
   final Duration waitDuration;
 
+  /// Creates a Libadwaita hover tooltip wrapping [child].
   const AdwTooltip({
     super.key,
     required this.message,
@@ -67,7 +86,7 @@ class _AdwTooltipState extends State<AdwTooltip> {
 
     final theme = AdwTheme.of(context);
     final textStyle = theme.typography.body.copyWith(
-      color: const Color(0xFFFFFFFF),
+      color: theme.colors.tooltipForeground,
     );
     final textDirection = Directionality.of(context);
     final textScaler = MediaQuery.textScalerOf(context);
@@ -108,19 +127,13 @@ class _AdwTooltipState extends State<AdwTooltip> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
             decoration: BoxDecoration(
-              color: const Color(0xE81C1C1E),
+              color: theme.colors.tooltipBackground,
               borderRadius: BorderRadius.circular(8.0),
               border: Border.all(
-                color: const Color(0x24FFFFFF),
+                color: theme.colors.tooltipBorderColor,
                 width: 1.0,
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x4D000000),
-                  blurRadius: 10.0,
-                  offset: Offset(0, 3),
-                ),
-              ],
+              boxShadow: theme.colors.tooltipShadows,
             ),
             child: DefaultTextStyle(
               style: textStyle,

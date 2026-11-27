@@ -6,17 +6,41 @@ import '../../theme/adw_theme.dart';
 
 /// Interactive navigation sidebar item (`AdwSidebarItem`).
 ///
-/// Implements the selection style of GNOME Libadwaita:
-/// - Subtle background on hover.
-/// - Rounded selection highlight (6px).
-/// - Symbolic icon vertically aligned with the title text.
+/// Implements the GNOME Libadwaita navigation sidebar row with hover/active
+/// feedback, a `6px` rounded selection highlight, and optional leading [icon]
+/// and [trailing] badge/counter.
+///
+/// ```dart
+/// AdwSidebarItem(
+///   icon: const Icon(AdwIcons.folder_symbolic, size: 16),
+///   title: const Text('Documents'),
+///   isSelected: true,
+///   onTap: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwSidebar], the container for [AdwSidebarItem] entries.
+///
+/// {@category Navigation}
 class AdwSidebarItem extends StatefulWidget {
+  /// Optional leading symbolic icon placed before [title].
   final Widget? icon;
+
+  /// Primary label widget for the sidebar entry.
   final Widget title;
+
+  /// Optional trailing widget (e.g. unread badge or status icon).
   final Widget? trailing;
+
+  /// Whether this item is currently selected. Defaults to `false`.
   final bool isSelected;
+
+  /// Callback invoked when the user activates this sidebar item.
   final VoidCallback? onTap;
 
+  /// Creates an interactive GNOME sidebar item.
   const AdwSidebarItem({
     super.key,
     this.icon,
@@ -34,6 +58,7 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
   bool _isHovered = false;
   bool _isPressed = false;
   bool _isFocused = false;
+  bool _focusedByPointer = false;
   final FocusNode _focusNode = FocusNode(debugLabel: 'AdwSidebarItem');
 
   @override
@@ -45,21 +70,20 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
   @override
   Widget build(BuildContext context) {
     final theme = AdwTheme.of(context);
-    final isDark = theme.colors.isDark;
 
     Color bg = const Color(0x00000000);
     if (widget.isSelected) {
       if (_isPressed) {
-        bg = isDark ? const Color(0x30FFFFFF) : const Color(0x1E000000); // 19%
+        bg = theme.colors.sidebarSelectedActiveBackground; // 19%
       } else if (_isHovered || _isFocused) {
-        bg = isDark ? const Color(0x21FFFFFF) : const Color(0x16000000); // 13%
+        bg = theme.colors.sidebarSelectedHoverBackground; // 13%
       } else {
         bg = theme.colors.sidebarSelectedBackground; // 10% -> exact #424246 over #2e2e32
       }
     } else if (_isPressed) {
-      bg = isDark ? const Color(0x29FFFFFF) : const Color(0x14000000); // 16%
+      bg = theme.colors.sidebarActiveBackground; // 16%
     } else if (_isHovered || _isFocused) {
-      bg = isDark ? const Color(0x12FFFFFF) : const Color(0x0A000000); // 7%
+      bg = theme.colors.sidebarHoverBackground; // 7%
     }
 
     final effectiveFg = theme.colors.windowForeground;
@@ -82,7 +106,11 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
             if (_isHovered != hovered) setState(() => _isHovered = hovered);
           },
           onShowFocusHighlight: (focused) {
-            if (_isFocused != focused) setState(() => _isFocused = focused);
+            if (!focused) {
+              _focusedByPointer = false;
+            }
+            final showRing = focused && !_focusedByPointer;
+            if (_isFocused != showRing) setState(() => _isFocused = showRing);
           },
           actions: isEnabled
               ? <Type, Action<Intent>>{
@@ -100,7 +128,11 @@ class _AdwSidebarItemState extends State<AdwSidebarItem> {
             onTapUp: (_) => setState(() => _isPressed = false),
             onTapCancel: () => setState(() => _isPressed = false),
             onTap: () {
-              if (isEnabled) _focusNode.requestFocus();
+              if (isEnabled) {
+                _focusedByPointer = true;
+                if (_isFocused) setState(() => _isFocused = false);
+                _focusNode.requestFocus();
+              }
               widget.onTap?.call();
             },
             child: AnimatedContainer(

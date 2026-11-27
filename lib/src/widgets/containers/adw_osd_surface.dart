@@ -9,16 +9,49 @@ import '../../theme/adw_theme.dart';
 /// Renders Libadwaita's dark OSD container by default, with optional
 /// [backgroundColor], [foregroundColor], and [blurSigma] (using GPU-accelerated
 /// [BackdropFilter]) for translucent/frosted media bars and floating controls.
+///
+/// ```dart
+/// const AdwOsdSurface(
+///   padding: EdgeInsets.all(8),
+///   child: Text('Media Controls'),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwButton.osd], for buttons styled to sit inside an OSD toolbar.
+/// * [AdwCard], for standard non-OSD elevated surfaces.
+///
+/// {@category Containers}
 class AdwOsdSurface extends StatelessWidget {
+  /// Content displayed inside the OSD surface.
   final Widget child;
+
+  /// Optional surface background override.
+  /// Defaults to [AdwColorScheme.osdBackground].
   final Color? backgroundColor;
+
+  /// Optional text and icon foreground override.
+  /// Defaults to [AdwColorScheme.osdForeground].
   final Color? foregroundColor;
+
+  /// Gaussian backdrop blur sigma (`0.0` disables blur). Automatically set to
+  /// `0.0` when reduced motion is enabled.
   final double blurSigma;
+
+  /// Corner radius of the OSD container. Defaults to `15.0`.
   final BorderRadius borderRadius;
+
+  /// Internal padding around [child]. Defaults to `EdgeInsets.all(6.0)`.
   final EdgeInsetsGeometry padding;
+
+  /// Optional border drawn around the OSD surface.
   final BoxBorder? border;
+
+  /// Optional elevation shadows behind the OSD surface.
   final List<BoxShadow>? boxShadow;
 
+  /// Creates a Libadwaita `.osd` floating surface container.
   const AdwOsdSurface({
     super.key,
     required this.child,

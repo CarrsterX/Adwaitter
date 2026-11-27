@@ -8,15 +8,40 @@ import '../layout/adw_window.dart';
 
 /// Collapsible informational contextual banner (`AdwBanner`).
 ///
-/// Typically placed directly below an [AdwHeaderBar] to notify
-/// critical app states (e.g. "No internet connection", "Update available").
+/// Typically placed directly below an [AdwHeaderBar] to notify users of
+/// important application states (e.g. "Offline mode", "Update available") with
+/// an optional action button.
+///
+/// ```dart
+/// AdwBanner(
+///   title: const Text('No internet connection'),
+///   buttonLabel: 'Retry',
+///   onButtonPressed: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwToast], for temporary non-blocking in-app notifications.
+///
+/// {@category Overlays}
 class AdwBanner extends StatefulWidget {
+  /// Message widget centered inside the banner.
   final Widget title;
+
+  /// Optional label for the trailing action button.
   final String? buttonLabel;
+
+  /// Callback invoked when the trailing action button is pressed.
   final VoidCallback? onButtonPressed;
+
+  /// Whether the banner is currently expanded and visible. Defaults to `true`.
   final bool revealed;
+
+  /// Whether to style the action button with `.suggested-action`. Defaults to `false`.
   final bool useSuggestedStyle;
 
+  /// Creates a collapsible Libadwaita informational banner.
   const AdwBanner({
     super.key,
     required this.title,

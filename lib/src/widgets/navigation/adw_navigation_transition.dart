@@ -5,22 +5,33 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_spring.dart';
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import 'adw_carousel.dart';
 import '../../theme/adw_theme.dart';
 
 /// Visual transition matching GNOME Libadwaita's `AdwNavigationView`.
 ///
-/// Unlike iOS (edge-only Cupertino physics) or Android (predictive scale-down),
-/// Libadwaita slides the active page `1:1` horizontally while the underlying
-/// page performs a subtle parallax shift (`-33%`) with a progressive dimming
-/// scrim and a soft left-edge drop shadow on the incoming/outgoing page.
+/// Slides the active page `1:1` horizontally while the underlying page performs
+/// a subtle parallax shift (`-33%`) with a progressive dimming scrim and a soft
+/// left-edge drop shadow.
+///
+/// {@category Navigation}
 class AdwNavigationPageTransition extends StatelessWidget {
+  /// Entrance/exit animation for the active page.
   final Animation<double> primaryAnimation;
+
+  /// Animation driven when another route is pushed on top of this page.
   final Animation<double> secondaryAnimation;
+
+  /// Page subtree animated by this transition.
   final Widget child;
+
+  /// Whether to track [primaryAnimation] linearly (used during interactive
+  /// drag gestures). Defaults to `false`.
   final bool linearTransition;
 
+  /// Creates a Libadwaita horizontal parallax navigation transition.
   const AdwNavigationPageTransition({
     super.key,
     required this.primaryAnimation,
@@ -51,7 +62,7 @@ class AdwNavigationPageTransition extends StatelessWidget {
           );
 
     final Color pageBackground = theme?.colors.windowBackground ??
-        (isDark ? const Color(0xFF242424) : const Color(0xFFFAFAFA));
+        (isDark ? AdwColors.fallbackDarkWindow : AdwColors.fallbackLightWindow);
 
     return AnimatedBuilder(
       animation: Listenable.merge([effectivePrimary, effectiveSecondary]),

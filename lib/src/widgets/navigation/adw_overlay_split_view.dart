@@ -6,23 +6,64 @@ import '../../theme/adw_theme.dart';
 import '../layout/adw_window.dart';
 
 /// Which side the sidebar is placed on in [AdwOverlaySplitView].
+///
+/// {@category Navigation}
 enum AdwSplitViewPosition {
+  /// Places the sidebar on the leading edge (left in LTR).
   start,
+
+  /// Places the sidebar on the trailing edge (right in LTR).
   end,
 }
 
 /// Overlay / collapsible split view widget matching GNOME Libadwaita's
-/// `AdwOverlaySplitView` with upstream `AdwSpringAnimation` physics.
+/// `AdwOverlaySplitView` with upstream [AdwSpringParams] physics.
+///
+/// Shows [sidebar] alongside [content] on wide screens and overlays it with a
+/// dimming scrim on narrow screens (`width < collapseBreakpoint`).
+///
+/// ```dart
+/// AdwOverlaySplitView(
+///   showSidebar: isSidebarOpen,
+///   sidebar: const AdwSidebar(sections: []),
+///   content: const AdwStatusPage(title: Text('Main Content')),
+///   onShowSidebarChanged: (open) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwNavigationSplitView], for two-pane navigation that collapses into a stack.
+/// * [AdwSplitViewPosition], controlling start vs end sidebar placement.
+///
+/// {@category Navigation}
 class AdwOverlaySplitView extends StatefulWidget {
+  /// Collapsible sidebar widget.
   final Widget sidebar;
+
+  /// Main content widget displayed beside or underneath [sidebar].
   final Widget content;
+
+  /// Whether the sidebar is currently revealed. Defaults to `true`.
   final bool showSidebar;
+
+  /// Optional explicit override forcing overlay (`true`) or side-by-side (`false`).
   final bool? collapsed;
+
+  /// Viewport width threshold below which the sidebar switches to overlay mode.
+  /// Defaults to `400.0`.
   final double collapseBreakpoint;
+
+  /// Width of the sidebar pane in logical pixels. Defaults to `240.0`.
   final double sidebarWidth;
+
+  /// Edge on which the sidebar is anchored. Defaults to [AdwSplitViewPosition.start].
   final AdwSplitViewPosition sidebarPosition;
+
+  /// Called when the user dismisses or toggles the overlay sidebar.
   final ValueChanged<bool>? onShowSidebarChanged;
 
+  /// Creates an adaptive overlay split view.
   const AdwOverlaySplitView({
     super.key,
     required this.sidebar,

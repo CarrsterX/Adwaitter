@@ -1,4 +1,37 @@
-/// Pure Dart & Flutter implementation of GNOME Libadwaita and GNOME HIG.
+/// Cross-platform pure Dart & Flutter implementation of GNOME Libadwaita (1.10+)
+/// and the GNOME Human Interface Guidelines (HIG).
+///
+/// `adwaitter` is built strictly on `package:flutter/widgets.dart` with zero
+/// dependency on `material.dart` or `cupertino.dart`, and runs across Linux,
+/// Android, iOS, macOS, Windows, and Web/WASM.
+///
+/// ## Quick Start
+///
+/// ```dart
+/// import 'package:adwaitter/adwaitter.dart';
+/// import 'package:flutter/widgets.dart';
+///
+/// void main() {
+///   runApp(
+///     const AdwApplication(
+///       title: 'My App',
+///       home: AdwWindow(
+///         headerBar: AdwHeaderBar(
+///           titleWidget: AdwWindowTitle(title: 'My App'),
+///         ),
+///         child: AdwStatusPage(
+///           title: Text('Hello, Adwaita!'),
+///           description: Text('Built with pure Flutter and Adwaitter.'),
+///         ),
+///       ),
+///     ),
+///   );
+/// }
+/// ```
+///
+/// Browse the **Topics** sidebar to explore widgets by category: **Layout**,
+/// **Navigation**, **Containers**, **Controls**, **Overlays**, **Display**,
+/// **Theming & Localization**, and **Core**.
 library adwaitter;
 
 // Core framework behaviors

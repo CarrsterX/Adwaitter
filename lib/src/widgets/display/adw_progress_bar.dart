@@ -7,14 +7,38 @@ import '../../theme/adw_theme.dart';
 ///
 /// Pass a [value] in `0.0..1.0` for determinate progress, or `null` for an
 /// indeterminate pulsing bar. Set [isOsd] to `true` for the slim edge-attached
-/// `.osd` overlay progress bar (`3px` height, square corners).
+/// `.osd` overlay progress bar (`2px` height, square corners).
+///
+/// ```dart
+/// const AdwProgressBar(value: 0.6)
+/// ```
+///
+/// See also:
+///
+/// * [AdwSpinner], for compact indeterminate loading feedback.
+/// * [AdwLevelBar], for continuous or segmented level indicators.
+///
+/// {@category Display}
 class AdwProgressBar extends StatefulWidget {
+  /// Determinate progress fraction in `0.0..1.0`, or `null` for indeterminate
+  /// pulsing animation.
   final double? value;
+
+  /// Whether to use the slim edge-attached `.osd` overlay style.
+  /// Defaults to `false`.
   final bool isOsd;
+
+  /// Optional height override in logical pixels.
+  /// Defaults to `2.0` when [isOsd] is `true`, or `6.0` otherwise.
   final double? height;
+
+  /// Optional fill color override. Defaults to [AdwColorScheme.accentColor].
   final Color? color;
+
+  /// Optional track background color override.
   final Color? trackColor;
 
+  /// Creates a Libadwaita progress bar.
   const AdwProgressBar({
     super.key,
     this.value,

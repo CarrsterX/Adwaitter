@@ -6,12 +6,19 @@ import 'adw_carousel.dart';
 
 /// Paginated line indicator widget for [AdwCarousel] (`AdwCarouselIndicatorLines`).
 ///
-/// Implements upstream GNOME Libadwaita specifications (`adw-carousel-indicator-lines.c`):
-/// - Line thickness: `3.0 px`, length: `35.0 px`, spacing: `5.0 px`, margin: `2.0 px`.
-/// - Background track segments at `30%` foreground opacity.
-/// - Active indicator segment at `90%` foreground opacity sliding smoothly
-///   along `position * (lineLength + lineSpacing)`.
-/// - Supports both [Axis.horizontal] and [Axis.vertical] orientations.
+/// Syncs continuously with [AdwCarouselController.page] and supports both
+/// [Axis.horizontal] and [Axis.vertical] orientations.
+///
+/// ```dart
+/// AdwCarouselIndicatorLines(controller: carouselController)
+/// ```
+///
+/// See also:
+///
+/// * [AdwCarousel], the carousel widget driven by [controller].
+/// * [AdwCarouselIndicatorDots], the dot indicator alternative.
+///
+/// {@category Navigation}
 class AdwCarouselIndicatorLines extends StatelessWidget {
   /// Optional carousel controller driving continuous position and page count.
   final AdwCarouselController? controller;

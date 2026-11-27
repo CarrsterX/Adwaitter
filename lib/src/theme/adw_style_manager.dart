@@ -9,6 +9,8 @@ import 'adw_style_platform_stub.dart'
 import 'adw_typography.dart';
 
 /// System color scheme preference mirroring Libadwaita's `AdwColorScheme`.
+///
+/// {@category Theming & Localization}
 enum AdwSystemColorScheme {
   /// Follow the system default (typically light, unless `prefer-dark` is set).
   defaultScheme,

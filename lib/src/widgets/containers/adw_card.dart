@@ -9,14 +9,41 @@ import '../../theme/adw_theme.dart';
 /// Renders a rounded card surface with subtle elevation matching upstream
 /// `_misc.scss` `%card`. When [activatable] is `true` (or [onPressed] is
 /// provided), the card displays hover and press feedback.
+///
+/// ```dart
+/// AdwCard(
+///   activatable: true,
+///   onPressed: () {},
+///   child: const Text('Clickable card'),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwPreferencesGroup], for boxed lists of preference rows.
+/// * [AdwOsdSurface], for translucent floating on-screen display containers.
+///
+/// {@category Containers}
 class AdwCard extends StatefulWidget {
+  /// Content displayed inside the card.
   final Widget child;
+
+  /// Whether the card responds to hover and press states. Defaults to `false`.
   final bool activatable;
+
+  /// Optional tap callback. Setting this also enables interactive feedback.
   final VoidCallback? onPressed;
+
+  /// Internal padding around [child]. Defaults to `EdgeInsets.all(12.0)`.
   final EdgeInsetsGeometry padding;
+
+  /// Optional alignment applied to [child] inside the card.
   final AlignmentGeometry? alignment;
+
+  /// Optional corner radius override. Defaults to [AdwMetrics.cardRadius].
   final BorderRadius? borderRadius;
 
+  /// Creates a Libadwaita card container.
   const AdwCard({
     super.key,
     required this.child,
@@ -92,25 +119,7 @@ class _AdwCardState extends State<AdwCard> {
             border: theme.colors.isHighContrast
                 ? Border.all(color: theme.colors.borderColor, width: 1.0)
                 : null,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000006),
-                blurRadius: 0.0,
-                spreadRadius: 1.0,
-              ),
-              BoxShadow(
-                color: Color(0x12000006),
-                blurRadius: 3.0,
-                spreadRadius: 1.0,
-                offset: Offset(0, 1),
-              ),
-              BoxShadow(
-                color: Color(0x08000006),
-                blurRadius: 6.0,
-                spreadRadius: 2.0,
-                offset: Offset(0, 2),
-              ),
-            ],
+            boxShadow: theme.colors.cardShadows,
           ),
           child: widget.child,
         ),

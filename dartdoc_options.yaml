@@ -1,0 +1,37 @@
+dartdoc:
+  categories:
+    "Layout":
+      markdown: doc/layout.md
+      name: Layout
+    "Navigation":
+      markdown: doc/navigation.md
+      name: Navigation
+    "Containers":
+      markdown: doc/containers.md
+      name: Containers
+    "Controls":
+      markdown: doc/controls.md
+      name: Controls
+    "Overlays":
+      markdown: doc/overlays.md
+      name: Overlays
+    "Display":
+      markdown: doc/display.md
+      name: Display
+    "Theming & Localization":
+      markdown: doc/theming.md
+      name: Theming & Localization
+    "Core":
+      markdown: doc/core.md
+      name: Core
+  categoryOrder:
+    - "Layout"
+    - "Navigation"
+    - "Containers"
+    - "Controls"
+    - "Overlays"
+    - "Display"
+    - "Theming & Localization"
+    - "Core"
+  showUndocumentedCategories: true
+

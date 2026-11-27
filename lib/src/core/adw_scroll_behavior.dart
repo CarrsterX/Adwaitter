@@ -12,14 +12,17 @@ import 'adw_scrollbar.dart';
 ///
 /// Mirrors GTK4 `GtkScrolledWindow` across the entire widget tree when injected
 /// via [ScrollConfiguration] at the root of [AdwApplication]:
-/// - Applies [ClampingScrollPhysics] (non-bouncing Linux/desktop bounds).
-/// - Renders [AdwOverscrollIndicator] (GTK4 `overshoot` radial edge glow)
+/// * Applies [ClampingScrollPhysics] (non-bouncing Linux/desktop bounds).
+/// * Renders [AdwOverscrollIndicator] (GTK4 `overshoot` radial edge glow)
 ///   when a user drags, flings, or scrolls past content boundaries.
-/// - Enables drag scrolling for touch, trackpad, stylus, and mouse devices.
+/// * Enables drag scrolling for touch, trackpad, stylus, and mouse devices.
+///
+/// {@category Core}
 class AdwScrollBehavior extends ScrollBehavior {
   /// Whether to render the GTK4-style radial overshoot glow at scroll bounds.
   final bool showOverscrollGlow;
 
+  /// Creates an Adwaita scroll behavior configuration.
   const AdwScrollBehavior({
     this.showOverscrollGlow = true,
   });

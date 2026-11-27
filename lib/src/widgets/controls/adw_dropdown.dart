@@ -9,15 +9,47 @@ import '../overlays/adw_popover.dart';
 ///
 /// Displays the currently selected item with a trailing chevron and opens an
 /// anchored [AdwPopoverSurface] menu on tap.
+///
+/// ```dart
+/// AdwDropdown<String>(
+///   value: 'Normal',
+///   items: const ['Compact', 'Normal', 'Spacious'],
+///   itemLabelBuilder: (item) => item,
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwComboRow], for dropdown selection inside an [AdwPreferencesGroup].
+/// * [AdwPopoverSurface], the popover container rendered for the menu.
+///
+/// {@category Controls}
 class AdwDropdown<T> extends StatefulWidget {
+  /// Currently selected value from [items].
   final T value;
+
+  /// Available options shown in the dropdown popover.
   final List<T> items;
+
+  /// Converts an item in [items] into its display label.
   final String Function(T item) itemLabelBuilder;
+
+  /// Callback invoked when the user chooses a new item. When `null`, the
+  /// dropdown is disabled.
   final ValueChanged<T>? onChanged;
+
+  /// Whether to use flat button styling (transparent until hovered/open).
+  /// Defaults to `false`.
   final bool isFlat;
+
+  /// Optional fixed width for the trigger button.
   final double? width;
+
+  /// Maximum height of the scrollable popover menu. Defaults to `280.0`.
   final double maxMenuHeight;
 
+  /// Creates a standalone Libadwaita dropdown selector.
   const AdwDropdown({
     super.key,
     required this.value,

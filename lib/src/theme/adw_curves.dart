@@ -3,6 +3,11 @@ import 'package:flutter/widgets.dart';
 import 'adw_desktop_settings.dart';
 
 /// Official animation curves and durations specified by GNOME Libadwaita.
+///
+/// Use [resolve] or [resolveGlobal] so animations automatically respect the
+/// user's reduced-motion and desktop speed preferences.
+///
+/// {@category Theming & Localization}
 abstract final class AdwCurves {
   /// Standard easing curve for UI transitions in Libadwaita.
   static const Curve standard = Curves.easeOutCubic;

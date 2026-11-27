@@ -6,6 +6,8 @@ import 'package:flutter/widgets.dart';
 import 'adw_clamp.dart';
 
 /// Controls how children are distributed along each line in [AdwWrapBox].
+///
+/// {@category Layout}
 enum AdwJustifyMode {
   /// No extra justification; leftover space is positioned according to `align`.
   none,
@@ -18,6 +20,8 @@ enum AdwJustifyMode {
 }
 
 /// Packing direction within each line of an [AdwWrapBox].
+///
+/// {@category Layout}
 enum AdwPackDirection {
   /// Packs children from start to end (e.g. left to right in LTR).
   startToEnd,
@@ -27,6 +31,8 @@ enum AdwPackDirection {
 }
 
 /// Line-breaking policy for [AdwWrapBox].
+///
+/// {@category Layout}
 enum AdwWrapPolicy {
   /// Wraps only when children would otherwise overflow the available size.
   minimum,
@@ -41,21 +47,65 @@ enum AdwWrapPolicy {
 /// or vertical orientation, child and line spacing with [AdwLengthUnit],
 /// justification modes, line alignment, homogeneous line sizing, and reverse
 /// packing or wrapping.
+///
+/// ```dart
+/// const AdwWrapBox(
+///   childSpacing: 6,
+///   lineSpacing: 6,
+///   children: [
+///     AdwButton(child: Text('Tag 1')),
+///     AdwButton(child: Text('Tag 2')),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwJustifyMode], [AdwPackDirection], and [AdwWrapPolicy].
+///
+/// {@category Layout}
 class AdwWrapBox extends StatelessWidget {
+  /// Child widgets laid out across wrapped lines.
   final List<Widget> children;
+
+  /// Primary flow axis. Defaults to [Axis.horizontal].
   final Axis orientation;
+
+  /// Spacing between adjacent children on the same line. Defaults to `0.0`.
   final double childSpacing;
+
+  /// Length unit for [childSpacing]. Defaults to [AdwLengthUnit.px].
   final AdwLengthUnit childSpacingUnit;
+
+  /// Spacing between consecutive wrapped lines. Defaults to `0.0`.
   final double lineSpacing;
+
+  /// Length unit for [lineSpacing]. Defaults to [AdwLengthUnit.px].
   final AdwLengthUnit lineSpacingUnit;
+
+  /// Normalized alignment (`0.0` start, `0.5` center, `1.0` end) when
+  /// [justify] is [AdwJustifyMode.none]. Defaults to `0.0`.
   final double align;
+
+  /// How remaining space on each line is distributed. Defaults to [AdwJustifyMode.none].
   final AdwJustifyMode justify;
+
+  /// Whether [justify] also applies to the final line. Defaults to `false`.
   final bool justifyLastLine;
+
+  /// Direction in which children are packed within each line.
   final AdwPackDirection packDirection;
+
+  /// Whether all lines share the same cross-axis thickness. Defaults to `false`.
   final bool lineHomogeneous;
+
+  /// Whether wrapped lines stack in reverse cross-axis order. Defaults to `false`.
   final bool wrapReverse;
+
+  /// Line-breaking strategy. Defaults to [AdwWrapPolicy.natural].
   final AdwWrapPolicy wrapPolicy;
 
+  /// Creates a Libadwaita wrapping box layout.
   const AdwWrapBox({
     super.key,
     this.children = const <Widget>[],

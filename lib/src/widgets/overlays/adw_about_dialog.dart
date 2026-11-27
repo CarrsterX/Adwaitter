@@ -65,30 +65,89 @@ class AdwAboutOtherApp {
 /// Official GNOME Libadwaita about dialog (`AdwAboutDialog`).
 ///
 /// Adaptive modal dialog on desktop (floating) and bottom sheet on mobile,
-/// with subpage navigation for What's New, Details, Credits, Legal, and Other Apps.
+/// with subpage navigation for What's New, Details, Credits, Legal, and Other
+/// Apps. Present with [showAdwAboutDialog].
+///
+/// ```dart
+/// showAdwAboutDialog(
+///   context: context,
+///   applicationName: 'My App',
+///   developerName: 'Developer',
+///   version: '1.0.0',
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [showAdwAboutDialog], convenience function for presenting this dialog.
+/// * [AdwDialog], the underlying adaptive dialog shell.
+///
+/// {@category Overlays}
 class AdwAboutDialog extends StatefulWidget {
+  /// Optional application icon displayed at the top of the main page.
   final Widget? applicationIcon;
+
+  /// Human-readable name of the application.
   final String applicationName;
+
+  /// Optional name of the developer or organization.
   final String? developerName;
+
+  /// Optional version string rendered in a tappable pill (copies to clipboard).
   final String? version;
+
+  /// Optional version heading for the What's New release notes subpage.
   final String? releaseNotesVersion;
+
+  /// Optional release notes text shown in the What's New subpage.
   final String? releaseNotes;
+
+  /// Optional short description shown in the Details subpage.
   final String? comments;
+
+  /// Optional project homepage URL.
   final String? website;
+
+  /// Optional issue tracker URL.
   final String? issueUrl;
+
+  /// Optional support forum or documentation URL.
   final String? supportUrl;
+
+  /// Optional copyright notice displayed in the Legal subpage.
   final String? copyright;
+
+  /// Optional license name displayed in the Legal subpage.
   final String? license;
+
+  /// List of developer names shown in the Credits subpage.
   final List<String> developers;
+
+  /// List of artist/designer names shown in the Credits subpage.
   final List<String> artists;
+
+  /// Optional translator credits string shown in the Credits subpage.
   final String? translatorCredits;
+
+  /// Additional custom external links shown on the main page.
   final List<AdwAboutLink> links;
+
+  /// Additional third-party legal sections shown in the Legal subpage.
   final List<AdwAboutLegalSection> legalSections;
+
+  /// Custom acknowledgement groups shown in the Acknowledgements subpage.
   final List<AdwAboutAcknowledgement> acknowledgements;
+
+  /// Related applications promoted at the bottom of the main page.
   final List<AdwAboutOtherApp> otherApps;
+
+  /// Optional custom section heading for [otherApps].
   final String? otherAppsTitle;
+
+  /// Callback invoked when the user activates any external URL link.
   final ValueChanged<String>? onOpenUrl;
 
+  /// Creates a GNOME Libadwaita about dialog.
   const AdwAboutDialog({
     super.key,
     this.applicationIcon,
@@ -257,21 +316,10 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
             const SizedBox(height: 6),
             Builder(
               builder: (btnContext) {
-                final accentHsl = HSLColor.fromColor(theme.colors.accentColor);
-                final darkAccentText = accentHsl
-                    .withHue((accentHsl.hue - 7) % 360)
-                    .withSaturation(1.0)
-                    .withLightness(0.745)
-                    .toColor();
+                final versionAccent = theme.colors.standaloneAccentColor;
                 return DecoratedBox(
                   decoration: BoxDecoration(
-                    color: theme.colors.isDark
-                        ? Color.lerp(
-                            theme.colors.windowBackground,
-                            darkAccentText,
-                            0.14,
-                          )
-                        : theme.colors.accentColor.withValues(alpha: 0.15),
+                    color: theme.colors.versionPillBackground,
                     borderRadius: BorderRadius.circular(999),
                     border: theme.colors.isHighContrast
                         ? Border.all(
@@ -294,9 +342,7 @@ class _AdwAboutDialogState extends State<AdwAboutDialog> {
                     child: Text(
                       widget.version!,
                       style: theme.typography.body.copyWith(
-                        color: theme.colors.isDark
-                            ? darkAccentText
-                            : theme.colors.accentColor,
+                        color: versionAccent,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

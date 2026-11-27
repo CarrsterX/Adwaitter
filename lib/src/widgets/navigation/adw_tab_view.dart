@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/adw_scrollbar.dart';
+import '../../theme/adw_colors.dart';
 import '../../theme/adw_curves.dart';
 import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
@@ -396,11 +397,33 @@ typedef AdwTabContextMenuCallback = void Function(
 /// `Ctrl+Tab` / `Ctrl+Page_Down`, `Ctrl+Shift+Tab` / `Ctrl+Page_Up`,
 /// `Ctrl+Home`, `Ctrl+End`, `Shift+Ctrl+Page_Up`, `Shift+Ctrl+Page_Down`,
 /// `Alt+1..9`, and `Alt+0`).
+///
+/// ```dart
+/// AdwTabView(
+///   controller: tabController,
+///   onNewTabShortcut: () {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwTabBar], the interactive horizontal tab strip.
+/// * [AdwTabOverview], the full-window thumbnail grid overview.
+/// * [AdwTabButton], the header bar counter button.
+/// * [AdwTabViewController], managing open [AdwTabPage] instances.
+///
+/// {@category Navigation}
 class AdwTabView extends StatelessWidget {
+  /// Controller holding the open [AdwTabPage] list and active selection.
   final AdwTabViewController controller;
+
+  /// Optional callback invoked when the user presses `Ctrl+T`.
   final VoidCallback? onNewTabShortcut;
+
+  /// Optional callback invoked when the user presses `Ctrl+N`.
   final VoidCallback? onNewWindowShortcut;
 
+  /// Creates a dynamic Libadwaita tab view.
   const AdwTabView({
     super.key,
     required this.controller,
@@ -535,16 +558,40 @@ class AdwTabView extends StatelessWidget {
 /// - `tabbar tab { min-height: 26px; padding: 4px; border-radius: 9px; }`
 /// - Middle-click to close, drag horizontally to reorder, drag vertically out
 ///   of the bar to detach into a new window (`controller.onCreateWindow`).
+///
+/// See also:
+///
+/// * [AdwTabView], which renders the selected tab's content.
+/// * [AdwTabOverview], the grid overview of all open tabs.
+///
+/// {@category Navigation}
 class AdwTabBar extends StatefulWidget {
+  /// Controller synchronized with the paired [AdwTabView].
   final AdwTabViewController controller;
+
+  /// Optional widget placed before the tab strip.
   final Widget? startActionWidget;
+
+  /// Optional widget placed after the tab strip (e.g. a new-tab button).
   final Widget? endActionWidget;
+
+  /// Whether to hide the tab bar automatically when only one unpinned tab is
+  /// open. Defaults to `true`.
   final bool autohide;
+
+  /// Whether tabs expand equally to fill available width. Defaults to `true`.
   final bool expandTabs;
+
+  /// Whether close buttons appear on the leading edge of each tab. Defaults to `false`.
   final bool inverted;
+
+  /// Whether to render using inline flat header styling. Defaults to `true`.
   final bool isInline;
+
+  /// Optional callback invoked when a tab is right-clicked.
   final AdwTabContextMenuCallback? onContextMenu;
 
+  /// Creates a Libadwaita interactive tab bar.
   const AdwTabBar({
     super.key,
     required this.controller,
@@ -588,9 +635,7 @@ class _AdwTabBarState extends State<AdwTabBar> {
               : BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: theme.colors.isDark
-                          ? const Color(0x4D000000)
-                          : const Color(0x1F000006),
+                      color: theme.colors.tabBarShadowColor,
                       blurRadius: 0,
                       spreadRadius: 0,
                       offset: const Offset(0, 1),
@@ -1226,10 +1271,16 @@ class _TabCircleIconButtonState extends State<_TabCircleIconButton> {
 
 /// Companion header bar button (`AdwTabButton`) displaying the current open
 /// tab count inside `adw-tab-counter-symbolic` and an optional attention badge.
+///
+/// {@category Navigation}
 class AdwTabButton extends StatelessWidget {
+  /// Controller whose open tab count and attention state are displayed.
   final AdwTabViewController controller;
+
+  /// Callback invoked when the button is pressed (typically opens [AdwTabOverview]).
   final VoidCallback onPressed;
 
+  /// Creates a Libadwaita tab counter button.
   const AdwTabButton({
     super.key,
     required this.controller,
@@ -1294,16 +1345,37 @@ class AdwTabButton extends StatelessWidget {
 }
 
 /// Full-window responsive grid overview for [AdwTabView] (`AdwTabOverview`).
+///
+/// Displays live thumbnails of all open [AdwTabPage] tabs with search,
+/// drag-to-reorder, pinning, and an optional floating new-tab button.
+///
+/// {@category Navigation}
 class AdwTabOverview extends StatefulWidget {
+  /// Controller managing the tabs shown in the overview grid.
   final AdwTabViewController controller;
+
+  /// Whether the overview grid is currently open.
   final bool open;
+
+  /// Called when the user opens or closes the overview.
   final ValueChanged<bool> onOpenChanged;
+
+  /// Whether to show the floating new-tab button. Defaults to `true`.
   final bool enableNewTab;
+
+  /// Callback invoked when the user taps the new-tab button.
   final VoidCallback? onCreateTab;
+
+  /// Optional secondary menu widget placed in the overview header bar.
   final Widget? secondaryMenu;
+
+  /// Optional callback invoked when a tab thumbnail is right-clicked.
   final AdwTabContextMenuCallback? onContextMenu;
+
+  /// Underlying main view (typically containing [AdwTabView]) wrapped by the overview.
   final Widget child;
 
+  /// Creates a Libadwaita tab overview overlay.
   const AdwTabOverview({
     super.key,
     required this.controller,
@@ -1492,9 +1564,7 @@ class _AdwTabOverviewState extends State<AdwTabOverview>
                   IgnorePointer(
                     ignoring: !widget.open,
                     child: ColoredBox(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF28282C)
-                          : const Color(0xFFF3F3F5),
+                      color: theme.colors.overviewBackground,
                       child: ListenableBuilder(
                         listenable: widget.controller,
                         builder: (context, _) {
@@ -1721,13 +1791,8 @@ class _AdwTabOverviewState extends State<AdwTabOverview>
                                         decoration: BoxDecoration(
                                           borderRadius:
                                               BorderRadius.circular(999),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Color(0x38000000),
-                                              blurRadius: 12,
-                                              offset: Offset(0, 4),
-                                            ),
-                                          ],
+                                          boxShadow:
+                                              theme.colors.tabOverviewFabShadows,
                                         ),
                                         child: AdwButton.pill(
                                           style: AdwButtonStyle.suggested,
@@ -1884,7 +1949,7 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
       builder: (context, _) {
         final previewColor =
             widget.page.thumbnailColor ?? theme.colors.cardBackground;
-        const closeBg = Color(0x88242428);
+        final closeBg = theme.colors.tabOverviewCloseBackground;
 
         return Listener(
           onPointerDown: (event) {
@@ -1961,7 +2026,7 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                                 child: IconTheme(
                                   data: const IconThemeData(
                                     size: 14,
-                                    color: Color(0xFFFFFFFF),
+                                    color: AdwColors.light1,
                                   ),
                                   child: widget.page.indicatorIcon!,
                                 ),
@@ -1977,10 +2042,10 @@ class _AdwTabThumbnailCardState extends State<_AdwTabThumbnailCard> {
                                 size: const Size(12, 12),
                                 painter: widget.page.pinned
                                     ? const _TabUnpinPainter(
-                                        color: Color(0xFFFFFFFF),
+                                        color: AdwColors.light1,
                                       )
                                     : const _TabCloseCrossPainter(
-                                        color: Color(0xFFFFFFFF),
+                                        color: AdwColors.light1,
                                       ),
                               ),
                             ),

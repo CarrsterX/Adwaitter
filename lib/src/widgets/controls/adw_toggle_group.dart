@@ -5,14 +5,28 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 
 /// Single item descriptor within an [AdwToggleGroup].
+///
+/// {@category Controls}
 class AdwToggleItem<T> {
+  /// Unique value identifying this toggle segment.
   final T value;
+
+  /// Content widget rendered inside the segment.
   final Widget child;
+
+  /// Optional icon stored alongside [child] (populated by [AdwToggleItem.withLabel]).
   final Widget? icon;
+
+  /// Optional label stored alongside [child] (populated by [AdwToggleItem.withLabel]).
   final Widget? label;
+
+  /// Optional tooltip text shown when hovering this segment.
   final String? tooltip;
+
+  /// Whether this individual segment can be selected. Defaults to `true`.
   final bool enabled;
 
+  /// Creates a toggle segment descriptor for [AdwToggleGroup].
   const AdwToggleItem({
     required this.value,
     this.child = const SizedBox.shrink(),
@@ -52,6 +66,8 @@ class AdwToggleItem<T> {
 }
 
 /// Visual style variants for [AdwToggleGroup] matching Libadwaita CSS classes.
+///
+/// {@category Controls}
 enum AdwToggleGroupStyle {
   /// Standard recessed container with rounded segments.
   standard,
@@ -65,12 +81,27 @@ enum AdwToggleGroupStyle {
 
 /// Official Libadwaita segmented toggle group (`AdwToggleGroup`).
 ///
-/// Follows upstream Libadwaita linked button bar specifications:
-/// - GitLab source: `https://gitlab.gnome.org/GNOME/libadwaita/-/blob/main/src/...`
-/// - CSS selector: `.linked.toggle-group`
-///
 /// Displays multiple mutually-exclusive options in a unified rounded container
-/// with an animated active pill indicator and 1px dividers between unselected items.
+/// with an animated active pill indicator and 1px dividers between unselected
+/// items.
+///
+/// ```dart
+/// AdwToggleGroup<String>(
+///   selectedValue: 'list',
+///   items: [
+///     AdwToggleItem.withLabel(value: 'list', label: const Text('List')),
+///     AdwToggleItem.withLabel(value: 'grid', label: const Text('Grid')),
+///   ],
+///   onChanged: (value) {},
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwToggleItem], which defines each selectable segment.
+/// * [AdwLinkedBox], for grouping arbitrary non-exclusive controls.
+///
+/// {@category Controls}
 class AdwToggleGroup<T> extends StatelessWidget {
   /// The list of selectable items.
   final List<AdwToggleItem<T>> items;
@@ -247,13 +278,9 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
     final duration =
         AdwCurves.resolve(context, const Duration(milliseconds: 240));
 
-    final Color selectedBg = theme.colors.isDark
-        ? (widget.isFlat
-            ? const Color(0xFF47474B)
-            : const Color(0xFF6C6C6F))
-        : (widget.isFlat
-            ? const Color(0xFFEBEBEB)
-            : const Color(0xFFFFFFFF));
+    final Color selectedBg = widget.isFlat
+        ? theme.colors.toggleGroupFlatSelectedBackground
+        : theme.colors.toggleGroupSelectedBackground;
 
     Color bg = selectedBg.withValues(alpha: 0.0);
     Color fg = theme.colors.foreground;
@@ -378,7 +405,7 @@ class _AdwToggleSegmentState<T> extends State<_AdwToggleSegment<T>> {
                 : [
                     BoxShadow(
                       color: widget.isSelected
-                          ? const Color(0x1F000000)
+                          ? theme.colors.toggleGroupSelectedShadowColor
                           : const Color(0x00000000),
                       blurRadius: 3,
                       offset: const Offset(0, 1),

@@ -8,11 +8,19 @@ import 'adw_navigation_view.dart';
 
 /// Inherited scope exposed by [AdwNavigationSplitView] so descendant widgets
 /// (such as sidebar items) can trigger content navigation when collapsed.
+///
+/// {@category Navigation}
 class AdwNavigationSplitViewScope extends InheritedWidget {
+  /// Whether the enclosing [AdwNavigationSplitView] is currently collapsed.
   final bool isCollapsed;
+
+  /// Navigates to the content pane when collapsed.
   final VoidCallback showContentPage;
+
+  /// Navigates back to the sidebar pane when collapsed.
   final VoidCallback showSidebarPage;
 
+  /// Creates a navigation split view scope.
   const AdwNavigationSplitViewScope({
     super.key,
     required this.isCollapsed,
@@ -21,6 +29,7 @@ class AdwNavigationSplitViewScope extends InheritedWidget {
     required super.child,
   });
 
+  /// Returns the nearest [AdwNavigationSplitViewScope], or `null` if absent.
   static AdwNavigationSplitViewScope? maybeOf(BuildContext context) {
     return context
         .dependOnInheritedWidgetOfExactType<AdwNavigationSplitViewScope>();
@@ -36,14 +45,31 @@ class AdwNavigationSplitViewScope extends InheritedWidget {
 
 /// Adaptive navigation split view (`AdwNavigationSplitView`).
 ///
-/// An architectural pillar of modern GNOME applications (seen in `adwaita-1-demo`
-/// and Nautilus):
-/// - Expanded (`width >= breakpoint`): displays [sidebar] and [content] side by side.
-/// - Collapsed (`width < breakpoint`): automatically switches to an internal
-///   [AdwNavigationView] where [sidebar] sits as the root route and [content]
-///   is pushed on top with Libadwaita's predictive swipe-back gesture.
+/// Displays [sidebar] and [content] side by side when `width >= breakpoint`,
+/// and automatically collapses into an [AdwNavigationView] stack on narrow
+/// viewports with Libadwaita's predictive swipe-back gesture.
+///
+/// ```dart
+/// const AdwNavigationSplitView(
+///   sidebar: AdwSidebar(sections: []),
+///   content: AdwToolbarView(
+///     topBar: AdwHeaderBar(titleWidget: AdwWindowTitle(title: 'Content')),
+///     content: AdwStatusPage(title: Text('Select an item')),
+///   ),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwOverlaySplitView], for an overlay/drawer-style sidebar split view.
+/// * [AdwNavigationView], the underlying navigation stack used when collapsed.
+///
+/// {@category Navigation}
 class AdwNavigationSplitView extends StatefulWidget {
+  /// Navigation sidebar pane displayed on the start side.
   final Widget sidebar;
+
+  /// Primary detail/content pane displayed on the end side.
   final Widget content;
 
   /// Optional fixed sidebar width override. When `null` (default), the sidebar
@@ -61,14 +87,30 @@ class AdwNavigationSplitView extends StatefulWidget {
   /// Fraction of total width allocated to the sidebar (upstream default: `0.25`).
   final double sidebarWidthFraction;
 
+  /// Viewport width threshold below which the split view collapses into a
+  /// single-pane navigation stack. Defaults to `540.0`.
   final double breakpoint;
+
+  /// Optional explicit override forcing collapsed (`true`) or expanded (`false`).
   final bool? collapsed;
+
+  /// Whether the sidebar pane is visible when expanded. Defaults to `true`.
   final bool showSidebar;
+
+  /// Whether the content pane is initially pushed when collapsed. Defaults to `true`.
   final bool showContent;
+
+  /// Whether to draw the 1px vertical separator between [sidebar] and [content].
+  /// Defaults to `true`.
   final bool showBorder;
+
+  /// Title assigned to the sidebar route when collapsed.
   final String sidebarTitle;
+
+  /// Title assigned to the content route when collapsed.
   final String contentTitle;
 
+  /// Creates an adaptive Libadwaita navigation split view.
   const AdwNavigationSplitView({
     super.key,
     required this.sidebar,

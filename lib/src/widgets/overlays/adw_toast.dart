@@ -7,12 +7,35 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 
 /// Data model for a Libadwaita floating in-app notification (`AdwToast`).
+///
+/// Enqueue an [AdwToast] using `AdwToastOverlay.of(context).addToast(...)`.
+///
+/// ```dart
+/// AdwToastOverlay.of(context).addToast(
+///   const AdwToast(title: Text('Copied to clipboard')),
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [AdwToastOverlay], the overlay widget that displays queued toasts.
+/// * [AdwBanner], for persistent top-of-view contextual notifications.
+///
+/// {@category Overlays}
 class AdwToast {
+  /// Message widget displayed inside the toast pill.
   final Widget title;
+
+  /// Optional trailing action button (e.g. "Undo").
   final Widget? action;
+
+  /// Duration before the toast automatically dismisses. Defaults to 5 seconds.
   final Duration timeout;
+
+  /// Optional callback invoked when the toast finishes dismissing.
   final VoidCallback? onDismissed;
 
+  /// Creates an [AdwToast] notification descriptor.
   const AdwToast({
     required this.title,
     this.action,
@@ -23,16 +46,23 @@ class AdwToast {
 
 /// Floating toast notification overlay layer (`AdwToastOverlay`).
 ///
-/// Places pill-styled in-app notifications at the bottom center of the window,
-/// matching Libadwaita specifications.
+/// Places pill-styled in-app notifications at the bottom center of the window
+/// (automatically offset above mobile system navigation bars), matching
+/// Libadwaita specifications.
+///
+/// {@category Overlays}
 class AdwToastOverlay extends StatefulWidget {
+  /// Subtree over which queued [AdwToast] notifications are displayed.
   final Widget child;
 
+  /// Creates a toast notification overlay wrapping [child].
   const AdwToastOverlay({
     super.key,
     required this.child,
   });
 
+  /// Returns the nearest [AdwToastOverlay] state for enqueueing toasts,
+  /// asserting if none exists in the widget tree.
   static _AdwToastOverlayState of(BuildContext context) {
     final state = context.findAncestorStateOfType<_AdwToastOverlayState>();
     assert(
@@ -43,6 +73,7 @@ class AdwToastOverlay extends StatefulWidget {
     return state!;
   }
 
+  /// Safely returns the nearest [AdwToastOverlay] state, or `null` if absent.
   static _AdwToastOverlayState? maybeOf(BuildContext context) {
     return context.findAncestorStateOfType<_AdwToastOverlayState>();
   }
@@ -263,18 +294,10 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                 padding:
                                     const EdgeInsets.fromLTRB(18, 7, 8, 7),
                                 decoration: BoxDecoration(
-                                  color: theme.colors.isDark
-                                      ? const Color(0xFF505053)
-                                      : const Color(0xFF2E2E32),
+                                  color: theme.colors.toastBackground,
                                   borderRadius: BorderRadius.circular(
                                       AdwMetrics.pillRadius),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x38000000),
-                                      blurRadius: 16,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
+                                  boxShadow: theme.colors.toastShadows,
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -284,7 +307,7 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.typography.body.copyWith(
-                                          color: const Color(0xFFFFFFFF),
+                                          color: theme.colors.toastForeground,
                                           fontWeight: FontWeight.w600,
                                           height: 1.0,
                                         ),
@@ -336,7 +359,8 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                               shape: BoxShape.circle,
                                               color: (_isCloseHovered ||
                                                       _isCloseFocused)
-                                                  ? const Color(0x24FFFFFF)
+                                                  ? theme.colors
+                                                      .toastCloseHoverBackground
                                                   : const Color(0x00000000),
                                               border: _isCloseFocused
                                                   ? Border.all(
@@ -346,12 +370,13 @@ class _AdwToastOverlayState extends State<AdwToastOverlay>
                                                     )
                                                   : null,
                                             ),
-                                            child: const Center(
+                                            child: Center(
                                               child: CustomPaint(
-                                                size: Size(8, 8),
+                                                size: const Size(8, 8),
                                                 painter:
                                                     _ToastCloseIconPainter(
-                                                  color: Color(0xFFFFFFFF),
+                                                  color: theme
+                                                      .colors.toastForeground,
                                                 ),
                                               ),
                                             ),

@@ -18,30 +18,78 @@ import 'adw_window_title.dart';
 
 /// Official Libadwaita header bar widget (`AdwHeaderBar`).
 ///
-/// Features an optically centered title, start/end action slots, in-app window
-/// controls, and a background drag area for native window movement.
-/// Follows upstream Libadwaita CSS:
-/// - `headerbar { min-height: 47px; }`
-/// - `headerbar > windowhandle > box { padding: 6px 7px 6px 7px; }`
-/// - `headerbar > windowhandle > box > box.start, headerbar > windowhandle > box > box.end { border-spacing: 6px; }`
-/// - `headerbar .title, windowtitle .title { padding-left: 12px; padding-right: 12px; font-weight: bold; }`
+/// Features an optically centered title, [start]/[end] action slots, automatic
+/// back button inside [AdwNavigationView], native window controls, and a
+/// background drag area for desktop CSD window movement.
+///
+/// ```dart
+/// AdwHeaderBar(
+///   titleWidget: const AdwWindowTitle(
+///     title: 'Documents',
+///     subtitle: 'Recent files',
+///   ),
+///   end: AdwButton.flat(
+///     onPressed: () {},
+///     child: const Icon(AdwIcons.open_menu_symbolic, size: 16),
+///   ),
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwWindowTitle], for standard title + subtitle header content.
+/// * [AdwToolbarView], which hosts top/bottom header bars with scroll shades.
+/// * [AdwWindowControls], for standalone minimize/maximize/close buttons.
+///
+/// {@category Layout}
 class AdwHeaderBar extends StatelessWidget {
+  /// Default internal padding matching upstream Libadwaita (`6px 7px`).
   static const EdgeInsets defaultPadding = EdgeInsets.fromLTRB(7.0, 6.0, 7.0, 6.0);
 
+  /// Optional title widget when [titleWidget] is not provided.
   final Widget? title;
+
+  /// Optional subtitle widget displayed below [title].
   final Widget? subtitle;
+
+  /// Custom center widget (commonly [AdwWindowTitle] or [AdwViewSwitcher]).
   final Widget? titleWidget;
+
+  /// Optional leading action widget(s) packed on the start side.
   final Widget? start;
+
+  /// Optional trailing action widget(s) packed on the end side.
   final Widget? end;
+
+  /// Whether to show native CSD window control buttons. Defaults to `true`.
   final bool showWindowControls;
+
+  /// Whether to show window controls on the start edge (per desktop layout).
+  /// Defaults to `true`.
   final bool showStartWindowControls;
+
+  /// Whether to show window controls on the end edge (per desktop layout).
+  /// Defaults to `true`.
   final bool showEndWindowControls;
+
+  /// Whether to automatically display a back button when inside a poppable
+  /// [AdwNavigationView]. Defaults to `true`.
   final bool showBackButton;
+
+  /// Whether to display the center title area. Defaults to `true`.
   final bool showTitle;
+
+  /// Optional custom widget replacing the default [AdwWindowControls].
   final Widget? windowControls;
+
+  /// Internal padding around header bar children. Defaults to [defaultPadding].
   final EdgeInsetsGeometry padding;
+
+  /// Whether the header bar uses flat transparent styling (`true`) or a raised
+  /// header bar surface with bottom shade (`false`). Defaults to `true`.
   final bool isFlat;
 
+  /// Creates a GNOME Libadwaita header bar.
   const AdwHeaderBar({
     super.key,
     this.title,
@@ -207,9 +255,7 @@ class AdwHeaderBar extends StatelessWidget {
           );
         }
 
-        final shade50 = theme.colors.isDark
-            ? const Color(0x2E000006)
-            : const Color(0x0F000006);
+        final shade50 = theme.colors.headerBarShadeColor;
 
         return Container(
           height: AdwMetrics.headerBarHeight,

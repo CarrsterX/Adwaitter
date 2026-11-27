@@ -118,6 +118,25 @@ class AdwPreferencesDialogScope extends InheritedWidget {
 /// Organizes [pages] with an adaptive [AdwViewSwitcher] / [AdwViewSwitcherBar],
 /// built-in live search across groups and rows (`Ctrl+F`), an internal
 /// [AdwToastOverlay], and subpage navigation via [AdwNavigationView].
+///
+/// ```dart
+/// showAdwPreferencesDialog(
+///   context: context,
+///   pages: const [
+///     AdwPreferencesDialogPage(
+///       title: 'General',
+///       groups: [],
+///     ),
+///   ],
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [AdwPreferencesDialogPage], defining each tabbed page in [pages].
+/// * [AdwPreferencesPage], for standalone preferences pages.
+///
+/// {@category Overlays}
 class AdwPreferencesDialog extends StatefulWidget {
   /// Creates an [AdwPreferencesDialog].
   const AdwPreferencesDialog({
@@ -518,9 +537,7 @@ class _PreferencesMainPageState extends State<_PreferencesMainPage> {
                         horizontal: _searchFocused ? 9.0 : 10.0,
                       ),
                       decoration: BoxDecoration(
-                        color: theme.colors.isDark
-                            ? const Color(0xFF3E3E42)
-                            : const Color(0xFFFFFFFF),
+                        color: theme.colors.dialogSearchBackground,
                         borderRadius: BorderRadius.circular(
                           AdwMetrics.buttonRadius,
                         ),

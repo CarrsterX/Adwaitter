@@ -55,11 +55,32 @@ class AdwDialogScope extends InheritedWidget {
 
 /// Adaptive modal dialog container matching GNOME Libadwaita's `AdwDialog`.
 ///
-/// - On wide windows (`width > 450` and `height > 360`), renders as a centered
-///   non-resizable floating sheet (`AdwFloatingSheet`).
-/// - On narrow/mobile windows (`width <= 450` or `height <= 360`),
-///   automatically transitions to a full-width bottom sheet (`AdwBottomSheet`)
-///   with top rounded corners.
+/// * On wide windows (`width > 450` and `height > 360`), renders as a centered
+///   floating sheet.
+/// * On narrow/mobile windows (`width <= 450` or `height <= 360`),
+///   automatically transitions to a full-width bottom sheet with top rounded
+///   corners and swipe-to-dismiss.
+///
+/// ```dart
+/// showAdwDialog(
+///   context: context,
+///   builder: (_) => const AdwDialog(
+///     title: 'Details',
+///     child: AdwToolbarView(
+///       topBar: AdwHeaderBar(titleWidget: AdwWindowTitle(title: 'Details')),
+///       content: AdwStatusPage(title: Text('Dialog Body')),
+///     ),
+///   ),
+/// );
+/// ```
+///
+/// See also:
+///
+/// * [showAdwDialog], function used to present an [AdwDialog].
+/// * [AdwAlertDialog], [AdwAboutDialog], [AdwPreferencesDialog], and
+///   [AdwShortcutsDialog], specialized dialogs built on [AdwDialog].
+///
+/// {@category Overlays}
 class AdwDialog extends StatefulWidget {
   /// Preferred content width in logical pixels (defaults to `360`).
   final double contentWidth;
@@ -236,22 +257,8 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
             color: theme.colors.windowBackground,
             borderRadius: radius,
             boxShadow: isWindowActive
-                ? const [
-                    BoxShadow(
-                      color: Color(0x55000000),
-                      blurRadius: 28.0,
-                      spreadRadius: 2.0,
-                      offset: Offset(0, 10),
-                    ),
-                  ]
-                : const [
-                    BoxShadow(
-                      color: Color(0x28000000),
-                      blurRadius: 12.0,
-                      spreadRadius: 0.0,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                ? theme.colors.dialogActiveShadows
+                : theme.colors.dialogBackdropShadows,
           ),
           foregroundDecoration: (theme.colors.isDark ||
                   theme.colors.isHighContrast)
@@ -260,28 +267,20 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                   border: isBottomSheet
                       ? Border(
                           top: BorderSide(
-                            color: theme.colors.isHighContrast
-                                ? theme.colors.borderColor
-                                : const Color(0xFF323235),
+                            color: theme.colors.dialogBorderColor,
                             width: 1.0,
                           ),
                           left: BorderSide(
-                            color: theme.colors.isHighContrast
-                                ? theme.colors.borderColor
-                                : const Color(0xFF323235),
+                            color: theme.colors.dialogBorderColor,
                             width: 1.0,
                           ),
                           right: BorderSide(
-                            color: theme.colors.isHighContrast
-                                ? theme.colors.borderColor
-                                : const Color(0xFF323235),
+                            color: theme.colors.dialogBorderColor,
                             width: 1.0,
                           ),
                         )
                       : Border.all(
-                          color: theme.colors.isHighContrast
-                              ? theme.colors.borderColor
-                              : const Color(0xFF323235),
+                          color: theme.colors.dialogBorderColor,
                           width: 1.0,
                         ),
                 )

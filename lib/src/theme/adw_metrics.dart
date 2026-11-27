@@ -1,4 +1,6 @@
 /// Metric constants, dimensions, and curvature radii based on GNOME HIG and Libadwaita.
+///
+/// {@category Theming & Localization}
 abstract final class AdwMetrics {
   // --- Border Radii ---
   /// Standard corner radius for buttons (`$button_radius: 9px` in Libadwaita 1.6+).

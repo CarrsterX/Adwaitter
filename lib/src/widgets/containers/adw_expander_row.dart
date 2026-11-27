@@ -10,10 +10,31 @@ import '../controls/adw_switch.dart';
 /// An expandable preference row with collapsible nested children (`AdwExpanderRow`).
 ///
 /// Follows the GNOME Libadwaita Expander Row pattern:
-/// - Interactive header displaying title, subtitle, prefix, and optional action suffix.
-/// - Smooth animated chevron rotation indicating expansion state.
-/// - Optional enable switch (`showEnableSwitch`) controlling row interactivity and expansion.
-/// - Fluid accordion expand/collapse transition with internal 1px hairline dividers.
+/// * Interactive header displaying [title], [subtitle], [prefix], and optional
+///   action [suffix].
+/// * Smooth animated chevron rotation indicating expansion state.
+/// * Optional enable switch ([showEnableSwitch]) controlling row interactivity
+///   and expansion.
+/// * Fluid accordion expand/collapse transition with internal 1px hairline
+///   dividers.
+///
+/// ```dart
+/// AdwExpanderRow(
+///   title: const Text('Advanced Options'),
+///   subtitle: const Text('Show extra configuration rows'),
+///   children: const [
+///     AdwActionRow(title: Text('Sub-option 1')),
+///     AdwActionRow(title: Text('Sub-option 2')),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwActionRow], for non-expandable rows.
+/// * [AdwPreferencesGroup], the standard container for expander rows.
+///
+/// {@category Containers}
 class AdwExpanderRow extends StatefulWidget {
   /// The primary label displayed on the row header.
   final Widget title;
@@ -60,6 +81,7 @@ class AdwExpanderRow extends StatefulWidget {
   /// Padding applied to the header row.
   final EdgeInsetsGeometry padding;
 
+  /// Creates an expandable Libadwaita preference row.
   const AdwExpanderRow({
     super.key,
     required this.title,
@@ -311,15 +333,11 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
                         angle: -_expandAnimation.value * math.pi,
                         child: _ExpanderChevron(
                           color: !canExpand
-                              ? (theme.colors.isDark
-                                      ? const Color(0xFFA3A3A5)
-                                      : const Color(0xFF8F8F92))
+                              ? theme.colors.expanderChevronColor
                                   .withValues(alpha: 0.3)
                               : (_isExpanded
-                                  ? const Color(0xFF81D0FF)
-                                  : (theme.colors.isDark
-                                      ? const Color(0xFFA3A3A5)
-                                      : const Color(0xFF8F8F92))),
+                                  ? theme.colors.expanderChevronExpandedColor
+                                  : theme.colors.expanderChevronColor),
                         ),
                       );
                     },
@@ -343,9 +361,7 @@ class _AdwExpanderRowState extends State<AdwExpanderRow>
                   for (int i = 0; i < widget.children.length; i++) ...[
                     const SizedBox(height: 1),
                     ColoredBox(
-                      color: theme.colors.isDark
-                          ? const Color(0xFF2A2A2E)
-                          : const Color(0xFFF6F6F6),
+                      color: theme.colors.expanderRowSubBackground,
                       child: widget.children[i],
                     ),
                   ],

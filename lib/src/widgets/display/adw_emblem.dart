@@ -4,13 +4,32 @@ import '../../theme/adw_theme.dart';
 
 /// Official geometric Libadwaita emblem (designed by Jakub Steiner).
 ///
-/// Renders the three distinctive triangles of Libadwaita using pure
-/// native vector painting with customizable size, stroke, and color.
+/// Renders the three distinctive triangles of Libadwaita using pure vector
+/// painting with customizable [size], [strokeWidth], and [color].
+///
+/// ```dart
+/// const AdwEmblem(size: 96)
+/// ```
+///
+/// See also:
+///
+/// * [AdwStatusPage], which commonly displays an [AdwEmblem] as its hero icon.
+///
+/// {@category Display}
 class AdwEmblem extends StatelessWidget {
+  /// Width and height of the emblem in logical pixels. Defaults to `120.0`.
   final double size;
+
+  /// Stroke color of the emblem.
+  ///
+  /// When `null`, falls back to `IconTheme.of(context).color` or
+  /// [AdwColorScheme.statusIconColor].
   final Color? color;
+
+  /// Base stroke width in the 16×16 emblem coordinate space. Defaults to `1.0`.
   final double strokeWidth;
 
+  /// Creates the geometric Libadwaita vector emblem.
   const AdwEmblem({
     super.key,
     this.size = 120.0,

@@ -6,6 +6,8 @@ import '../../theme/adw_metrics.dart';
 import '../../theme/adw_theme.dart';
 
 /// Layout policy for [AdwViewSwitcher] tabs, matching `AdwViewSwitcherPolicy`.
+///
+/// {@category Navigation}
 enum AdwViewSwitcherPolicy {
   /// Icon and label side-by-side (used in wide header bars).
   wide,
@@ -15,13 +17,25 @@ enum AdwViewSwitcherPolicy {
 }
 
 /// Item descriptor for [AdwViewSwitcher] and [AdwViewSwitcherBar].
+///
+/// {@category Navigation}
 class AdwViewSwitcherItem {
+  /// Optional symbolic icon displayed for this tab.
   final Widget? icon;
+
+  /// Display label for this tab.
   final String title;
+
+  /// Optional custom badge widget rendered over the icon.
   final Widget? badge;
+
+  /// Optional numeric counter rendered as a pill badge when `> 0`.
   final int? badgeNumber;
+
+  /// Whether to show a subtle accent attention dot on this tab. Defaults to `false`.
   final bool needsAttention;
 
+  /// Creates a view switcher tab descriptor.
   const AdwViewSwitcherItem({
     this.icon,
     required this.title,
@@ -34,13 +48,40 @@ class AdwViewSwitcherItem {
 /// Segmented view switcher control (`AdwViewSwitcher`) matching Libadwaita 1.10.
 ///
 /// Renders a homogeneous row of flat toggle tabs with optional indicator badges
-/// (`badgeNumber` / `needsAttention`) and `wide` or `narrow` layouts.
+/// ([AdwViewSwitcherItem.badgeNumber] / [AdwViewSwitcherItem.needsAttention])
+/// and [AdwViewSwitcherPolicy.wide] or [AdwViewSwitcherPolicy.narrow] layouts.
+///
+/// ```dart
+/// AdwViewSwitcher(
+///   currentIndex: selectedTab,
+///   onIndexChanged: (i) {},
+///   items: const [
+///     AdwViewSwitcherItem(title: 'World'),
+///     AdwViewSwitcherItem(title: 'Alarms'),
+///   ],
+/// )
+/// ```
+///
+/// See also:
+///
+/// * [AdwViewSwitcherBar], the bottom-bar counterpart for narrow screens.
+/// * [AdwViewSwitcherItem], describing each tab.
+///
+/// {@category Navigation}
 class AdwViewSwitcher extends StatelessWidget {
+  /// Ordered list of tabs displayed in the switcher.
   final List<AdwViewSwitcherItem> items;
+
+  /// Zero-based index of the currently active tab.
   final int currentIndex;
+
+  /// Callback invoked when the user selects a different tab index.
   final ValueChanged<int> onIndexChanged;
+
+  /// Tab layout policy (`wide` or `narrow`). Defaults to [AdwViewSwitcherPolicy.wide].
   final AdwViewSwitcherPolicy policy;
 
+  /// Creates a Libadwaita header-bar view switcher.
   const AdwViewSwitcher({
     super.key,
     required this.items,
@@ -73,13 +114,29 @@ class AdwViewSwitcher extends StatelessWidget {
 }
 
 /// Bottom view switcher bar (`AdwViewSwitcherBar`) revealed on narrow widths.
+///
+/// Typically placed in [AdwToolbarView.bottomBar] and revealed when the viewport
+/// becomes too narrow for an [AdwViewSwitcher] in the header bar.
+///
+/// {@category Navigation}
 class AdwViewSwitcherBar extends StatelessWidget {
+  /// Ordered list of tabs displayed in the bottom bar.
   final List<AdwViewSwitcherItem> items;
+
+  /// Zero-based index of the currently active tab.
   final int currentIndex;
+
+  /// Callback invoked when the user taps a tab.
   final ValueChanged<int> onIndexChanged;
+
+  /// Whether the bottom bar is animated into view. Defaults to `true`.
   final bool reveal;
+
+  /// Whether the bar uses flat styling (`true`) or a raised surface (`false`).
+  /// Defaults to `true`.
   final bool isFlat;
 
+  /// Creates a Libadwaita bottom view switcher bar.
   const AdwViewSwitcherBar({
     super.key,
     required this.items,

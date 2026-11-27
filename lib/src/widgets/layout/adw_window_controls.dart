@@ -7,36 +7,63 @@ import '../../theme/adw_desktop_settings.dart';
 import '../../theme/adw_theme.dart';
 import 'adw_window.dart';
 
+/// Window control action types rendered by [AdwWindowControlButton].
+///
+/// {@category Layout}
 enum AdwWindowButtonType {
+  /// Minimizes the window.
   minimize,
+
+  /// Maximizes or restores the window.
   maximize,
+
+  /// Enters or exits fullscreen mode.
   fullscreen,
+
+  /// Closes the window.
   close,
 }
 
 /// Which side of an [AdwHeaderBar] this [AdwWindowControls] renders buttons for.
+///
+/// {@category Layout}
 enum AdwWindowControlsSide {
+  /// Renders buttons configured for the start side of the titlebar.
   start,
+
+  /// Renders buttons configured for the end side of the titlebar.
   end,
+
+  /// Automatically resolves buttons based on the desktop layout.
   auto,
 }
 
-/// Individual GNOME window control button (Close, Maximize, Minimize).
+/// Individual GNOME window control button (Close, Maximize, Minimize, Fullscreen).
 ///
-/// Follows upstream Libadwaita metrics:
-/// - Outer button hitbox: 34x34px (`min-width: 24px; padding: 5px;`)
-/// - Inner circular image: 24x24px (`padding: 4px; border-radius: 100%;`)
-/// - Upstream vector icons in 16x16 coordinate space
-/// - Uniform subtle tint across all window control buttons
-/// - Direct pointer [Listener] dispatch to bypass Flutter's gesture arena for 0ms response
+/// Follows upstream Libadwaita metrics (`34×34px` hitbox, `24×24px` circular
+/// glyph) and dispatches pointer events directly for immediate desktop response.
+///
+/// {@category Layout}
 class AdwWindowControlButton extends StatefulWidget {
+  /// Action icon and behavior represented by this button.
   final AdwWindowButtonType type;
+
+  /// Callback invoked when the button is pressed.
   final VoidCallback? onPressed;
+
+  /// Whether the window is currently maximized (switches maximize glyph to restore).
   final bool isMaximized;
+
+  /// Whether the window is currently fullscreen.
   final bool isFullscreen;
+
+  /// Outer hit-target width and height in logical pixels. Defaults to `34.0`.
   final double buttonSize;
+
+  /// Inner circular background diameter in logical pixels. Defaults to `24.0`.
   final double circleSize;
 
+  /// Creates an individual GNOME window control button.
   const AdwWindowControlButton({
     super.key,
     required this.type,
@@ -288,17 +315,44 @@ class _GnomeWindowControlSvgPainter extends CustomPainter {
 /// Follows upstream Libadwaita CSS (`windowcontrols { border-spacing: 3px; }`)
 /// and synchronizes button visibility and order with the host desktop shell
 /// (`org.gnome.desktop.wm.preferences` `button-layout`) when explicit overrides
-/// are not provided.
+/// are not provided. Automatically hides itself on Android and iOS.
+///
+/// ```dart
+/// const AdwWindowControls(side: AdwWindowControlsSide.end)
+/// ```
+///
+/// See also:
+///
+/// * [AdwHeaderBar], which embeds [AdwWindowControls] automatically.
+/// * [AdwWindowControlButton], for rendering an individual control button.
+///
+/// {@category Layout}
 class AdwWindowControls extends StatelessWidget {
+  /// Optional override for the close button action.
   final VoidCallback? onClose;
+
+  /// Optional override for the maximize/restore button action.
   final VoidCallback? onMaximize;
+
+  /// Optional override for the minimize button action.
   final VoidCallback? onMinimize;
+
+  /// Optional override controlling whether the minimize button is shown.
   final bool? showMinimize;
+
+  /// Optional override controlling whether the maximize button is shown.
   final bool? showMaximize;
+
+  /// Optional override controlling whether the close button is shown.
   final bool? showClose;
+
+  /// Horizontal gap between buttons in logical pixels. Defaults to `3.0`.
   final double spacing;
+
+  /// Titlebar side represented by this group. Defaults to [AdwWindowControlsSide.auto].
   final AdwWindowControlsSide side;
 
+  /// Creates a GNOME window controls button group.
   const AdwWindowControls({
     super.key,
     this.onClose,

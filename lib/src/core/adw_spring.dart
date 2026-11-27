@@ -7,6 +7,16 @@ import '../theme/adw_desktop_settings.dart';
 ///
 /// Used to drive fluid, velocity-preserving transitions for predictive
 /// navigation gestures, carousels, and sheets without synthetic cubic curves.
+///
+/// ```dart
+/// final sim = AdwSpringParams.navigation.createSimulation(
+///   start: 0.0,
+///   end: 1.0,
+///   velocity: 0.0,
+/// );
+/// ```
+///
+/// {@category Core}
 class AdwSpringParams {
   /// Damping ratio (`>= 0.0`). `1.0` is critically damped (no oscillation).
   final double dampingRatio;
@@ -17,6 +27,7 @@ class AdwSpringParams {
   /// Spring stiffness (`> 0.0`). Higher values produce snappier transitions.
   final double stiffness;
 
+  /// Creates spring physics parameters matching `adw_spring_params_new`.
   const AdwSpringParams({
     required this.dampingRatio,
     required this.mass,
