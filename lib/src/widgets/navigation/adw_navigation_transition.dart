@@ -320,6 +320,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   VelocityTracker? _trackpadVelocityTracker;
 
   bool get _recentlyPoppedInteractively {
+    if (!kIsWeb) return false;
     final last = _lastInteractivePopAt;
     if (last == null) return false;
     return DateTime.now().difference(last) < _duplicateBackGuard;
