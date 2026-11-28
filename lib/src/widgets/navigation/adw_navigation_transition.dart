@@ -1,5 +1,6 @@
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -304,6 +305,10 @@ class _AdwPredictiveBackScope<T> extends StatefulWidget {
 
 class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
     with WidgetsBindingObserver {
+  static DateTime? _lastInteractivePopAt;
+  static const Duration _duplicateBackGuard = Duration(milliseconds: 500);
+  static const double _edgeProtectionMargin = 72.0;
+
   bool _isDragging = false;
   bool _isSystemPredictiveBack = false;
   bool _isAnimatingOut = false;
@@ -313,6 +318,12 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   bool _trackpadActive = false;
   bool _trackpadBlockedByCarousel = false;
   VelocityTracker? _trackpadVelocityTracker;
+
+  bool get _recentlyPoppedInteractively {
+    final last = _lastInteractivePopAt;
+    if (last == null) return false;
+    return DateTime.now().difference(last) < _duplicateBackGuard;
+  }
 
   @override
   void initState() {
@@ -466,6 +477,7 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
         }
         _finishUserGesture(nav);
         if (widget.route.isCurrent) {
+          _lastInteractivePopAt = DateTime.now();
           widget.route._skipReverseOnSpringPop = true;
           nav.pop();
         }
@@ -525,14 +537,17 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   void _cancelGesture() {
     if (!_isDragging) return;
-    _endGesture(0.0, context.size?.width ?? 1.0);
+    // A cancelled drag (e.g. OS/browser stole the pointer for a system back
+    // gesture) must always snap back and never pop the route.
+    _endGesture(-600.0, context.size?.width ?? 1.0);
   }
 
   // --- System Predictive Back (Android 14+ / platform back gestures) ---
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
-    if (!_canHandleSystemBack || _isDragging) {
+    if (kIsWeb) return false;
+    if (!_canHandleSystemBack || _isDragging || _recentlyPoppedInteractively) {
       return false;
     }
     _isSystemPredictiveBack = true;
@@ -542,6 +557,11 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
 
   @override
   Future<bool> didPopRoute() async {
+    // Absorb duplicate Android/browser back events that arrive while an
+    // interactive swipe-back is already popping or just completed.
+    if (_isDragging || _isAnimatingOut || _recentlyPoppedInteractively) {
+      return true;
+    }
     if (!_canHandleSystemBack) return false;
     final nav = widget.route.navigator;
     if (nav == null) return false;
@@ -644,8 +664,8 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
   @override
   Widget build(BuildContext context) {
     final platform = defaultTargetPlatform;
-    final bool isAndroidGestureNav = _isAndroidGestureNav(context);
-    final bool isIOS = platform == TargetPlatform.iOS;
+    final bool isAndroidGestureNav = !kIsWeb && _isAndroidGestureNav(context);
+    final bool isIOS = !kIsWeb && platform == TargetPlatform.iOS;
     final bool allowWindowSwipe = !isAndroidGestureNav;
     final bool effectiveEdgeOnly = isIOS ? true : widget.edgeOnly;
     final double effectiveEdgeWidth = isIOS
@@ -670,12 +690,12 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
         gestures: !allowWindowSwipe
             ? const <Type, GestureRecognizerFactory>{}
             : <Type, GestureRecognizerFactory>{
-                HorizontalDragGestureRecognizer:
+                _AdwSwipeBackGestureRecognizer:
                     GestureRecognizerFactoryWithHandlers<
-                        HorizontalDragGestureRecognizer>(
+                        _AdwSwipeBackGestureRecognizer>(
                   // Trackpad gestures are handled exclusively via PointerPanZoom events above
                   // to avoid double-counting deltas with HorizontalDragGestureRecognizer.
-                  () => HorizontalDragGestureRecognizer(
+                  () => _AdwSwipeBackGestureRecognizer(
                     // Mouse drags must never hijack text selection or trigger
                     // swipe-back; trackpad uses PointerPanZoom above.
                     supportedDevices: const {
@@ -683,14 +703,31 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
                       PointerDeviceKind.stylus,
                     },
                   ),
-                  (HorizontalDragGestureRecognizer instance) {
+                  (_AdwSwipeBackGestureRecognizer instance) {
                     instance
+                      ..shouldAcceptPointer = (PointerEvent event) {
+                        if (!_canInteractivePop) return false;
+                        // On touch Web (Android, iOS, Linux phones), reject
+                        // touches starting in the left or right OS edge-gesture
+                        // zones BEFORE entering the gesture arena so Adwaita's
+                        // swipe-back never collides with OS/browser edge back.
+                        // Native Android/iOS/desktop behavior is untouched.
+                        if (kIsWeb) {
+                          final screenWidth = MediaQuery.sizeOf(context).width;
+                          final gx = event.position.dx;
+                          if (gx < _edgeProtectionMargin ||
+                              gx > screenWidth - _edgeProtectionMargin) {
+                            return false;
+                          }
+                        }
+                        if (AdwCarousel.shouldBlockParentSwipeBack(
+                            event.position)) {
+                          return false;
+                        }
+                        return true;
+                      }
                       ..onStart = (details) {
                         if (_isDragging || !_canInteractivePop) return;
-                        if (AdwCarousel.shouldBlockParentSwipeBack(
-                            details.globalPosition)) {
-                          return;
-                        }
                         if (effectiveEdgeOnly &&
                             details.localPosition.dx > effectiveEdgeWidth) {
                           return;
@@ -717,6 +754,20 @@ class _AdwPredictiveBackScopeState<T> extends State<_AdwPredictiveBackScope<T>>
         ),
       ),
     );
+  }
+}
+
+class _AdwSwipeBackGestureRecognizer extends HorizontalDragGestureRecognizer {
+  bool Function(PointerEvent event)? shouldAcceptPointer;
+
+  _AdwSwipeBackGestureRecognizer({super.supportedDevices});
+
+  @override
+  bool isPointerAllowed(PointerEvent event) {
+    if (shouldAcceptPointer != null && !shouldAcceptPointer!(event)) {
+      return false;
+    }
+    return super.isPointerAllowed(event);
   }
 }
 

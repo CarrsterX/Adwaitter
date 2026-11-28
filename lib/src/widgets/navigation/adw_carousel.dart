@@ -204,6 +204,7 @@ class AdwCarousel extends StatefulWidget {
 
 class _CarouselDragSession {
   int? startPage;
+  int pointerDownCount = 0;
   bool isTrackpad = false;
   bool isDragging = false;
   bool allowLongSwipes = false;
@@ -337,16 +338,21 @@ class _AdwCarouselState extends State<AdwCarousel> {
 
     Widget pageView = Listener(
       onPointerDown: (_) {
+        _dragSession.pointerDownCount++;
         _dragSession.startPage = _controller.currentPage;
         _dragSession.isTrackpad = false;
       },
       onPointerUp: (_) {
-        if (!_dragSession.isDragging) {
+        _dragSession.pointerDownCount =
+            math.max(0, _dragSession.pointerDownCount - 1);
+        if (!_dragSession.isDragging && _dragSession.pointerDownCount == 0) {
           _dragSession.startPage = null;
         }
       },
       onPointerCancel: (_) {
-        if (!_dragSession.isDragging) {
+        _dragSession.pointerDownCount =
+            math.max(0, _dragSession.pointerDownCount - 1);
+        if (!_dragSession.isDragging && _dragSession.pointerDownCount == 0) {
           _dragSession.startPage = null;
         }
       },
@@ -378,7 +384,9 @@ class _AdwCarouselState extends State<AdwCarousel> {
               }
             } else if (notification is ScrollEndNotification) {
               _dragSession.isDragging = false;
-              _dragSession.startPage = null;
+              if (_dragSession.pointerDownCount == 0) {
+                _dragSession.startPage = null;
+              }
               _dragSession.isTrackpad = false;
             }
             return false;
@@ -695,7 +703,7 @@ class _AdwCarouselScrollPhysics extends PageScrollPhysics {
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
     final effectiveAllowLongSwipes =
-        allowLongSwipes || (dragSession?.allowLongSwipes ?? false);
+        dragSession?.allowLongSwipes ?? allowLongSwipes;
     final startPage = dragSession?.startPage;
     if (!effectiveAllowLongSwipes && startPage != null) {
       final viewport = position.viewportDimension;
@@ -745,7 +753,7 @@ class _AdwCarouselScrollPhysics extends PageScrollPhysics {
     final isTrackpad = dragSession?.isTrackpad ?? false;
     final effectiveVelocity = isTrackpad ? velocity * 0.31 : velocity;
     final effectiveAllowLongSwipes =
-        allowLongSwipes || (dragSession?.allowLongSwipes ?? false);
+        dragSession?.allowLongSwipes ?? allowLongSwipes;
 
     if ((effectiveVelocity <= 0.0 &&
             position.pixels <= position.minScrollExtent) ||
@@ -767,10 +775,8 @@ class _AdwCarouselScrollPhysics extends PageScrollPhysics {
         page += 0.5;
       }
       targetPage = page.round();
-      final startPage = dragSession?.startPage;
-      if (startPage != null) {
-        targetPage = targetPage.clamp(startPage - 1, startPage + 1);
-      }
+      final anchorPage = dragSession?.startPage ?? currentPageDouble.round();
+      targetPage = targetPage.clamp(anchorPage - 1, anchorPage + 1);
     } else {
       if (effectiveVelocity.abs() <= tolerance.velocity) {
         targetPage = currentPageDouble.round();

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -208,6 +208,7 @@ class _AdwBottomSheetState extends State<AdwBottomSheet>
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    if (kIsWeb) return false;
     if (!_isOpen || !widget.canClose || _isDragging) {
       return false;
     }

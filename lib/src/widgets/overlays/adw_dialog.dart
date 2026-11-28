@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -16,7 +16,8 @@ import '../layout/adw_window.dart';
 /// Adaptive presentation mode for [AdwDialog], matching `AdwDialogPresentationMode`.
 enum AdwDialogPresentationMode {
   /// Automatically switches between [floating] and [bottomSheet] based on
-  /// available window size (`maxWidth <= 450` or `maxHeight <= 360`).
+  /// available window size (`maxWidth <= 450`, or `maxHeight <= 360` when
+  /// `maxWidth < 540`).
   auto,
 
   /// Always present as a centered floating sheet.
@@ -24,6 +25,10 @@ enum AdwDialogPresentationMode {
 
   /// Always present as a full-width bottom sheet.
   bottomSheet,
+}
+
+bool _isNarrowDialogViewport(Size size) {
+  return size.width <= 450.0 || (size.height <= 360.0 && size.width < 540.0);
 }
 
 /// Inherited scope provided by [AdwDialog] so descendant [AdwHeaderBar]s can
@@ -158,6 +163,7 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    if (kIsWeb) return false;
     if (!_isBottomSheet || !widget.canClose) return false;
     final route = _dialogRoute;
     final controller = route?.dialogController;
@@ -220,9 +226,9 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
       builder: (context, constraints) {
         // Use the un-shrunk window size for the narrow/bottomSheet threshold
         // so opening the mobile virtual keyboard (which reduces
-        // constraints.maxHeight via Padding) never flips presentation mode.
-        final isNarrow =
-            windowSize.width <= 450.0 || windowSize.height <= 360.0;
+        // constraints.maxHeight via Padding) never flips presentation mode,
+        // while wide mobile landscape viewports (width >= 540) stay floating.
+        final isNarrow = _isNarrowDialogViewport(windowSize);
         final isBottomSheet = switch (widget.presentationMode) {
           AdwDialogPresentationMode.auto => isNarrow,
           AdwDialogPresentationMode.bottomSheet => true,
@@ -295,9 +301,9 @@ class _AdwDialogState extends State<AdwDialog> with WidgetsBindingObserver {
                     title: widget.title,
                     isBottomSheet: isBottomSheet,
                     child: () {
-                      final bool isMobile =
-                          defaultTargetPlatform == TargetPlatform.android ||
-                              defaultTargetPlatform == TargetPlatform.iOS;
+                      final bool isMobile = !kIsWeb &&
+                          (defaultTargetPlatform == TargetPlatform.android ||
+                              defaultTargetPlatform == TargetPlatform.iOS);
                       // Floating (non bottom-sheet) dialogs never touch the
                       // system navbar, so they must not reserve its inset.
                       // Keep Padding + AdwBottomInsetConsumer unconditionally
@@ -609,8 +615,7 @@ Future<T?> showAdwDialog<T>({
   final parentWindowScope = AdwWindowScope.maybeOf(context);
   final theme = AdwTheme.of(context);
   final mediaSize = MediaQuery.sizeOf(context);
-  final initialBottomSheet =
-      mediaSize.width <= 450.0 || mediaSize.height <= 360.0;
+  final initialBottomSheet = _isNarrowDialogViewport(mediaSize);
   final reduceMotion =
       AdwCurves.resolve(context, AdwCurves.shortDuration) == Duration.zero;
 
@@ -645,8 +650,9 @@ Future<T?> showAdwDialog<T>({
           );
         }
 
-        if (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS) {
+        if (!kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS)) {
           final double bottomInset =
               MediaQuery.viewInsetsOf(dialogContext).bottom;
           content = MediaQuery.removeViewInsets(

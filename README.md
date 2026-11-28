@@ -77,3 +77,8 @@ Options:
 - Automatic light/dark theme detection, status bar and navigation bar icon contrast (`SystemUiOverlayStyle`), edge-to-edge safe areas, and haptic feedback.
 - Built-in accessibility support (`Semantics`, keyboard navigation, focus rings, reduced motion, and Web CSS Media Queries).
 - Need native OS bridges (Linux GTK3 CSD, multi-window, XDG Portals, Drag & Drop, System Tray, MPRIS2, Polkit, Android 14+ 2-level contrast, or Material You dynamic accents)? Use **[libadwaitter](https://github.com/CarrsterX/Libadwaitter)**, which re-exports `adwaitter` and provides the native Linux & Android plugins automatically.
+
+## Known Limitations
+
+- **Mobile Web — Browser Edge Back/Forward Gestures (Browser Sandbox Limitation):** On mobile web browsers (Chromium/Brave/Chrome on Android 14+, Safari on iOS), swiping from the physical left/right screen edges is owned by the browser/OS for Back/Forward history navigation (including Chromium's cached page-snapshot transitions). Web platforms do not allow Flutter Web / JS / CSS to disable or intercept these edge gestures or access native predictive-back progress events.
+  - To prevent conflicts or double-pop behavior, `AdwNavigationView` excludes a `72px` safe zone on both screen edges on Web; users can swipe back smoothly from the center area of the view or use the `AdwHeaderBar` back button. Native Android builds are unaffected and support Android 14+ Predictive Back natively.
