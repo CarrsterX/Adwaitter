@@ -1,3 +1,10 @@
+## 1.0.0-alpha.12
+
+* **Mobile Web & Adaptive Dialogs**: Kept `AdwDialog` in centered floating mode on wide mobile landscape viewports (`width >= 540`) instead of covering the sidebar as a bottom sheet.
+* **Web Swipe-Back Safe Zone**: Disabled system predictive-back listeners on Web and added a `72px` edge safe-zone on both screen edges in `AdwNavigationView` to avoid collisions with mobile browser Back/Forward gestures, plus duplicate-pop protection.
+* **Carousel Long Swipes**: Fixed `AdwCarousel` `allowLongSwipes` toggle so disabling it strictly clamps touch/mouse swipes to ±1 page.
+* Documented mobile Web edge-gesture browser limitations in `README.md` and `doc/navigation.md`.
+
 ## 1.0.0-alpha.11
 
 * **Full Paginated `dartdoc` Documentation**: Added `dartdoc_options.yaml` with 8 topic categories (`Layout`, `Navigation`, `Containers`, `Controls`, `Overlays`, `Display`, `Theming & Localization`, `Core`), 8 topic guides under `doc/`, and 100% public API documentation across all 74 exported files (0 warnings, 0 errors on `dart doc --validate-links`).
